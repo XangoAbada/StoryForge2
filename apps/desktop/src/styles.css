@@ -111,6 +111,10 @@ textarea {
   line-height: 1.48;
 }
 
+.style-guide-textarea {
+  min-height: 360px;
+}
+
 input:focus,
 textarea:focus,
 select:focus,
@@ -496,34 +500,39 @@ a:focus-visible {
 }
 
 .concept-panel {
+  align-content: start;
   max-width: none;
 }
 
 .concept-page-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .concept-form {
   display: grid;
+  align-content: start;
   gap: 16px;
 }
 
 .cover-panel {
   position: sticky;
   top: 18px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 13px;
   min-width: 0;
-  align-self: start;
+  height: 100%;
+  align-self: stretch;
 }
 
 .cover-preview {
   display: grid;
   place-items: center;
-  aspect-ratio: 2 / 3;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -949,24 +958,50 @@ a:focus-visible {
   white-space: pre-wrap;
 }
 
+@media (max-width: 1520px) {
+  .concept-page-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cover-panel {
+    position: static;
+    height: auto;
+    width: min(100%, 460px);
+    max-width: 460px;
+    justify-self: center;
+  }
+
+  .cover-preview {
+    flex: none;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+  }
+
+  .style-guide-textarea {
+    min-height: 300px;
+  }
+}
+
 @media (max-width: 1120px) {
   .project-shell {
     grid-template-columns: 190px minmax(0, 1fr);
   }
 
-  .dashboard-with-panel,
-  .concept-page-grid {
+  .dashboard-with-panel {
     grid-template-columns: 1fr;
   }
 
   .dashboard-side-panel,
   .cover-panel {
     position: static;
+    height: auto;
     max-height: none;
   }
 
   .cover-panel {
+    width: min(100%, 420px);
     max-width: 420px;
+    justify-self: center;
   }
 
   .context-panel {
@@ -979,17 +1014,6 @@ a:focus-visible {
 
   .context-resize-handle {
     display: none;
-  }
-}
-
-@media (max-width: 1520px) {
-  .concept-page-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .cover-panel {
-    position: static;
-    max-width: 460px;
   }
 }
 
@@ -1011,5 +1035,9 @@ a:focus-visible {
 
   .context-panel {
     grid-column: auto;
+  }
+
+  .style-guide-textarea {
+    min-height: 240px;
   }
 }

@@ -3,7 +3,7 @@
 StoryForge2 is a local desktop writing workspace built with Tauri 2, React, Vite, TypeScript and SQLite.
 
 The V1 AI provider is `codex-cli-bridge`: the app calls the official Codex CLI through Tauri commands, shows proposals in the UI, and saves changes only after user approval.
-Cover generation uses OpenAI Images API (`gpt-image-2`) and requires `OPENAI_API_KEY` in the environment before the desktop app is started.
+Cover generation also uses `codex-cli-bridge`: the app asks Codex CLI to run built-in image generation with `--enable image_generation`, so it uses the same Codex authentication as text generation.
 
 ## Development
 
@@ -26,12 +26,17 @@ npm install
 npm run tauri -- dev
 ```
 
-To enable cover generation in that same PowerShell session:
+Cover generation requires the official Codex CLI to be installed and authenticated:
 
 ```powershell
-$env:OPENAI_API_KEY="sk-..."
+codex --version
+codex login
 npm run tauri -- dev
 ```
+
+Image generation can take several minutes. StoryForge2 keeps a 600-second
+minimum timeout for covers and copies the final PNG into the app's `covers`
+directory after Codex CLI finishes.
 
 The desktop app requires Rust/Cargo. If `cargo` is installed but the terminal
 does not see it yet, open a new terminal or temporarily add Cargo to `PATH`:

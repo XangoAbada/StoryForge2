@@ -78,9 +78,14 @@ describe("renderPromptPackage", () => {
     expect(promptPackage.coverPrompt).toContain(book.targetAudience);
     expect(promptPackage.coverPrompt).toContain(book.tone);
     expect(promptPackage.coverPrompt).toContain(book.styleGuide);
-    expect(promptPackage.generationOptions.providerId).toBe("openai-images-api");
-    expect(promptPackage.generationOptions.model).toBe("gpt-image-2");
-    expect(prompt).toContain("OpenAI Images API");
+    expect(promptPackage.generationOptions.providerId).toBe("codex-cli-bridge");
+    expect(promptPackage.generationOptions.feature).toBe("image_generation");
+    expect(prompt).toContain("$imagegen");
+    expect(prompt).toContain("Codex CLI image generation");
+    expect(prompt).toContain("generated_images");
+    expect(prompt).toContain('Include the book title as readable cover typography');
+    expect(prompt).toContain(`"${book.workingTitle}"`);
+    expect(prompt).not.toContain("no visible text");
     expect(prompt).toContain("D:\\covers\\cover.png");
     expect(prompt).toContain("book_cover_image");
   });

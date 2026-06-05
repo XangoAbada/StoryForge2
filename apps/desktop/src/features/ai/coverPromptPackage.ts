@@ -8,6 +8,7 @@ export type CoverPromptPackage = {
   userInstruction: string;
   context: {
     book: {
+      title: string;
       workingTitle: string;
       premise: string;
       genre: string;
@@ -22,10 +23,9 @@ export type CoverPromptPackage = {
     schema: unknown;
   };
   generationOptions: {
-    providerId: "openai-images-api";
-    model: "gpt-image-2";
-    streaming: true;
-    partialImages: 2;
+    providerId: "codex-cli-bridge";
+    feature: "image_generation";
+    outputFormat: "png";
     aspectRatio: "2:3";
   };
   coverPrompt: string;
@@ -49,6 +49,7 @@ export function buildBookCoverPromptPackage(
       "Generate a real raster working book cover image from the current concept data.",
     context: {
       book: {
+        title: book.title,
         workingTitle: book.workingTitle,
         premise: book.premise,
         genre: book.genre,
@@ -70,10 +71,9 @@ export function buildBookCoverPromptPackage(
       }
     },
     generationOptions: {
-      providerId: "openai-images-api",
-      model: "gpt-image-2",
-      streaming: true,
-      partialImages: 2,
+      providerId: "codex-cli-bridge",
+      feature: "image_generation",
+      outputFormat: "png",
       aspectRatio: "2:3"
     },
     coverPrompt,
@@ -85,12 +85,14 @@ export function renderBookCoverPromptPackage(
   promptPackage: CoverPromptPackage,
   outputFilePath = "{OUTPUT_FILE}"
 ): string {
+  const coverTitle = titleForCover(promptPackage.context.book);
+
   return `# Role
 You are generating a working book cover asset for StoryForge2.
 
 # Task
-Generate one portrait PNG book cover image through the OpenAI Images API.
-StoryForge2 will save the final image at this path:
+Use Codex CLI image generation to create one portrait PNG book cover image.
+Invoke $imagegen explicitly. Prefer this output path:
 ${outputFilePath}
 
 # Visual Prompt
@@ -102,8 +104,12 @@ ${promptPackage.negativePrompt}
 # Hard Rules
 - The cover must be portrait with a 2:3 book-cover composition.
 - Make a real raster image, not SVG, HTML, CSS, or a text-only placeholder.
-- Do not place readable title text inside the image; StoryForge2 displays the title separately.
-- Stream partial image previews when the provider returns them.
+- Include the book title as readable cover typography inside the image: "${coverTitle}".
+- The title text should be prominent, spelled exactly as provided, and integrated with the cover design.
+- Do not call any image API directly or ask for an API key.
+- Prefer saving the generated PNG to the output path above.
+- If Codex image generation saves the PNG under the Codex generated_images directory and moving or copying is blocked, do not retry shell commands; return JSON with imagePath set to the actual generated PNG path if it is known.
+- Return only JSON when image generation is complete.
 
 # Output Contract
 Return JSON:
@@ -112,19 +118,26 @@ ${JSON.stringify(promptPackage.outputContract.schema, null, 2)}
 }
 
 export function renderCoverVisualPrompt(book: Book): string {
+  const coverTitle = titleForCover(book);
+
   return [
     "Use case: illustration-story",
     "Asset type: working book cover",
-    `Primary request: a polished editorial cover for the working title "${emptyFallback(book.workingTitle)}"`,
+    `Primary request: a polished editorial cover for the book title "${coverTitle}"`,
     `Scene/backdrop: visual metaphor for this premise: ${emptyFallback(book.premise)}`,
     `Style/medium: sophisticated illustrated book-cover art, strong silhouette, tactile print texture`,
-    `Composition/framing: portrait 2:3, central focal image, generous safe margins, no visible text`,
+    `Composition/framing: portrait 2:3, central focal image, generous safe margins, clear title area`,
+    `Typography/title: include readable title text exactly as "${coverTitle}", prominent and professionally typeset`,
     `Lighting/mood: ${emptyFallback(book.tone)}`,
     `Genre cues: ${emptyFallback(book.genre)}`,
     `Audience: ${emptyFallback(book.targetAudience)}`,
     `Style notes: ${emptyFallback(book.styleGuide)}`,
-    "Constraints: no text, no watermark, no logo, no author name, no series badge"
+    "Constraints: no watermark, no logo, no author name, no series badge; only the book title should appear as text"
   ].join("\n");
+}
+
+function titleForCover(book: Pick<Book, "title" | "workingTitle">): string {
+  return emptyFallback(book.title || book.workingTitle);
 }
 
 function createPromptId(action: AIAction): string {

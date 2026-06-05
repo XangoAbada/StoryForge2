@@ -101,7 +101,7 @@ describe("BookConceptPage AI flow", () => {
       },
       aiRun: {
         id: "cover-run-1",
-        providerId: "openai-images-api",
+        providerId: "codex-cli-bridge",
         promptPackageId: "generate_cover_image:test",
         action: "generate_cover_image",
         status: "success",
@@ -209,7 +209,10 @@ describe("BookConceptPage AI flow", () => {
         expect.objectContaining({
           coverPrompt: expect.stringContaining(
             "Nowa bohaterka znajduje mape ukryta w druku."
-          )
+          ),
+          codexPath: "codex",
+          model: "gpt-5.5",
+          reasoningEffort: "medium"
         })
       )
     );

@@ -1,6 +1,4 @@
-use base64::{engine::general_purpose, Engine as _};
 use chrono::Utc;
-use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -9,7 +7,7 @@ use std::env;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 use tauri::{AppHandle, Emitter, Manager, State};
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
@@ -18,9 +16,9 @@ use tokio::time::timeout;
 use uuid::Uuid;
 
 const PROVIDER_ID: &str = "codex-cli-bridge";
-const IMAGE_PROVIDER_ID: &str = "openai-images-api";
 const COVER_GENERATION_EVENT: &str = "cover-generation-progress";
-const OPENAI_IMAGES_GENERATIONS_URL: &str = "https://api.openai.com/v1/images/generations";
+const MIN_COVER_TIMEOUT_SECONDS: u64 = 600;
+const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
 
 #[derive(Clone)]
 pub struct AppState {
@@ -204,37 +202,6 @@ pub struct CoverGenerationProgress {
     pub message: String,
     pub partial_image_data_url: Option<String>,
     pub progress: Option<u8>,
-}
-
-#[derive(Debug, Clone)]
-struct GeneratedImageStreamResult {
-    raw_output: String,
-    image_bytes: Vec<u8>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ImageGenerationStreamEvent {
-    #[serde(rename = "type")]
-    event_type: Option<String>,
-    b64_json: Option<String>,
-    partial_image_index: Option<u8>,
-    data: Option<Vec<ImageGenerationData>>,
-    response: Option<ImageGenerationResponse>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ImageGenerationData {
-    b64_json: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ImageGenerationResponse {
-    output: Option<Vec<ImageGenerationOutput>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ImageGenerationOutput {
-    result: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -513,7 +480,7 @@ pub async fn generate_book_cover_in_pool(
     let ai_run_id = Uuid::new_v4().to_string();
     let created_at = Utc::now().to_rfc3339();
     let prompt_package_json = serde_json::to_string(&input.prompt_package_json)?;
-    let timeout_seconds = input.timeout_seconds.unwrap_or(240);
+    let timeout_seconds = cover_timeout_seconds(input.timeout_seconds);
 
     sqlx::query(
         r#"
@@ -524,7 +491,7 @@ pub async fn generate_book_cover_in_pool(
     )
     .bind(&ai_run_id)
     .bind(&input.project_id)
-    .bind(IMAGE_PROVIDER_ID)
+    .bind(PROVIDER_ID)
     .bind(&prompt_package_json)
     .bind(&created_at)
     .execute(pool)
@@ -541,24 +508,12 @@ pub async fn generate_book_cover_in_pool(
     );
 
     let started_at = Instant::now();
-    let run_result =
-        execute_openai_image_generation(app, &input, &ai_run_id, timeout_seconds).await;
+    let run_result = execute_codex_image_generation(app, &input, &ai_run_id, timeout_seconds).await;
     let duration_ms = started_at.elapsed().as_millis();
     let completed_at = Utc::now().to_rfc3339();
 
-    let stream_result = match run_result {
-        Ok(stream_result) => {
-            complete_ai_run(
-                pool,
-                &ai_run_id,
-                "success",
-                Some(&stream_result.raw_output),
-                None,
-                &completed_at,
-            )
-            .await?;
-            stream_result
-        }
+    let (stdout, stderr, generated_image_path) = match run_result {
+        Ok(result) => result,
         Err(error) => {
             let error_message = error.to_string();
             emit_cover_progress(app, &input, &ai_run_id, "error", &error_message, None, None);
@@ -579,6 +534,8 @@ pub async fn generate_book_cover_in_pool(
         }
     };
 
+    verify_generated_png_file(&generated_image_path, "Codex CLI generated image").await?;
+
     let app_data_dir = app.path().app_data_dir().map_err(|error| {
         AppError::Process(format!(
             "Nie udaĹ‚o siÄ™ ustaliÄ‡ katalogu danych aplikacji: {error}"
@@ -590,14 +547,18 @@ pub async fn generate_book_cover_in_pool(
         .join(&input.book_id);
     tokio::fs::create_dir_all(&final_dir).await?;
     let final_image_path = final_dir.join(format!("cover-{ai_run_id}.png"));
-    tokio::fs::write(&final_image_path, &stream_result.image_bytes).await?;
-
-    let metadata = tokio::fs::metadata(&final_image_path).await?;
-    if metadata.len() == 0 {
-        return Err(AppError::Process(
-            "OpenAI Image API returned an empty image file.".into(),
-        ));
-    }
+    tokio::fs::copy(&generated_image_path, &final_image_path).await?;
+    verify_generated_png_file(&final_image_path, "Saved cover image").await?;
+    let raw_output = codex_image_raw_output(&stdout, &stderr, &generated_image_path);
+    complete_ai_run(
+        pool,
+        &ai_run_id,
+        "success",
+        Some(&raw_output),
+        None,
+        &completed_at,
+    )
+    .await?;
 
     let final_image_path_text = final_image_path.to_string_lossy().to_string();
     let book = update_book_cover_metadata_in_pool(
@@ -624,12 +585,16 @@ pub async fn generate_book_cover_in_pool(
         book,
         ai_run: AiRunResult {
             id: ai_run_id,
-            provider_id: IMAGE_PROVIDER_ID.into(),
+            provider_id: PROVIDER_ID.into(),
             prompt_package_id: input.prompt_package_id,
             action: "generate_cover_image".into(),
             status: "success".into(),
-            raw_output: Some(stream_result.raw_output),
-            stderr: None,
+            raw_output: Some(raw_output),
+            stderr: if stderr.trim().is_empty() {
+                None
+            } else {
+                Some(stderr)
+            },
             error_message: None,
             duration_ms,
         },
@@ -1002,284 +967,12 @@ fn emit_cover_progress(
     );
 }
 
-async fn execute_openai_image_generation(
-    app: &AppHandle,
-    request: &GenerateBookCoverInput,
-    ai_run_id: &str,
-    timeout_seconds: u64,
-) -> Result<GeneratedImageStreamResult, AppError> {
-    let api_key = env::var("OPENAI_API_KEY")
-        .or_else(|_| env::var("OPENAI_API_TOKEN"))
-        .map(|value| value.trim().to_string())
-        .unwrap_or_default();
-    if api_key.is_empty() {
-        return Err(AppError::Process(
-            "OPENAI_API_KEY is not set. Set it before starting StoryForge2 to generate covers."
-                .into(),
-        ));
-    }
-
-    let image_prompt = build_openai_cover_prompt(request);
-    let request_body = serde_json::json!({
-        "model": "gpt-image-2",
-        "prompt": image_prompt,
-        "size": "1024x1536",
-        "quality": "medium",
-        "stream": true,
-        "partial_images": 2
-    });
-
-    emit_cover_progress(
-        app,
-        request,
-        ai_run_id,
-        "request",
-        "Lacze z OpenAI Images API.",
-        None,
-        Some(12),
-    );
-
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(timeout_seconds))
-        .build()
-        .map_err(|error| AppError::Process(format!("OpenAI HTTP client error: {error}")))?;
-
-    let response = client
-        .post(OPENAI_IMAGES_GENERATIONS_URL)
-        .bearer_auth(api_key)
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|error| AppError::Process(format!("OpenAI Image API request failed: {error}")))?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response
-            .text()
-            .await
-            .unwrap_or_else(|error| format!("Cannot read error response: {error}"));
-        return Err(AppError::Process(format!(
-            "OpenAI Image API returned HTTP {status}: {}",
-            summarize_openai_error_text(&body)
-        )));
-    }
-
-    emit_cover_progress(
-        app,
-        request,
-        ai_run_id,
-        "streaming",
-        "Generuje obraz i czekam na pierwszy podglad.",
-        None,
-        Some(20),
-    );
-
-    let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
-    let mut last_image_b64: Option<String> = None;
-    let mut event_summaries: Vec<Value> = Vec::new();
-
-    while let Some(chunk_result) = stream.next().await {
-        let chunk = chunk_result.map_err(|error| {
-            AppError::Process(format!("OpenAI Image API stream failed: {error}"))
-        })?;
-        buffer.push_str(&String::from_utf8_lossy(&chunk));
-
-        while let Some(newline_index) = buffer.find('\n') {
-            let mut line = buffer[..newline_index].to_string();
-            if line.ends_with('\r') {
-                line.pop();
-            }
-            buffer = buffer[newline_index + 1..].to_string();
-
-            handle_openai_image_stream_line(
-                app,
-                request,
-                ai_run_id,
-                &line,
-                &mut last_image_b64,
-                &mut event_summaries,
-            )?;
-        }
-    }
-
-    if !buffer.trim().is_empty() {
-        handle_openai_image_stream_line(
-            app,
-            request,
-            ai_run_id,
-            &buffer,
-            &mut last_image_b64,
-            &mut event_summaries,
-        )?;
-    }
-
-    let image_b64 = last_image_b64.ok_or_else(|| {
-        AppError::Process("OpenAI Image API stream finished without image data.".into())
-    })?;
-    let image_bytes = general_purpose::STANDARD
-        .decode(image_b64.as_bytes())
-        .map_err(|error| AppError::Process(format!("Cannot decode generated image: {error}")))?;
-    if image_bytes.is_empty() {
-        return Err(AppError::Process(
-            "OpenAI Image API returned empty decoded image bytes.".into(),
-        ));
-    }
-
-    emit_cover_progress(
-        app,
-        request,
-        ai_run_id,
-        "final",
-        "Odebrano finalny obraz.",
-        None,
-        Some(92),
-    );
-
-    Ok(GeneratedImageStreamResult {
-        raw_output: serde_json::json!({
-            "providerId": IMAGE_PROVIDER_ID,
-            "endpoint": OPENAI_IMAGES_GENERATIONS_URL,
-            "model": "gpt-image-2",
-            "size": "1024x1536",
-            "quality": "medium",
-            "stream": true,
-            "partialImages": 2,
-            "events": event_summaries
-        })
-        .to_string(),
-        image_bytes,
-    })
+fn cover_timeout_seconds(requested: Option<u64>) -> u64 {
+    requested
+        .unwrap_or(MIN_COVER_TIMEOUT_SECONDS)
+        .max(MIN_COVER_TIMEOUT_SECONDS)
 }
 
-fn handle_openai_image_stream_line(
-    app: &AppHandle,
-    request: &GenerateBookCoverInput,
-    ai_run_id: &str,
-    line: &str,
-    last_image_b64: &mut Option<String>,
-    event_summaries: &mut Vec<Value>,
-) -> Result<(), AppError> {
-    let trimmed = line.trim();
-    if trimmed.is_empty() || trimmed.starts_with("event:") {
-        return Ok(());
-    }
-
-    let data = trimmed
-        .strip_prefix("data:")
-        .map(str::trim)
-        .unwrap_or(trimmed);
-    if data.is_empty() || data == "[DONE]" {
-        return Ok(());
-    }
-
-    let value: Value = serde_json::from_str(data)?;
-    if value.get("error").is_some() {
-        return Err(AppError::Process(format!(
-            "OpenAI Image API stream error: {}",
-            summarize_openai_error_value(&value)
-        )));
-    }
-
-    let event: ImageGenerationStreamEvent = serde_json::from_value(value)?;
-    let image_b64 = image_b64_from_event(&event).map(str::to_string);
-    event_summaries.push(summarize_image_stream_event(&event, image_b64.is_some()));
-
-    if let Some(image_b64) = image_b64 {
-        let image_index = event.partial_image_index.unwrap_or(0);
-        let progress = match image_index {
-            0 => 45,
-            1 => 70,
-            _ => 85,
-        };
-        let image_data_url = image_data_url_from_b64(&image_b64);
-        *last_image_b64 = Some(image_b64);
-        emit_cover_progress(
-            app,
-            request,
-            ai_run_id,
-            "partial",
-            &format!("Odebrano podglad okładki {}.", u16::from(image_index) + 1),
-            Some(image_data_url),
-            Some(progress),
-        );
-    }
-
-    Ok(())
-}
-
-fn build_openai_cover_prompt(request: &GenerateBookCoverInput) -> String {
-    let mut parts = vec![
-        request.cover_prompt.trim().to_string(),
-        "Create one polished portrait PNG book-cover image with a 2:3 composition. Do not render readable title text; StoryForge2 overlays the title separately.".to_string(),
-    ];
-
-    let negative_prompt = request.cover_negative_prompt.trim();
-    if !negative_prompt.is_empty() {
-        parts.push(format!("Avoid: {negative_prompt}"));
-    }
-
-    parts.join("\n\n")
-}
-
-fn image_b64_from_event(event: &ImageGenerationStreamEvent) -> Option<&str> {
-    event
-        .b64_json
-        .as_deref()
-        .or_else(|| {
-            event
-                .data
-                .as_ref()?
-                .iter()
-                .find_map(|item| item.b64_json.as_deref())
-        })
-        .or_else(|| {
-            event
-                .response
-                .as_ref()?
-                .output
-                .as_ref()?
-                .iter()
-                .find_map(|item| item.result.as_deref())
-        })
-}
-
-fn image_data_url_from_b64(image_b64: &str) -> String {
-    format!("data:image/png;base64,{image_b64}")
-}
-
-fn summarize_image_stream_event(event: &ImageGenerationStreamEvent, has_image: bool) -> Value {
-    serde_json::json!({
-        "type": event.event_type.as_deref(),
-        "partialImageIndex": event.partial_image_index,
-        "hasImage": has_image
-    })
-}
-
-fn summarize_openai_error_text(body: &str) -> String {
-    serde_json::from_str::<Value>(body)
-        .map(|value| summarize_openai_error_value(&value))
-        .unwrap_or_else(|_| body.trim().chars().take(500).collect())
-}
-
-fn summarize_openai_error_value(value: &Value) -> String {
-    let error = value.get("error").unwrap_or(value);
-    let message = error
-        .get("message")
-        .and_then(Value::as_str)
-        .unwrap_or("Unknown OpenAI error");
-    let code = error.get("code").and_then(Value::as_str);
-    let error_type = error.get("type").and_then(Value::as_str);
-
-    match (error_type, code) {
-        (Some(error_type), Some(code)) => format!("{message} ({error_type}/{code})"),
-        (Some(error_type), None) => format!("{message} ({error_type})"),
-        (None, Some(code)) => format!("{message} ({code})"),
-        (None, None) => message.to_string(),
-    }
-}
-
-#[allow(dead_code)]
 async fn execute_codex_image_generation(
     app: &AppHandle,
     request: &GenerateBookCoverInput,
@@ -1315,7 +1008,17 @@ async fn execute_codex_image_generation(
         .clone()
         .unwrap_or_else(|| "codex".to_string());
     let command_spec = resolve_codex_command(&codex_path).await;
-    let instruction = "Run the StoryForge2 cover image prompt from stdin. Use Codex image generation when requested. Save the image exactly where the prompt asks and return only the requested JSON.";
+    let instruction = "Run the StoryForge2 cover image prompt from stdin. Use Codex image generation when requested. Prefer the requested output path, but if the image tool saves elsewhere or filesystem copying is blocked, do not retry shell commands; return only the requested JSON with the best available imagePath. StoryForge2 will resolve and copy the final PNG.";
+
+    emit_cover_progress(
+        app,
+        request,
+        ai_run_id,
+        "request",
+        "Uruchamiam Codex CLI z image_generation.",
+        None,
+        Some(12),
+    );
 
     let mut command = Command::new(command_spec.program);
     command
@@ -1355,6 +1058,16 @@ async fn execute_codex_image_generation(
         .stderr(Stdio::piped())
         .kill_on_drop(true);
 
+    emit_cover_progress(
+        app,
+        request,
+        ai_run_id,
+        "streaming",
+        "Codex CLI generuje okladke.",
+        None,
+        Some(25),
+    );
+
     let output = timeout(Duration::from_secs(timeout_seconds), async {
         let mut child = command.spawn()?;
         if let Some(mut stdin) = child.stdin.take() {
@@ -1384,7 +1097,10 @@ async fn execute_codex_image_generation(
     )
     .await?;
 
-    if !output.status.success() {
+    let actual_image_path_result =
+        resolve_generated_cover_path(&image_path, &stdout, &stderr).await;
+
+    if !output.status.success() && actual_image_path_result.is_err() {
         return Err(AppError::Process(if stderr.trim().is_empty() {
             "Codex CLI zwrĂłciĹ‚ niezerowy status podczas generowania okĹ‚adki.".into()
         } else {
@@ -1392,38 +1108,104 @@ async fn execute_codex_image_generation(
         }));
     }
 
-    let actual_image_path = resolve_generated_cover_path(&image_path, &stdout, &stderr).await?;
-    let metadata = tokio::fs::metadata(&actual_image_path)
-        .await
-        .map_err(|error| {
-            AppError::Process(format!(
-                "Codex CLI nie utworzyĹ‚ pliku okĹ‚adki pod Ĺ›cieĹĽkÄ… {image_path_text}: {error}"
-            ))
-        })?;
-    if metadata.len() == 0 {
-        return Err(AppError::Process(format!(
-            "Codex CLI utworzyĹ‚ pusty plik okĹ‚adki pod Ĺ›cieĹĽkÄ… {image_path_text}"
-        )));
-    }
+    let actual_image_path = actual_image_path_result?;
+    verify_generated_png_file(&actual_image_path, "Codex CLI generated image").await?;
+
+    emit_cover_progress(
+        app,
+        request,
+        ai_run_id,
+        "final",
+        "Codex CLI utworzyl obraz.",
+        None,
+        Some(92),
+    );
 
     Ok((stdout, stderr, actual_image_path))
 }
 
-#[allow(dead_code)]
+fn codex_image_raw_output(stdout: &str, stderr: &str, image_path: &Path) -> String {
+    serde_json::json!({
+        "providerId": PROVIDER_ID,
+        "tool": "codex-cli",
+        "feature": "image_generation",
+        "stdout": stdout,
+        "stderr": stderr,
+        "imagePath": image_path.to_string_lossy()
+    })
+    .to_string()
+}
+
+async fn verify_generated_png_file(path: &Path, label: &str) -> Result<(), AppError> {
+    let bytes = tokio::fs::read(path).await.map_err(|error| {
+        AppError::Process(format!(
+            "{label} is missing or cannot be read at {}: {error}",
+            path.to_string_lossy()
+        ))
+    })?;
+
+    if bytes.is_empty() {
+        return Err(AppError::Process(format!(
+            "{label} is empty at {}",
+            path.to_string_lossy()
+        )));
+    }
+
+    if !bytes.starts_with(PNG_SIGNATURE) {
+        return Err(AppError::Process(format!(
+            "{label} is not a PNG file at {}",
+            path.to_string_lossy()
+        )));
+    }
+
+    Ok(())
+}
+
 async fn resolve_generated_cover_path(
     requested_path: &Path,
     stdout: &str,
     stderr: &str,
 ) -> Result<PathBuf, AppError> {
-    if tokio::fs::metadata(requested_path).await.is_ok() {
-        return Ok(requested_path.to_path_buf());
+    resolve_generated_cover_path_from_sources(
+        requested_path,
+        stdout,
+        stderr,
+        codex_generated_images_dir(),
+    )
+    .await
+}
+
+async fn resolve_generated_cover_path_from_sources(
+    requested_path: &Path,
+    stdout: &str,
+    stderr: &str,
+    generated_images_dir: Option<PathBuf>,
+) -> Result<PathBuf, AppError> {
+    if let Some(path) = resolve_existing_png_path(requested_path).await? {
+        return Ok(path);
     }
 
-    if let Some(path) = cover_path_from_json(stdout)
-        .or_else(|| cover_path_from_json(stderr))
-        .filter(|path| path.exists())
+    let base_dir = requested_path.parent().unwrap_or_else(|| Path::new("."));
+    for candidate in [cover_path_from_json(stdout), cover_path_from_json(stderr)]
+        .into_iter()
+        .flatten()
     {
-        return Ok(path);
+        let resolved = if candidate.is_absolute() {
+            candidate
+        } else {
+            base_dir.join(candidate)
+        };
+        if let Some(path) = resolve_existing_png_path(&resolved).await? {
+            return Ok(path);
+        }
+    }
+
+    if let Some(generated_images_dir) = generated_images_dir {
+        if let Some(path) =
+            latest_codex_generated_image_from_output(stdout, stderr, &generated_images_dir).await?
+        {
+            return Ok(path);
+        }
     }
 
     Err(AppError::Process(format!(
@@ -1432,7 +1214,110 @@ async fn resolve_generated_cover_path(
     )))
 }
 
-#[allow(dead_code)]
+async fn resolve_existing_png_path(path: &Path) -> Result<Option<PathBuf>, AppError> {
+    let metadata = match tokio::fs::metadata(path).await {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(AppError::from(error)),
+    };
+
+    if metadata.is_file() {
+        return Ok(Some(path.to_path_buf()));
+    }
+
+    if metadata.is_dir() {
+        return newest_png_in_dir(path).await;
+    }
+
+    Ok(None)
+}
+
+async fn latest_codex_generated_image_from_output(
+    stdout: &str,
+    stderr: &str,
+    generated_images_dir: &Path,
+) -> Result<Option<PathBuf>, AppError> {
+    let mut session_ids = Vec::new();
+    for output in [stdout, stderr] {
+        for session_id in codex_session_ids(output) {
+            if !session_ids.contains(&session_id) {
+                session_ids.push(session_id);
+            }
+        }
+    }
+
+    for session_id in session_ids {
+        let session_dir = generated_images_dir.join(session_id);
+        if let Some(path) = newest_png_in_dir(&session_dir).await? {
+            return Ok(Some(path));
+        }
+    }
+
+    Ok(None)
+}
+
+fn codex_session_ids(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("session id:"))
+        .map(str::trim)
+        .filter(|session_id| is_codex_session_id(session_id))
+        .map(str::to_string)
+        .collect()
+}
+
+fn is_codex_session_id(value: &str) -> bool {
+    value.len() == 36
+        && value
+            .chars()
+            .all(|character| character.is_ascii_hexdigit() || character == '-')
+}
+
+async fn newest_png_in_dir(dir: &Path) -> Result<Option<PathBuf>, AppError> {
+    let mut entries = match tokio::fs::read_dir(dir).await {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(AppError::from(error)),
+    };
+    let mut newest: Option<(PathBuf, SystemTime)> = None;
+
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        if !path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
+        {
+            continue;
+        }
+
+        let modified = entry
+            .metadata()
+            .await
+            .and_then(|metadata| metadata.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+        if newest
+            .as_ref()
+            .is_none_or(|(_, newest_modified)| modified > *newest_modified)
+        {
+            newest = Some((path, modified));
+        }
+    }
+
+    Ok(newest.map(|(path, _)| path))
+}
+
+fn codex_generated_images_dir() -> Option<PathBuf> {
+    codex_home_dir().map(|codex_home| codex_home.join("generated_images"))
+}
+
+fn codex_home_dir() -> Option<PathBuf> {
+    env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join(".codex")))
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".codex")))
+}
+
 fn cover_path_from_json(output: &str) -> Option<PathBuf> {
     let candidate = extract_json_candidate(output)?;
     let parsed: Value = serde_json::from_str(candidate).ok()?;
@@ -1445,7 +1330,6 @@ fn cover_path_from_json(output: &str) -> Option<PathBuf> {
     Some(PathBuf::from(trimmed))
 }
 
-#[allow(dead_code)]
 fn extract_json_candidate(output: &str) -> Option<&str> {
     let start = output.find('{')?;
     let end = output.rfind('}')?;
@@ -1830,11 +1714,18 @@ mod tests {
         assert_eq!(listed[0].cover_image_path, "C:\\covers\\cover.png");
     }
 
+    #[test]
+    fn cover_generation_timeout_has_image_generation_floor() {
+        assert_eq!(cover_timeout_seconds(None), MIN_COVER_TIMEOUT_SECONDS);
+        assert_eq!(cover_timeout_seconds(Some(180)), MIN_COVER_TIMEOUT_SECONDS);
+        assert_eq!(cover_timeout_seconds(Some(900)), 900);
+    }
+
     #[tokio::test]
     async fn cover_path_can_be_resolved_from_codex_json_output() {
         let image_path =
             std::env::temp_dir().join(format!("storyforge2-cover-{}.png", Uuid::new_v4()));
-        tokio::fs::write(&image_path, b"png").await.unwrap();
+        tokio::fs::write(&image_path, PNG_SIGNATURE).await.unwrap();
 
         let stdout = serde_json::json!({
             "version": 1,
@@ -1853,45 +1744,113 @@ mod tests {
         let _ = tokio::fs::remove_file(resolved).await;
     }
 
-    #[test]
-    fn image_stream_event_extracts_partial_image_preview() {
-        let event: ImageGenerationStreamEvent = serde_json::from_value(serde_json::json!({
-            "type": "image_generation.partial_image",
-            "partial_image_index": 1,
-            "b64_json": "cG5n"
-        }))
-        .unwrap();
+    #[tokio::test]
+    async fn cover_path_can_be_resolved_from_relative_codex_json_output() {
+        let run_dir =
+            std::env::temp_dir().join(format!("storyforge2-cover-run-{}", Uuid::new_v4()));
+        tokio::fs::create_dir_all(&run_dir).await.unwrap();
+        let image_path = run_dir.join("cover.png");
+        tokio::fs::write(&image_path, PNG_SIGNATURE).await.unwrap();
 
-        assert_eq!(image_b64_from_event(&event), Some("cG5n"));
-        assert_eq!(
-            summarize_image_stream_event(&event, true),
-            serde_json::json!({
-                "type": "image_generation.partial_image",
-                "partialImageIndex": 1,
-                "hasImage": true
-            })
-        );
-        assert_eq!(
-            image_data_url_from_b64("cG5n"),
-            "data:image/png;base64,cG5n"
-        );
+        let stdout = serde_json::json!({
+            "version": 1,
+            "kind": "book_cover_image",
+            "imagePath": "cover.png"
+        })
+        .to_string();
+        let requested_path = run_dir.join("requested.png");
+
+        let resolved = resolve_generated_cover_path(&requested_path, &stdout, "")
+            .await
+            .unwrap();
+
+        assert_eq!(resolved, image_path);
+        let _ = tokio::fs::remove_dir_all(run_dir).await;
     }
 
-    #[test]
-    fn image_stream_event_extracts_final_response_image() {
-        let event: ImageGenerationStreamEvent = serde_json::from_value(serde_json::json!({
-            "type": "response.completed",
-            "response": {
-                "output": [
-                    {
-                        "type": "image_generation_call",
-                        "result": "ZmluYWw="
-                    }
-                ]
-            }
-        }))
+    #[tokio::test]
+    async fn cover_path_can_fall_back_to_codex_generated_images_session_dir() {
+        let session_id = "019e9993-5197-7d43-b614-a49d9a906010";
+        let generated_root =
+            std::env::temp_dir().join(format!("storyforge2-generated-images-{}", Uuid::new_v4()));
+        let session_dir = generated_root.join(session_id);
+        tokio::fs::create_dir_all(&session_dir).await.unwrap();
+        let generated_path = session_dir.join("ig_test.png");
+        tokio::fs::write(&generated_path, PNG_SIGNATURE)
+            .await
+            .unwrap();
+
+        let requested_path =
+            std::env::temp_dir().join(format!("storyforge2-requested-{}.png", Uuid::new_v4()));
+        let stdout = serde_json::json!({
+            "version": 1,
+            "kind": "book_cover_image",
+            "imagePath": requested_path.to_string_lossy()
+        })
+        .to_string();
+        let stderr = format!("session id: {session_id}");
+
+        let resolved = resolve_generated_cover_path_from_sources(
+            &requested_path,
+            &stdout,
+            &stderr,
+            Some(generated_root.clone()),
+        )
+        .await
         .unwrap();
 
-        assert_eq!(image_b64_from_event(&event), Some("ZmluYWw="));
+        assert_eq!(resolved, generated_path);
+        let _ = tokio::fs::remove_dir_all(generated_root).await;
+    }
+
+    #[tokio::test]
+    async fn cover_path_can_be_resolved_when_json_points_to_session_directory() {
+        let session_dir = std::env::temp_dir().join(format!(
+            "storyforge2-generated-image-session-{}",
+            Uuid::new_v4()
+        ));
+        tokio::fs::create_dir_all(&session_dir).await.unwrap();
+        let generated_path = session_dir.join("ig_from_session_dir.png");
+        tokio::fs::write(&generated_path, PNG_SIGNATURE)
+            .await
+            .unwrap();
+
+        let requested_path =
+            std::env::temp_dir().join(format!("storyforge2-requested-{}.png", Uuid::new_v4()));
+        let stdout = serde_json::json!({
+            "version": 1,
+            "kind": "book_cover_image",
+            "imagePath": session_dir.to_string_lossy()
+        })
+        .to_string();
+
+        let resolved =
+            resolve_generated_cover_path_from_sources(&requested_path, &stdout, "", None)
+                .await
+                .unwrap();
+
+        assert_eq!(resolved, generated_path);
+        let _ = tokio::fs::remove_dir_all(session_dir).await;
+    }
+
+    #[tokio::test]
+    async fn generated_png_validation_rejects_missing_or_empty_files() {
+        let missing_path =
+            std::env::temp_dir().join(format!("storyforge2-missing-{}.png", Uuid::new_v4()));
+        let missing_error = verify_generated_png_file(&missing_path, "test image")
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(missing_error.contains("missing or cannot be read"));
+
+        let empty_path =
+            std::env::temp_dir().join(format!("storyforge2-empty-{}.png", Uuid::new_v4()));
+        tokio::fs::write(&empty_path, b"").await.unwrap();
+        let empty_error = verify_generated_png_file(&empty_path, "test image")
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(empty_error.contains("is empty"));
+        let _ = tokio::fs::remove_file(empty_path).await;
     }
 }

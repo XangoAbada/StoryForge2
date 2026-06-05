@@ -270,7 +270,7 @@ export async function browserGenerateBookCover(
     book: details.book,
     aiRun: {
       id: createId(),
-      providerId: "openai-images-api",
+      providerId: "codex-cli-bridge",
       promptPackageId: input.promptPackageId,
       action: "generate_cover_image",
       status: "success",

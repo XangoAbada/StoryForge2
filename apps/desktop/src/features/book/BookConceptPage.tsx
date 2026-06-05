@@ -303,7 +303,10 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
         prompt,
         coverPrompt: promptPackage.coverPrompt,
         coverNegativePrompt: promptPackage.negativePrompt,
-        timeoutSeconds
+        codexPath,
+        timeoutSeconds,
+        model,
+        reasoningEffort
       });
     },
     onSuccess: async (result) => {
@@ -337,11 +340,11 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
         return;
       }
       if (elapsedSeconds < 8) {
-        setCoverProgressText("Lacze z OpenAI Images API...");
+        setCoverProgressText("Uruchamiam Codex CLI...");
         return;
       }
       if (elapsedSeconds < 45) {
-        setCoverProgressText(`Czekam na podglad okładki (${elapsedSeconds}s)...`);
+        setCoverProgressText(`Codex CLI generuje okladke (${elapsedSeconds}s)...`);
         return;
       }
       setCoverProgressText(`Dopracowuje finalny obraz (${elapsedSeconds}s)...`);
@@ -481,6 +484,7 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
           loading={activeField === "styleGuide"}
         >
           <textarea
+            className="style-guide-textarea"
             value={form.styleGuide}
             onChange={(event) => updateField("styleGuide", event.target.value)}
             placeholder="Notatki o języku, rytmie, zakazach i preferencjach"
@@ -549,7 +553,8 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
           onClick={generateCover}
           disabled={
             generateCoverMutation.isPending ||
-            !projectQuery.data
+            !projectQuery.data ||
+            codexUnavailable
           }
           title="Utworz okladke na podstawie danych z widoku koncepcji"
         >
