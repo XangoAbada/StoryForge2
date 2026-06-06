@@ -622,16 +622,12 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
         </div>
 
         <div className="concept-stage-heading">
-          <div>
-            <p className="eyebrow">Etap</p>
-            <h3>{activeStageConfig.title}</h3>
-          </div>
           <p>{activeStageConfig.summary}</p>
         </div>
 
         <div role="tabpanel" className="concept-stage-panel">
           {activeStage === "idea" ? (
-            <FormSection title="Pomysł">
+            <FormSection>
               <TextField
                 label="Tytuł roboczy"
                 field="workingTitle"
@@ -692,7 +688,7 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
           ) : null}
 
           {activeStage === "storyEngine" ? (
-            <FormSection title="Silnik historii">
+            <FormSection>
               <div className="form-grid">
                 <TextField
                   label="Logline"
@@ -767,7 +763,7 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
           ) : null}
 
           {activeStage === "readerForm" ? (
-            <FormSection title="Czytelnik i forma">
+            <FormSection>
               <div className="form-grid concept-choice-grid">
                 <MultiChoiceField
                   label="Gatunek"
@@ -834,7 +830,7 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
           ) : null}
 
           {activeStage === "rules" ? (
-            <FormSection title="Motywy i zasady">
+            <FormSection>
               <MultiChoiceField
                 label="Tematy"
                 field="themesJson"
@@ -871,62 +867,49 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
           ) : null}
 
           {activeStage === "cover" ? (
-            <FormSection title="Tytuł i okładka">
-            <div className="form-grid">
-              <TextField
-                label="Tytuł finalny"
-                field="title"
-                value={form.title}
-                placeholder="Tytuł, który trafi na okładkę"
-                disabled={aiDisabled}
-                loading={activeField === "title"}
-                onGenerate={generateField}
-                onChange={(value) => updateField("title", value)}
-              />
-            </div>
-            <TextField
-              label="Alternatywne tytuły"
-              field="alternativeTitlesJson"
-              value={form.alternativeTitlesJson}
-              placeholder="Jeden tytuł na linię albo po przecinku"
-              rows={3}
-              disabled={aiDisabled}
-              loading={activeField === "alternativeTitlesJson"}
-              onGenerate={generateField}
-              onChange={(value) => updateField("alternativeTitlesJson", value)}
-            />
+            <FormSection>
               <div className="cover-stage-layout">
-                <div className={coverSrc ? "cover-preview has-image" : "cover-preview"}>
-                  {coverSrc ? (
-                    <img src={coverSrc} alt="Okładka robocza" />
-                  ) : (
-                    <div className="cover-placeholder">
-                      <ImageIcon size={30} aria-hidden="true" />
-                      <span>Brak okładki</span>
-                    </div>
-                  )}
+                <div className="cover-title-fields">
+                  <TextField
+                    label="Tytuł finalny"
+                    field="title"
+                    value={form.title}
+                    placeholder="Tytuł, który trafi na okładkę"
+                    disabled={aiDisabled}
+                    loading={activeField === "title"}
+                    onGenerate={generateField}
+                    onChange={(value) => updateField("title", value)}
+                  />
+                  <TextField
+                    label="Alternatywne tytuły"
+                    field="alternativeTitlesJson"
+                    value={form.alternativeTitlesJson}
+                    placeholder="Jeden tytuł na linię albo po przecinku"
+                    rows={5}
+                    disabled={aiDisabled}
+                    loading={activeField === "alternativeTitlesJson"}
+                    onGenerate={generateField}
+                    onChange={(value) =>
+                      updateField("alternativeTitlesJson", value)
+                    }
+                  />
                 </div>
 
-                <div className="cover-stage-controls">
-                  <div>
-                    <p className="eyebrow">Opcjonalnie</p>
-                    <h4>Okładka robocza</h4>
-                    <p className="field-description">
-                      Generuje obraz na podstawie aktualnej koncepcji, tytułu,
-                      gatunku, tonu, settingu i stylu. Ten krok nie jest wymagany
-                      do zapisania koncepcji.
-                    </p>
+                <div className="cover-art-panel">
+                  <div className={coverSrc ? "cover-preview has-image" : "cover-preview"}>
+                    {coverSrc ? (
+                      <img src={coverSrc} alt="Okładka robocza" />
+                    ) : (
+                      <div className="cover-placeholder">
+                        <ImageIcon size={30} aria-hidden="true" />
+                        <span>Brak okładki</span>
+                      </div>
+                    )}
                   </div>
-
-                  {projectQuery.data?.book.coverGeneratedAt ? (
-                    <p className="muted-text">
-                      Wygenerowano: {projectQuery.data.book.coverGeneratedAt}
-                    </p>
-                  ) : null}
 
                   <button
                     type="button"
-                    className="secondary-button"
+                    className="secondary-button cover-generate-button"
                     onClick={generateCover}
                     disabled={
                       generateCoverMutation.isPending ||
@@ -942,6 +925,12 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
                     )}
                     {generateCoverMutation.isPending ? "Tworzę" : "Utwórz okładkę"}
                   </button>
+
+                  {projectQuery.data?.book.coverGeneratedAt ? (
+                    <p className="muted-text">
+                      Wygenerowano: {projectQuery.data.book.coverGeneratedAt}
+                    </p>
+                  ) : null}
 
                   {coverProgressText ? (
                     <div
@@ -1011,17 +1000,11 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
 }
 
 type FormSectionProps = {
-  title: string;
   children: ReactNode;
 };
 
-function FormSection({ title, children }: FormSectionProps) {
-  return (
-    <section className="concept-form-section">
-      <h3>{title}</h3>
-      {children}
-    </section>
-  );
+function FormSection({ children }: FormSectionProps) {
+  return <section className="concept-form-section">{children}</section>;
 }
 
 type TextFieldProps = {

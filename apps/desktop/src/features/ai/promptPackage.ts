@@ -146,11 +146,11 @@ export const conceptFieldConfigs: Record<ConceptFieldKey, ConceptFieldConfig> = 
   premise: {
     key: "premise",
     label: "Premise",
-    action: "expand_premise",
+    action: "generate_premise",
     userInstruction:
-      "Rozwiń surową premise w strukturalny fundament koncepcji książki.",
+      "Wygeneruj krótką premise tej książki: kto, czego chce, co mu przeszkadza i dlaczego to ważne.",
     currentWork:
-      "Autor chce premise, logline, konflikt centralny, stawki i tematy, które może zaakceptować częściowo.",
+      "Autor chce uzupełnić wyłącznie pole Premise, korzystając z pozostałych pól jako kontekstu.",
     acceptsValues: false
   },
   protagonistSummary: {

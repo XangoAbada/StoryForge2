@@ -542,20 +542,9 @@ a:focus-visible {
 }
 
 .concept-stage-heading {
-  display: flex;
-  gap: 18px;
-  align-items: end;
-  justify-content: space-between;
+  display: block;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line);
-}
-
-.concept-stage-heading h3,
-.cover-stage-controls h4 {
-  margin: 0;
-  color: var(--ink);
-  font-size: 16px;
-  font-weight: 900;
 }
 
 .concept-stage-heading p {
@@ -568,25 +557,18 @@ a:focus-visible {
 }
 
 .concept-stage-panel {
-  min-height: 420px;
+  min-height: 520px;
 }
 
 .concept-form-section {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   padding-top: 2px;
 }
 
 .concept-form-section + .concept-form-section {
   padding-top: 18px;
   border-top: 1px solid var(--line);
-}
-
-.concept-form-section h3 {
-  margin: 0;
-  color: var(--ink);
-  font-size: 15px;
-  font-weight: 900;
 }
 
 .cover-preview {
@@ -618,21 +600,54 @@ a:focus-visible {
 
 .cover-stage-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 340px) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  gap: 16px;
   align-items: stretch;
+  min-height: clamp(540px, calc(100vh - 300px), 760px);
 }
 
-.cover-stage-layout .cover-preview {
-  aspect-ratio: 2 / 3;
-  width: 100%;
-}
-
-.cover-stage-controls {
+.cover-title-fields,
+.cover-art-panel {
   display: grid;
-  align-content: start;
-  gap: 13px;
+  gap: 14px;
   min-width: 0;
+}
+
+.cover-title-fields {
+  align-content: start;
+  gap: 10px;
+}
+
+.cover-title-fields .field-shell {
+  gap: 5px;
+}
+
+.cover-title-fields .field-description {
+  line-height: 1.3;
+}
+
+.cover-title-fields textarea {
+  min-height: 240px;
+}
+
+.cover-art-panel {
+  align-self: stretch;
+  align-content: center;
+  justify-self: stretch;
+  justify-items: center;
+  width: 100%;
+  padding: 0;
+  gap: 6px;
+}
+
+.cover-art-panel .cover-preview {
+  aspect-ratio: 2 / 3;
+  width: min(100%, 476px);
+}
+
+.cover-generate-button {
+  justify-content: center;
+  width: min(100%, 476px);
 }
 
 .concept-save-row {
@@ -1109,8 +1124,9 @@ a:focus-visible {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .cover-stage-layout .cover-preview {
-    max-width: 360px;
+  .cover-art-panel {
+    justify-self: center;
+    width: min(100%, 360px);
   }
 
   .context-panel {

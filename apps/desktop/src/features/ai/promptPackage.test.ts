@@ -56,7 +56,7 @@ const book: Book = {
 };
 
 describe("renderPromptPackage", () => {
-  it("renders premise development contract and full concept context", () => {
+  it("renders premise as a single-field suggestion with full concept context", () => {
     const promptPackage = buildConceptFieldPromptPackage(
       project,
       book,
@@ -64,10 +64,11 @@ describe("renderPromptPackage", () => {
     );
     const prompt = renderPromptPackage(promptPackage);
 
-    expect(promptPackage.action).toBe("expand_premise");
+    expect(promptPackage.action).toBe("generate_premise");
     expect(prompt).toContain("# Role");
     expect(prompt).toContain("# Output Contract");
-    expect(prompt).toContain("premise_development");
+    expect(prompt).toContain("concept_field_suggestion");
+    expect(prompt).toContain('"field": "premise"');
     expect(prompt).toContain("Docelowe pole: premise");
     expect(prompt).toContain(book.premise);
     expect(prompt).toContain(book.protagonistSummary);

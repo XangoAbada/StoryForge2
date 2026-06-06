@@ -78,18 +78,16 @@ const conceptFieldOutput = JSON.stringify({
   warnings: []
 });
 
-const premiseDevelopmentOutput = JSON.stringify({
+const premiseSuggestionOutput = JSON.stringify({
   version: 1,
-  kind: "premise_development",
+  kind: "concept_field_suggestion",
+  field: "premise",
   summary: "Archiwistka odkrywa, że pamięć miasta jest fałszowana.",
-  logline: "Archiwistka musi zatrzymać druk fałszywych wspomnień.",
-  expandedPremise:
-    "W mieście, gdzie gazety zmieniają wspomnienia, archiwistka szuka zaginionej siostry i odkrywa mechanizm kontroli.",
-  centralConflict: "Prawda kontra spokój zbudowany na kłamstwie.",
-  stakes: "Jeśli bohaterka przegra, miasto zapomni własną historię.",
-  themes: ["pamięć", "tożsamość"],
-  risks: ["Pilnować, aby magia druku miała koszt."],
-  questionsForAuthor: ["Kto pierwszy zyskuje na fałszowaniu pamięci?"]
+  value:
+    "Archiwistka odkrywa, że pamięć miasta jest fałszowana, i musi zdecydować, czy oddać siostrze prawdę kosztem spokoju mieszkańców.",
+  values: [],
+  rationale: "Używa istniejącego gatunku, tonu i zalążka konfliktu jako kontekstu.",
+  warnings: []
 });
 
 function renderWithQueryClient() {
@@ -317,14 +315,46 @@ describe("BookConceptPage AI flow", () => {
     }
   });
 
-  it("accepts only selected fields from premise development", async () => {
+  it("does not repeat the active stage title in the form body", async () => {
+    renderWithQueryClient();
+
+    expect(await screen.findByDisplayValue("Stary tytuł")).toBeInTheDocument();
+
+    expect(screen.queryByText(/^Etap$/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/^Pomys/i)).toHaveLength(1);
+  });
+
+  it("groups cover titles separately from the cover preview and generation action", async () => {
+    const { container } = renderWithQueryClient();
+
+    expect(await screen.findByDisplayValue("Stary tytuł")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Okładka/i }));
+
+    const titleFields = container.querySelector(".cover-title-fields");
+    const artPanel = container.querySelector(".cover-art-panel");
+    const preview = container.querySelector<HTMLElement>(
+      ".cover-art-panel .cover-preview"
+    );
+    const generateButton = screen.getByRole("button", {
+      name: /Utwórz okładkę/i
+    });
+
+    expect(titleFields).toContainElement(screen.getByLabelText("Tytuł finalny"));
+    expect(titleFields).toContainElement(
+      screen.getByLabelText("Alternatywne tytuły")
+    );
+    expect(artPanel).toContainElement(preview);
+    expect(artPanel).toContainElement(generateButton);
+  });
+
+  it("generates and accepts only the premise field from the premise button", async () => {
     vi.mocked(runCodexPrompt).mockResolvedValue({
       id: "run-premise",
       providerId: "codex-cli-bridge",
-      promptPackageId: "expand_premise:test",
-      action: "expand_premise",
+      promptPackageId: "generate_premise:test",
+      action: "generate_premise",
       status: "success",
-      rawOutput: premiseDevelopmentOutput,
+      rawOutput: premiseSuggestionOutput,
       durationMs: 12
     });
 
@@ -335,19 +365,14 @@ describe("BookConceptPage AI flow", () => {
       screen.getByRole("button", { name: /Generuj Premise z AI/i })
     );
 
-    expect(
-      await screen.findByDisplayValue("Archiwistka musi zatrzymać druk fałszywych wspomnień.")
-    ).toBeInTheDocument();
-    fireEvent.click(getCheckboxByLabel("Rozszerzona premisa"));
-    fireEvent.click(getCheckboxByLabel("Stawki"));
-    fireEvent.click(getCheckboxByLabel("Tematy"));
+    const premiseValue =
+      "Archiwistka odkrywa, że pamięć miasta jest fałszowana, i musi zdecydować, czy oddać siostrze prawdę kosztem spokoju mieszkańców.";
+    expect(await screen.findByDisplayValue(premiseValue)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Akceptuj/i }));
 
     await waitFor(() =>
       expect(updateBookConcept).toHaveBeenCalledWith("book-1", {
-        premise: "Archiwistka odkrywa, że pamięć miasta jest fałszowana.",
-        logline: "Archiwistka musi zatrzymać druk fałszywych wspomnień.",
-        centralConflict: "Prawda kontra spokój zbudowany na kłamstwie."
+        premise: premiseValue
       })
     );
   });
@@ -393,21 +418,6 @@ function successfulRun(): AiRunResult {
     rawOutput: conceptFieldOutput,
     durationMs: 12
   };
-}
-
-function getCheckboxByLabel(label: string): HTMLInputElement {
-  const checkbox = screen
-    .getAllByLabelText(label)
-    .find(
-      (element): element is HTMLInputElement =>
-        element instanceof HTMLInputElement && element.type === "checkbox"
-    );
-
-  if (!checkbox) {
-    throw new Error(`Checkbox not found for ${label}`);
-  }
-
-  return checkbox;
 }
 
 function fieldDescriptionForLabel(label: string): RegExp {
