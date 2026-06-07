@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 type CoverImageLightboxProps = {
@@ -29,7 +30,7 @@ export function CoverImageLightbox({ image, onClose }: CoverImageLightboxProps) 
     return null;
   }
 
-  return (
+  const lightbox = (
     <div className="cover-lightbox" role="dialog" aria-modal="true">
       <button
         type="button"
@@ -51,4 +52,10 @@ export function CoverImageLightbox({ image, onClose }: CoverImageLightboxProps) 
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return lightbox;
+  }
+
+  return createPortal(lightbox, document.body);
 }
