@@ -42,7 +42,7 @@ import { useCodexSettingsStore } from "../ai/codexSettingsStore";
 import {
   createConceptPromptContextTarget,
   conceptPromptContextTargetId,
-  promptContextControlForTarget,
+  promptContextControlForActiveTarget,
   useAiPromptContextStore
 } from "../ai/aiPromptContextStore";
 import {
@@ -273,8 +273,8 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
   const activatePromptContextTarget = useAiPromptContextStore(
     (state) => state.activateTarget
   );
-  const resetPromptContextDraft = useAiPromptContextStore(
-    (state) => state.resetDraft
+  const closePromptContextTarget = useAiPromptContextStore(
+    (state) => state.closeTarget
   );
   const [form, setForm] = useState<ConceptForm>(emptyForm);
   const activeStage = useProjectNavigationStore((state) =>
@@ -400,7 +400,8 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
       }
 
       const targetId = conceptPromptContextTargetId(projectId, field);
-      const contextControl = promptContextControlForTarget(targetId);
+      const contextControl = promptContextControlForActiveTarget(targetId);
+      const usedPromptContext = Boolean(contextControl);
       const promptPackage = buildConceptFieldPromptPackage(
         projectQuery.data.project,
         bookForPrompt,
@@ -419,7 +420,9 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
       };
 
       enqueueProposal(snapshot);
-      resetPromptContextDraft(targetId);
+      if (usedPromptContext) {
+        closePromptContextTarget(targetId);
+      }
       return null;
 
     },
@@ -446,7 +449,6 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
 
   function generateField(field: ConceptFieldKey) {
     setAiError("");
-    activateFieldPromptContext(field);
     queueFieldGeneration(field);
   }
 

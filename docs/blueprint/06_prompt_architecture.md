@@ -61,6 +61,8 @@ type PromptContextControl = {
 Zasady:
 
 - brak `contextControl` oznacza domyslny prompt bez filtrowania kontekstu;
+- `contextControl` jest dolaczany tylko wtedy, gdy aktywny target w globalnym
+  store ma dokladnie ten sam `targetId`, co wysylany request;
 - zrodla `required: true` zawsze trafiaja do promptu, nawet jesli nie ma ich w
   `includedContextKeys`;
 - opcjonalne zrodla trafiaja do promptu tylko wtedy, gdy ich `key` jest w
@@ -69,13 +71,16 @@ Zasady:
   recznie dopiac dodatkowe zrodla z katalogu ekranu przed wyslaniem requestu;
 - `authorPriorityComment` trafia do sekcji `# Author Priority` i ma najwyzszy
   priorytet merytoryczny po Hard Rules i Output Contract;
-- draft kontekstu jest stanem sesyjnym UI, resetowanym po dodaniu zadania AI do
-  kolejki albo po zamknieciu aktywnego kontekstu przez autora.
+- draft kontekstu jest stanem sesyjnym UI, usuwanym po dodaniu do kolejki
+  requestu, ktory faktycznie uzyl aktywnego `contextControl`, albo po
+  zamknieciu aktywnego kontekstu przez autora.
 
-Wysylka z panelu uzywa tego samego `PromptContextControl`, co przycisk AI przy
-polu. Przycisk `Zamknij` anuluje aktywny target, usuwa komentarz autora,
-usuwa recznie dodane zrodla i przy kolejnej aktywacji wraca do domyslnego
-zestawu zrodel danego pola.
+Wysylka z panelu uzywa aktywnego `PromptContextControl` i po dodaniu zadania do
+kolejki zamyka panel dla uzytego targetu. Zwykly przycisk AI przy polu nie
+aktywuje ani nie przelacza panelu; uzywa `contextControl` tylko wtedy, gdy panel
+jest juz otwarty dla dokladnie tego pola. Przycisk `Zamknij` anuluje aktywny
+target, usuwa komentarz autora, usuwa recznie dodane zrodla i przy kolejnej
+aktywacji wraca do domyslnego zestawu zrodel danego pola.
 
 ## Kategorie Promptow
 

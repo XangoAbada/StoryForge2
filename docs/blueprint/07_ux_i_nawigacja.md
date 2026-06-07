@@ -42,8 +42,9 @@ Prawy panel:
 ## Globalny Panel Kontekstu Promptu
 
 Prawy panel ma wspolna sekcje `Kontekst promptu`, widoczna po aktywowaniu
-tekstowego pola albo tekstowej akcji AI. Kazdy ekran deklaruje w niej wlasne
-zrodla kontekstu; panel nie zgaduje danych samodzielnie.
+tekstowego pola edycyjnego. Zwykly przycisk AI nigdy sam nie otwiera ani nie
+przelacza tej sekcji. Kazdy ekran deklaruje w niej wlasne zrodla kontekstu;
+panel nie zgaduje danych samodzielnie.
 
 Sekcja pokazuje:
 
@@ -60,6 +61,10 @@ Zachowanie:
   widok, dopoki autor go nie zamknie albo nie aktywuje innego pola tekstowego;
 - aktywacja innego pola tekstowego przelacza target i pokazuje jego domyslny
   zestaw zrodel;
+- klikniecie zwyklego przycisku AI bez aktywnego targetu dla tego pola uzywa
+  domyslnego promptu i nie pokazuje panelu;
+- klikniecie zwyklego przycisku AI przy innym polu nie przelacza istniejacego
+  panelu i nie uzywa kontekstu poprzedniego pola;
 - domyslnie wlaczone sa opcjonalne zrodla przewidziane przez dany target, nie
   cala koncepcja;
 - przy przyciskach AI pol tekstowych jest maly przycisk `+`, ktory dopina dane
@@ -68,8 +73,8 @@ Zachowanie:
   pole juz znajduje sie w aktywnym kontekscie;
 - klikniecie `+` nie przelacza aktywnego targetu;
 - draft nie znika po utracie fokusu albo przejsciu do innego widoku;
-- po dodaniu zadania AI do kolejki draft aktywnego targetu wraca do domyslnych
-  ustawien;
+- po dodaniu zadania AI do kolejki panel zamyka sie tylko wtedy, gdy request
+  faktycznie uzyl aktywnego kontekstu promptu;
 - zamkniecie kontekstu usuwa draft, komentarz i recznie dodane zrodla dla
   aktywnego targetu;
 - generowanie obrazow i okladek moze miec osobny przeplyw, ale tekstowe prompty

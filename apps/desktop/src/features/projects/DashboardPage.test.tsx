@@ -191,7 +191,16 @@ describe("DashboardPage", () => {
       })
     );
 
+    expect(screen.queryByLabelText("Kontekst promptu AI")).not.toBeInTheDocument();
     expect(await screen.findByDisplayValue("Siostra z mgły")).toBeInTheDocument();
+    const request = vi.mocked(runCodexPrompt).mock.calls[0][0];
+    expect(request.promptPackageJson).toEqual(
+      expect.objectContaining({
+        context: expect.not.objectContaining({
+          contextControl: expect.anything()
+        })
+      })
+    );
     fireEvent.click(screen.getByRole("button", { name: /Akceptuj/i }));
 
     await waitFor(() =>
@@ -212,6 +221,7 @@ describe("DashboardPage", () => {
 
     fireEvent.click(generateButton);
 
+    expect(screen.queryByLabelText("Kontekst promptu AI")).not.toBeInTheDocument();
     expect(await screen.findByDisplayValue("Siostra z mgły")).toBeInTheDocument();
     expect(titleInput).toHaveValue("");
     expect(generateNewProjectTitle).toHaveBeenCalledWith(
@@ -219,6 +229,14 @@ describe("DashboardPage", () => {
         action: "generate_working_title",
         model: "gpt-5.5",
         reasoningEffort: "medium"
+      })
+    );
+    const request = vi.mocked(generateNewProjectTitle).mock.calls[0][0];
+    expect(request.promptPackageJson).toEqual(
+      expect.objectContaining({
+        context: expect.not.objectContaining({
+          contextControl: expect.anything()
+        })
       })
     );
 
@@ -268,5 +286,7 @@ describe("DashboardPage", () => {
         }
       }
     });
+    expect(screen.queryByLabelText("Kontekst promptu AI")).not.toBeInTheDocument();
+    expect(useAiPromptContextStore.getState().activeTargetId).toBeNull();
   });
 });

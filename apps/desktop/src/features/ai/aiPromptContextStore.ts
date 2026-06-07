@@ -41,6 +41,7 @@ type AiPromptContextState = {
   resetDraft: (targetId: string) => void;
   submitActiveTarget: () => void;
   clearActiveTarget: () => void;
+  closeTarget: (targetId: string) => void;
   closeActiveTarget: () => void;
 };
 
@@ -165,6 +166,14 @@ export const useAiPromptContextStore = create<AiPromptContextState>((set, get) =
     target.onSubmit();
   },
   clearActiveTarget: () => set({ activeTargetId: null }),
+  closeTarget: (targetId) =>
+    set((state) => {
+      if (state.activeTargetId !== targetId) {
+        return state;
+      }
+
+      return closeTargetState(state, targetId);
+    }),
   closeActiveTarget: () =>
     set((state) => {
       const activeTargetId = state.activeTargetId;
@@ -172,16 +181,7 @@ export const useAiPromptContextStore = create<AiPromptContextState>((set, get) =
         return state;
       }
 
-      const nextDrafts = { ...state.drafts };
-      const nextTargets = { ...state.targets };
-      delete nextDrafts[activeTargetId];
-      delete nextTargets[activeTargetId];
-
-      return {
-        activeTargetId: null,
-        drafts: nextDrafts,
-        targets: nextTargets
-      };
+      return closeTargetState(state, activeTargetId);
     })
 }));
 
@@ -263,6 +263,17 @@ export function promptContextControlForTarget(
   };
 }
 
+export function promptContextControlForActiveTarget(
+  targetId: string
+): PromptContextControl | undefined {
+  const state = useAiPromptContextStore.getState();
+  if (state.activeTargetId !== targetId) {
+    return undefined;
+  }
+
+  return promptContextControlForTarget(targetId);
+}
+
 export function isSourceSelected(
   source: PromptContextSource,
   draft: AiPromptContextDraft | undefined
@@ -287,6 +298,22 @@ function mergeContextSources(
       (source) => !defaultSources.some((item) => item.key === source.key)
     )
   ];
+}
+
+function closeTargetState(
+  state: AiPromptContextState,
+  targetId: string
+): Partial<AiPromptContextState> {
+  const nextDrafts = { ...state.drafts };
+  const nextTargets = { ...state.targets };
+  delete nextDrafts[targetId];
+  delete nextTargets[targetId];
+
+  return {
+    activeTargetId: null,
+    drafts: nextDrafts,
+    targets: nextTargets
+  };
 }
 
 function hasContextSource(sources: PromptContextSource[], key: string): boolean {

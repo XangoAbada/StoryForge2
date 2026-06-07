@@ -362,6 +362,68 @@ describe("BookConceptPage AI flow", () => {
     expect(within(panel).getByLabelText("Komentarz autora")).toBeInTheDocument();
   });
 
+  it("does not show prompt context when clicking field AI without focusing the field", async () => {
+    renderWithQueryClient();
+
+    expect(await screen.findByDisplayValue("Stary tytuł")).toBeInTheDocument();
+    const generateButton = screen.getByRole("button", {
+      name: /Generuj .*roboczy z AI/i
+    });
+
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+
+    expect(screen.queryByLabelText("Kontekst promptu AI")).not.toBeInTheDocument();
+    expect(useAiPromptContextStore.getState().activeTargetId).toBeNull();
+
+    await waitFor(() => expect(runCodexPrompt).toHaveBeenCalled());
+    const request = vi.mocked(runCodexPrompt).mock.calls[0][0];
+    expect(request.promptPackageJson).toEqual(
+      expect.objectContaining({
+        context: expect.not.objectContaining({
+          contextControl: expect.anything()
+        })
+      })
+    );
+  });
+
+  it("uses matching field prompt context from the field AI button and closes it", async () => {
+    renderWithQueryClient();
+
+    const premiseField = await screen.findByLabelText("Premise");
+    fireEvent.focus(premiseField);
+
+    const panel = await screen.findByLabelText("Kontekst promptu AI");
+    fireEvent.click(within(panel).getByLabelText("Kontekst: Gatunek"));
+    fireEvent.change(within(panel).getByLabelText("Komentarz autora"), {
+      target: { value: "Utrzymaj chlodny, rzeczowy ton." }
+    });
+
+    const generateButton = screen.getByRole("button", {
+      name: /Generuj Premise z AI/i
+    });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+
+    await waitFor(() => expect(runCodexPrompt).toHaveBeenCalled());
+    const request = vi.mocked(runCodexPrompt).mock.calls[0][0];
+
+    expect(request.prompt).toContain("Utrzymaj chlodny, rzeczowy ton.");
+    expect(request.prompt).not.toContain("- Gatunek: kryminal");
+    expect(request.promptPackageJson).toMatchObject({
+      context: {
+        contextControl: {
+          authorPriorityComment: "Utrzymaj chlodny, rzeczowy ton.",
+          includedContextKeys: expect.not.arrayContaining(["genre"])
+        }
+      }
+    });
+    await waitFor(() =>
+      expect(screen.queryByLabelText("Kontekst promptu AI")).not.toBeInTheDocument()
+    );
+    expect(useAiPromptContextStore.getState().activeTargetId).toBeNull();
+  });
+
   it("uses selected context sources and priority comment for the next prompt", async () => {
     renderWithQueryClient();
 
@@ -407,6 +469,8 @@ describe("BookConceptPage AI flow", () => {
         conceptPromptContextTargetId("project-1", "premise")
       ]
     ).toBeUndefined();
+    expect(screen.queryByLabelText("Kontekst promptu AI")).not.toBeInTheDocument();
+    expect(useAiPromptContextStore.getState().activeTargetId).toBeNull();
   });
 
   it("adds a non-default field to the active prompt context with the plus button", async () => {
@@ -445,6 +509,42 @@ describe("BookConceptPage AI flow", () => {
         }
       }
     });
+    expect(screen.queryByLabelText("Kontekst promptu AI")).not.toBeInTheDocument();
+  });
+
+  it("does not switch or reuse prompt context when another field AI button is clicked", async () => {
+    renderWithQueryClient();
+
+    fireEvent.focus(await screen.findByLabelText("Premise"));
+    const panel = await screen.findByLabelText("Kontekst promptu AI");
+    fireEvent.change(within(panel).getByLabelText("Komentarz autora"), {
+      target: { value: "Komentarz tylko dla premise." }
+    });
+
+    const otherFieldButton = screen.getByRole("button", {
+      name: /Generuj .*roboczy z AI/i
+    });
+    await waitFor(() => expect(otherFieldButton).not.toBeDisabled());
+    fireEvent.click(otherFieldButton);
+
+    await waitFor(() => expect(runCodexPrompt).toHaveBeenCalled());
+    const request = vi.mocked(runCodexPrompt).mock.calls[0][0];
+
+    expect(request.prompt).not.toContain("Komentarz tylko dla premise.");
+    expect(request.promptPackageJson).toEqual(
+      expect.objectContaining({
+        context: expect.not.objectContaining({
+          contextControl: expect.anything()
+        })
+      })
+    );
+    expect(screen.getByLabelText("Kontekst promptu AI")).toBeInTheDocument();
+    expect(within(panel).getByLabelText("Komentarz autora")).toHaveValue(
+      "Komentarz tylko dla premise."
+    );
+    expect(useAiPromptContextStore.getState().activeTargetId).toBe(
+      conceptPromptContextTargetId("project-1", "premise")
+    );
   });
 
   it("closes prompt context and restores defaults for that target", async () => {
