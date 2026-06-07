@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useAiPromptContextStore } from "../ai/aiPromptContextStore";
 import { useCodexSettingsStore } from "../ai/codexSettingsStore";
 import { useProposalStore } from "../ai/proposalStore";
 import { DashboardPage } from "./DashboardPage";
@@ -165,6 +166,11 @@ describe("DashboardPage", () => {
       workingTitle: "Siostra z mgły"
     });
     useProposalStore.setState({ proposals: [], activeProposal: null });
+    useAiPromptContextStore.setState({
+      activeTargetId: null,
+      targets: {},
+      drafts: {}
+    });
     useCodexSettingsStore.setState({
       codexPath: "codex",
       model: "gpt-5.5",
@@ -221,5 +227,46 @@ describe("DashboardPage", () => {
     await waitFor(() => expect(titleInput).toHaveValue("Siostra z mgły"));
     expect(createProject).not.toHaveBeenCalled();
     expect(updateBookConcept).not.toHaveBeenCalled();
+  });
+
+  it("uses dashboard prompt context comment for a new project title", async () => {
+    renderDashboard();
+
+    const titleInput = await screen.findByPlaceholderText("Roboczy tytuł książki");
+    fireEvent.focus(titleInput);
+
+    const panel = await screen.findByLabelText("Kontekst promptu AI");
+    expect(within(panel).getByLabelText("Kontekst: Wpis autora")).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: /Dodaj wpis autora do kontekstu promptu/i
+      })
+    ).toBeDisabled();
+    fireEvent.change(within(panel).getByLabelText("Komentarz autora"), {
+      target: { value: "Tytuł ma brzmieć jak chłodny thriller." }
+    });
+
+    fireEvent.click(
+      within(panel).getByRole("button", { name: /Wy.lij do AI/i })
+    );
+
+    await waitFor(() => expect(generateNewProjectTitle).toHaveBeenCalled());
+    const request = vi.mocked(generateNewProjectTitle).mock.calls[0][0];
+
+    expect(request.prompt).toContain("Tytuł ma brzmieć jak chłodny thriller.");
+    expect(request.promptPackageJson).toMatchObject({
+      context: {
+        contextControl: {
+          authorPriorityComment: "Tytuł ma brzmieć jak chłodny thriller.",
+          contextSources: [
+            {
+              key: "seedTitle",
+              label: "Wpis autora",
+              required: true
+            }
+          ]
+        }
+      }
+    });
   });
 });

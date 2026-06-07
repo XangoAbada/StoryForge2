@@ -11,11 +11,19 @@ import {
 import { coverImageSource } from "../../shared/api/assets";
 import { formatLocalDateTime } from "../../shared/date";
 import { AiProposalPanel } from "../ai/AiProposalPanel";
+import { AiPromptContextPanel } from "../ai/AiPromptContextPanel";
 import { CodexStatusPanel } from "../ai/CodexStatusPanel";
 import { useCodexSettingsStore } from "../ai/codexSettingsStore";
 import {
+  createConceptPromptContextTarget,
+  createNewProjectTitlePromptTarget,
+  promptContextControlForTarget,
+  useAiPromptContextStore
+} from "../ai/aiPromptContextStore";
+import {
   buildNewProjectTitlePromptPackage,
   buildConceptFieldPromptPackage,
+  conceptPromptContextSource,
   renderNewProjectTitlePromptPackage,
   renderPromptPackage
 } from "../ai/promptPackage";
@@ -34,6 +42,21 @@ export function DashboardPage() {
   const codexPath = useCodexSettingsStore((state) => state.codexPath);
   const enqueueProposal = useProposalStore((state) => state.enqueueProposal);
   const proposals = useProposalStore((state) => state.proposals);
+  const activatePromptContextTarget = useAiPromptContextStore(
+    (state) => state.activateTarget
+  );
+  const resetPromptContextDraft = useAiPromptContextStore(
+    (state) => state.resetDraft
+  );
+  const activePromptTargetId = useAiPromptContextStore(
+    (state) => state.activeTargetId
+  );
+  const activePromptTarget = useAiPromptContextStore((state) =>
+    activePromptTargetId ? state.targets[activePromptTargetId] : null
+  );
+  const addContextSourceToActiveTarget = useAiPromptContextStore(
+    (state) => state.addContextSourceToActiveTarget
+  );
 
   const projectsQuery = useQuery({
     queryKey: ["projects"],
@@ -61,11 +84,14 @@ export function DashboardPage() {
 
   const queueProjectTitleMutation = useMutation({
     mutationFn: async (projectId: string) => {
+      const target = createConceptPromptContextTarget(projectId, "workingTitle");
       const details = await getProject(projectId);
+      const contextControl = promptContextControlForTarget(target.targetId);
       const promptPackage = buildConceptFieldPromptPackage(
         details.project,
         details.book,
-        "workingTitle"
+        "workingTitle",
+        contextControl
       );
       const prompt = renderPromptPackage(promptPackage);
 
@@ -78,6 +104,7 @@ export function DashboardPage() {
         promptPackageJson: promptPackage,
         prompt
       });
+      resetPromptContextDraft(target.targetId);
     },
     onMutate: (projectId) => {
       setProposalProjectId(projectId);
@@ -99,7 +126,21 @@ export function DashboardPage() {
   }
 
   function enqueueNewProjectTitle() {
-    const promptPackage = buildNewProjectTitlePromptPackage(name);
+    const target = createNewProjectTitlePromptTarget(name, {
+      submitLabel: "Wy\u015blij do AI",
+      submitDisabled:
+        Boolean(newProjectStatus) ||
+        createMutation.isPending,
+      submitDisabledReason: "Generowanie tytulu jest teraz niedostepne.",
+      onSubmit: enqueueNewProjectTitle
+    });
+    activatePromptContextTarget(target);
+    const contextControl = promptContextControlForTarget(target.targetId);
+    const promptPackage = buildNewProjectTitlePromptPackage(
+      name,
+      "pl",
+      contextControl
+    );
     const prompt = renderNewProjectTitlePromptPackage(promptPackage);
 
     enqueueProposal({
@@ -112,8 +153,51 @@ export function DashboardPage() {
       promptPackageJson: promptPackage,
       prompt
     });
+    resetPromptContextDraft(target.targetId);
     setProposalProjectId(NEW_PROJECT_PROPOSAL_ID);
     setAiError("");
+  }
+
+  function activateNewProjectTitleTarget(nextName = name) {
+    activatePromptContextTarget(
+      createNewProjectTitlePromptTarget(nextName, {
+        submitLabel: "Wy\u015blij do AI",
+        submitDisabled:
+          Boolean(newProjectStatus) ||
+          createMutation.isPending,
+        submitDisabledReason: "Generowanie tytulu jest teraz niedostepne.",
+        onSubmit: enqueueNewProjectTitle
+      })
+    );
+  }
+
+  function activateProjectTitleTarget(projectId: string) {
+    activatePromptContextTarget(
+      createConceptPromptContextTarget(projectId, "workingTitle", {
+        submitLabel: "Wy\u015blij do AI",
+        submitDisabled:
+          Boolean(proposalStatus(projectId)) ||
+          queueProjectTitleMutation.isPending,
+        submitDisabledReason: "Tytul roboczy jest juz w kolejce albo AI jest niedostepne.",
+        onSubmit: () => queueProjectTitle(projectId)
+      })
+    );
+  }
+
+  function queueProjectTitle(projectId: string) {
+    activateProjectTitleTarget(projectId);
+    queueProjectTitleMutation.mutate(projectId);
+  }
+
+  function addProjectTitleToPromptContext(projectId: string) {
+    if (
+      activePromptTarget?.projectId !== projectId ||
+      activePromptTarget.sources.some((source) => source.key === "workingTitle")
+    ) {
+      return;
+    }
+
+    addContextSourceToActiveTarget(conceptPromptContextSource("workingTitle"));
   }
 
   const codexUnavailable = codexStatusQuery.data?.available === false;
@@ -155,7 +239,11 @@ export function DashboardPage() {
                 <BookOpen size={16} aria-hidden="true" />
                 <input
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  onFocus={() => activateNewProjectTitleTarget()}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    activateNewProjectTitleTarget(event.target.value);
+                  }}
                   placeholder="Roboczy tytuł książki"
                 />
                 <button
@@ -163,6 +251,7 @@ export function DashboardPage() {
                   className="icon-button ai-inline-button"
                   aria-label="Generuj tytuł dla nowego projektu"
                   title="Generuj tytuł dla nowego projektu"
+                  onFocus={() => activateNewProjectTitleTarget()}
                   onClick={enqueueNewProjectTitle}
                   disabled={
                     Boolean(newProjectStatus) ||
@@ -176,6 +265,19 @@ export function DashboardPage() {
                   ) : (
                     <Sparkles size={16} />
                   )}
+                </button>
+                <button
+                  type="button"
+                  className="icon-button ai-context-add-button"
+                  aria-label="Dodaj wpis autora do kontekstu promptu"
+                  title={
+                    activePromptTarget
+                      ? "Wpis autora jest juz wymaganym kontekstem tego promptu."
+                      : "Najpierw zaznacz pole tekstowe, aby otworzyc kontekst promptu."
+                  }
+                  disabled
+                >
+                  <Plus size={14} />
                 </button>
                 <button
                   type="submit"
@@ -233,6 +335,14 @@ export function DashboardPage() {
                 (queueProjectTitleMutation.isPending &&
                   queueProjectTitleMutation.variables === project.id) ||
                 Boolean(projectQueueStatus);
+              const projectTitleAlreadyInContext = Boolean(
+                activePromptTarget?.sources.some(
+                  (source) => source.key === "workingTitle"
+                )
+              );
+              const canAddProjectTitleContext =
+                activePromptTarget?.projectId === project.id &&
+                !projectTitleAlreadyInContext;
 
               return (
                 <article className="project-card-shell" key={project.id}>
@@ -256,10 +366,12 @@ export function DashboardPage() {
                       <time>{formatLocalDateTime(project.updatedAt)}</time>
                     </span>
                   </Link>
+                  <div className="project-card-ai-actions">
                   <button
                     type="button"
                     className="icon-button project-card-ai-button"
-                    onClick={() => queueProjectTitleMutation.mutate(project.id)}
+                    onFocus={() => activateProjectTitleTarget(project.id)}
+                    onClick={() => queueProjectTitle(project.id)}
                     disabled={
                       generating ||
                       codexUnavailable ||
@@ -275,6 +387,21 @@ export function DashboardPage() {
                       <Sparkles size={16} />
                     )}
                   </button>
+                    <button
+                      type="button"
+                      className="icon-button ai-context-add-button project-card-context-button"
+                      onClick={() => addProjectTitleToPromptContext(project.id)}
+                    disabled={!canAddProjectTitleContext}
+                    title={
+                      activePromptTarget?.projectId !== project.id
+                        ? "Najpierw otworz kontekst promptu tego projektu."
+                        : "Tytul roboczy jest juz w kontekscie promptu."
+                    }
+                    aria-label={`Dodaj tytul roboczy projektu ${displayTitle} do kontekstu promptu`}
+                  >
+                    <Plus size={14} />
+                  </button>
+                  </div>
                 </article>
               );
             })}
@@ -286,6 +413,7 @@ export function DashboardPage() {
 
       <aside className="dashboard-side-panel">
         <CodexStatusPanel compact />
+        <AiPromptContextPanel />
         {visibleProposalProjectId ? (
           <AiProposalPanel
             projectId={visibleProposalProjectId}

@@ -39,6 +39,42 @@ Prawy panel:
 - status Codex CLI;
 - propozycje do akceptacji.
 
+## Globalny Panel Kontekstu Promptu
+
+Prawy panel ma wspolna sekcje `Kontekst promptu`, widoczna po aktywowaniu
+tekstowego pola albo tekstowej akcji AI. Kazdy ekran deklaruje w niej wlasne
+zrodla kontekstu; panel nie zgaduje danych samodzielnie.
+
+Sekcja pokazuje:
+
+- nazwe aktywnego pola albo akcji AI;
+- zrodla wymagane, ktorych nie mozna odznaczyc;
+- zrodla opcjonalne jako checkboxy;
+- komentarz autora dla najblizszego promptu.
+- przycisk wysylki requestu AI dla aktywnego targetu;
+- przycisk zamkniecia kontekstu.
+
+Zachowanie:
+
+- aktywny kontekst zostaje widoczny po utracie fokusu i po przejsciu na inny
+  widok, dopoki autor go nie zamknie albo nie aktywuje innego pola tekstowego;
+- aktywacja innego pola tekstowego przelacza target i pokazuje jego domyslny
+  zestaw zrodel;
+- domyslnie wlaczone sa opcjonalne zrodla przewidziane przez dany target, nie
+  cala koncepcja;
+- przy przyciskach AI pol tekstowych jest maly przycisk `+`, ktory dopina dane
+  pole do aktualnego kontekstu promptu;
+- przycisk `+` jest wyszarzony, gdy kontekst promptu nie jest aktywny albo dane
+  pole juz znajduje sie w aktywnym kontekscie;
+- klikniecie `+` nie przelacza aktywnego targetu;
+- draft nie znika po utracie fokusu albo przejsciu do innego widoku;
+- po dodaniu zadania AI do kolejki draft aktywnego targetu wraca do domyslnych
+  ustawien;
+- zamkniecie kontekstu usuwa draft, komentarz i recznie dodane zrodla dla
+  aktywnego targetu;
+- generowanie obrazow i okladek moze miec osobny przeplyw, ale tekstowe prompty
+  wizualne powinny uzywac tego samego panelu.
+
 ## Dashboard Projektow
 
 Pierwszy ekran:

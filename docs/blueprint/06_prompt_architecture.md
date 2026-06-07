@@ -41,6 +41,42 @@ type PromptContext = {
 };
 ```
 
+## Globalna Kontrola Kontekstu Promptu
+
+Kazdy tekstowy prompt moze dostac `contextControl`, czyli snapshot decyzji
+autora z prawego panelu przed wyslaniem najblizszego requestu AI.
+
+```ts
+type PromptContextControl = {
+  includedContextKeys: string[];
+  authorPriorityComment: string;
+  contextSources: {
+    key: string;
+    label: string;
+    required: boolean;
+  }[];
+};
+```
+
+Zasady:
+
+- brak `contextControl` oznacza domyslny prompt bez filtrowania kontekstu;
+- zrodla `required: true` zawsze trafiaja do promptu, nawet jesli nie ma ich w
+  `includedContextKeys`;
+- opcjonalne zrodla trafiaja do promptu tylko wtedy, gdy ich `key` jest w
+  `includedContextKeys`;
+- target deklaruje domyslny podzbior zrodel dla swojej akcji, a UI moze
+  recznie dopiac dodatkowe zrodla z katalogu ekranu przed wyslaniem requestu;
+- `authorPriorityComment` trafia do sekcji `# Author Priority` i ma najwyzszy
+  priorytet merytoryczny po Hard Rules i Output Contract;
+- draft kontekstu jest stanem sesyjnym UI, resetowanym po dodaniu zadania AI do
+  kolejki albo po zamknieciu aktywnego kontekstu przez autora.
+
+Wysylka z panelu uzywa tego samego `PromptContextControl`, co przycisk AI przy
+polu. Przycisk `Zamknij` anuluje aktywny target, usuwa komentarz autora,
+usuwa recznie dodane zrodla i przy kolejnej aktywacji wraca do domyslnego
+zestawu zrodel danego pola.
+
 ## Kategorie Promptow
 
 ### Ideation
@@ -122,6 +158,9 @@ Jestes asystentem pisarskim pracujacym wewnatrz StoryForge2.
 - Nie zmieniaj kanonu bez oznaczenia propozycji.
 - Nie wprowadzaj nowych glownych faktow, jesli zadanie tego nie wymaga.
 - Odpowiedz tylko w wymaganym formacie.
+
+# Author Priority
+Opcjonalny komentarz autora z globalnej kontroli kontekstu promptu.
 
 # Book Context
 ...

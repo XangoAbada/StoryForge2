@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildConceptFieldPromptPackage,
   buildNewProjectTitlePromptPackage,
+  conceptPromptContextSources,
   renderNewProjectTitlePromptPackage,
   renderPromptPackage
 } from "./promptPackage";
@@ -118,6 +119,64 @@ describe("renderPromptPackage", () => {
     expect(prompt).toContain("bez pełnego zdania");
   });
 
+  it("filters concept context through context control", () => {
+    const promptPackage = buildConceptFieldPromptPackage(
+      project,
+      book,
+      "premise",
+      {
+        includedContextKeys: ["premise", "genre", "tone"],
+        authorPriorityComment: "",
+        contextSources: conceptPromptContextSources("premise")
+      }
+    );
+    const prompt = renderPromptPackage(promptPackage);
+
+    expect(prompt).toContain(book.premise);
+    expect(prompt).toContain(book.genre);
+    expect(prompt).toContain(book.tone);
+    expect(prompt).not.toContain(book.protagonistSummary);
+    expect(prompt).not.toContain(book.targetAudience);
+  });
+
+  it("keeps required active field context even when optional keys are empty", () => {
+    const promptPackage = buildConceptFieldPromptPackage(
+      project,
+      book,
+      "premise",
+      {
+        includedContextKeys: [],
+        authorPriorityComment: "",
+        contextSources: conceptPromptContextSources("premise")
+      }
+    );
+    const prompt = renderPromptPackage(promptPackage);
+
+    expect(prompt).toContain(book.premise);
+    expect(promptPackage.context.targetFieldCurrentValue).toBe(book.premise);
+    expect(prompt).not.toContain(book.genre);
+  });
+
+  it("renders author priority above concept context", () => {
+    const promptPackage = buildConceptFieldPromptPackage(
+      project,
+      book,
+      "premise",
+      {
+        includedContextKeys: ["premise"],
+        authorPriorityComment: "Utrzymaj melancholijny ton finału.",
+        contextSources: conceptPromptContextSources("premise")
+      }
+    );
+    const prompt = renderPromptPackage(promptPackage);
+
+    expect(prompt).toContain("# Author Priority");
+    expect(prompt).toContain("Utrzymaj melancholijny ton finału.");
+    expect(prompt.indexOf("# Author Priority")).toBeLessThan(
+      prompt.indexOf("# Book Context")
+    );
+  });
+
   it("renders a per-field prompt for every phase 2 concept field", () => {
     const fields = [
       "title",
@@ -225,5 +284,30 @@ describe("renderPromptPackage", () => {
     expect(prompt).toContain("workingTitle");
     expect(prompt).toContain("# Response Length");
     expect(prompt).toContain("90 znaków");
+  });
+
+  it("renders author priority in a new-project title prompt", () => {
+    const promptPackage = buildNewProjectTitlePromptPackage(
+      "Tajemnica archiwum",
+      "pl",
+      {
+        includedContextKeys: ["seedTitle"],
+        authorPriorityComment: "Tytuł ma być krótki i zimny.",
+        contextSources: [
+          {
+            key: "seedTitle",
+            label: "Wpis autora",
+            required: true
+          }
+        ]
+      }
+    );
+    const prompt = renderNewProjectTitlePromptPackage(promptPackage);
+
+    expect(prompt).toContain("# Author Priority");
+    expect(prompt).toContain("Tytuł ma być krótki i zimny.");
+    expect(promptPackage.context.contextControl?.includedContextKeys).toContain(
+      "seedTitle"
+    );
   });
 });

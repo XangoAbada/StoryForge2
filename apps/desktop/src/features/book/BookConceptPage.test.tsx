@@ -2,7 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiProposalPanel } from "../ai/AiProposalPanel";
+import { AiPromptContextPanel } from "../ai/AiPromptContextPanel";
 import { useProjectNavigationStore } from "../../app/projectNavigationStore";
+import {
+  conceptPromptContextTargetId,
+  useAiPromptContextStore
+} from "../ai/aiPromptContextStore";
 import { useCodexSettingsStore } from "../ai/codexSettingsStore";
 import { BOOK_COVER_FIELD, useProposalStore } from "../ai/proposalStore";
 import { BookConceptPage } from "./BookConceptPage";
@@ -101,6 +106,7 @@ function renderWithQueryClient() {
   return render(
     <QueryClientProvider client={queryClient}>
       <BookConceptPage projectId="project-1" />
+      <AiPromptContextPanel />
       <AiProposalPanel projectId="project-1" />
     </QueryClientProvider>
   );
@@ -147,6 +153,11 @@ describe("BookConceptPage AI flow", () => {
       coverGeneratedAt: "2026-06-05T12:05:00Z"
     });
     useProposalStore.setState({ proposals: [], activeProposal: null });
+    useAiPromptContextStore.setState({
+      activeTargetId: null,
+      targets: {},
+      drafts: {}
+    });
     useProjectNavigationStore.setState({
       logReturnLocations: {},
       viewState: {}
@@ -325,6 +336,153 @@ describe("BookConceptPage AI flow", () => {
         expect(screen.getByText(fieldDescriptionForLabel(label))).toBeInTheDocument();
       }
     }
+  });
+
+  it("shows global prompt context after focusing a concept field", async () => {
+    renderWithQueryClient();
+
+    expect(
+      await screen.findByRole("button", {
+        name: /Dodaj .*roboczy do kontekstu promptu/i
+      })
+    ).toBeDisabled();
+
+    const premiseField = await screen.findByLabelText("Premise");
+    fireEvent.focus(premiseField);
+
+    const panel = await screen.findByLabelText("Kontekst promptu AI");
+    expect(within(panel).getAllByText("Premise").length).toBeGreaterThan(0);
+    expect(within(panel).getByLabelText("Kontekst: Gatunek")).toBeInTheDocument();
+    expect(within(panel).queryByLabelText("Kontekst: Odbiorcy")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /Dodaj Premise do kontekstu promptu/i
+      })
+    ).toBeDisabled();
+    expect(within(panel).getByLabelText("Komentarz autora")).toBeInTheDocument();
+  });
+
+  it("uses selected context sources and priority comment for the next prompt", async () => {
+    renderWithQueryClient();
+
+    const premiseField = await screen.findByLabelText("Premise");
+    fireEvent.focus(premiseField);
+
+    const panel = await screen.findByLabelText("Kontekst promptu AI");
+    fireEvent.click(within(panel).getByLabelText("Kontekst: Gatunek"));
+    fireEvent.change(within(panel).getByLabelText("Komentarz autora"), {
+      target: { value: "Najpierw utrzymaj motyw winy." }
+    });
+
+    const submitButton = within(panel).getByRole("button", {
+      name: /Wy.lij do AI/i
+    });
+    expect(submitButton).not.toBeDisabled();
+    expect(
+      useAiPromptContextStore.getState().targets[
+        conceptPromptContextTargetId("project-1", "premise")
+      ].onSubmit
+    ).toEqual(expect.any(Function));
+    fireEvent.click(submitButton);
+    await waitFor(() =>
+      expect(useProposalStore.getState().proposals.length).toBeGreaterThan(0)
+    );
+
+    await waitFor(() => expect(runCodexPrompt).toHaveBeenCalled());
+    const request = vi.mocked(runCodexPrompt).mock.calls[0][0];
+
+    expect(request.prompt).toContain("# Author Priority");
+    expect(request.prompt).toContain("Najpierw utrzymaj motyw winy.");
+    expect(request.prompt).not.toContain("- Gatunek: kryminal");
+    expect(request.promptPackageJson).toMatchObject({
+      context: {
+        contextControl: {
+          authorPriorityComment: "Najpierw utrzymaj motyw winy.",
+          includedContextKeys: expect.not.arrayContaining(["genre"])
+        }
+      }
+    });
+    expect(
+      useAiPromptContextStore.getState().drafts[
+        conceptPromptContextTargetId("project-1", "premise")
+      ]
+    ).toBeUndefined();
+  });
+
+  it("adds a non-default field to the active prompt context with the plus button", async () => {
+    renderWithQueryClient();
+
+    fireEvent.focus(await screen.findByLabelText("Premise"));
+    const panel = await screen.findByLabelText("Kontekst promptu AI");
+    expect(within(panel).queryByLabelText("Kontekst: Odbiorcy")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Czytelnik i forma/i }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Dodaj Odbiorcy do kontekstu promptu/i
+      })
+    );
+
+    expect(within(panel).getByLabelText("Kontekst: Odbiorcy")).toBeChecked();
+
+    const submitButton = within(panel).getByRole("button", {
+      name: /Wy.lij do AI/i
+    });
+    expect(submitButton).not.toBeDisabled();
+    fireEvent.click(submitButton);
+    await waitFor(() =>
+      expect(useProposalStore.getState().proposals.length).toBeGreaterThan(0)
+    );
+
+    await waitFor(() => expect(runCodexPrompt).toHaveBeenCalled());
+    const request = vi.mocked(runCodexPrompt).mock.calls[0][0];
+
+    expect(request.prompt).toContain("- Odbiorcy: adult");
+    expect(request.promptPackageJson).toMatchObject({
+      context: {
+        contextControl: {
+          includedContextKeys: expect.arrayContaining(["targetAudience"])
+        }
+      }
+    });
+  });
+
+  it("closes prompt context and restores defaults for that target", async () => {
+    renderWithQueryClient();
+
+    fireEvent.focus(await screen.findByLabelText("Premise"));
+    const panel = await screen.findByLabelText("Kontekst promptu AI");
+    fireEvent.change(within(panel).getByLabelText("Komentarz autora"), {
+      target: { value: "Tym razem bez ironii." }
+    });
+
+    fireEvent.click(
+      within(panel).getByRole("button", { name: /Zamknij kontekst promptu/i })
+    );
+
+    expect(screen.queryByLabelText("Kontekst promptu AI")).not.toBeInTheDocument();
+    expect(useAiPromptContextStore.getState().activeTargetId).toBeNull();
+    expect(
+      useAiPromptContextStore.getState().drafts[
+        conceptPromptContextTargetId("project-1", "premise")
+      ]
+    ).toBeUndefined();
+  });
+
+  it("keeps prompt context draft after focus loss and tab switches before enqueue", async () => {
+    renderWithQueryClient();
+
+    fireEvent.focus(await screen.findByLabelText("Premise"));
+    const panel = await screen.findByLabelText("Kontekst promptu AI");
+    fireEvent.change(within(panel).getByLabelText("Komentarz autora"), {
+      target: { value: "Nie zgub tonu noir." }
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: /Silnik historii/i }));
+
+    expect(within(panel).getByLabelText("Komentarz autora")).toHaveValue(
+      "Nie zgub tonu noir."
+    );
   });
 
   it("does not repeat the active stage title in the form body", async () => {

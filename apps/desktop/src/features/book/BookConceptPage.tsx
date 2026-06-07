@@ -7,7 +7,15 @@ import {
   Sparkles,
   X
 } from "lucide-react";
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  FormEvent,
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   checkCodexCli,
@@ -26,10 +34,17 @@ import {
   buildConceptFieldPromptPackage,
   conceptFieldConfigs,
   conceptFieldMaxResponseCharacters,
+  conceptPromptContextSource,
   ConceptFieldKey,
   renderPromptPackage
 } from "../ai/promptPackage";
 import { useCodexSettingsStore } from "../ai/codexSettingsStore";
+import {
+  createConceptPromptContextTarget,
+  conceptPromptContextTargetId,
+  promptContextControlForTarget,
+  useAiPromptContextStore
+} from "../ai/aiPromptContextStore";
 import {
   AiProposalStatus,
   BOOK_COVER_FIELD,
@@ -84,6 +99,10 @@ type ChoiceOption = {
   value: string;
   hint: string;
 };
+
+const ConceptPromptContext = createContext<(field: ConceptFieldKey) => void>(
+  () => undefined
+);
 
 const emptyForm: ConceptForm = {
   title: "",
@@ -251,6 +270,12 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
   const codexPath = useCodexSettingsStore((state) => state.codexPath);
   const enqueueProposal = useProposalStore((state) => state.enqueueProposal);
   const proposals = useProposalStore((state) => state.proposals);
+  const activatePromptContextTarget = useAiPromptContextStore(
+    (state) => state.activateTarget
+  );
+  const resetPromptContextDraft = useAiPromptContextStore(
+    (state) => state.resetDraft
+  );
   const [form, setForm] = useState<ConceptForm>(emptyForm);
   const activeStage = useProjectNavigationStore((state) =>
     normalizeConceptStage(state.viewState[projectId]?.conceptStage)
@@ -374,10 +399,13 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
         throw new GenerationError("Brak danych projektu.");
       }
 
+      const targetId = conceptPromptContextTargetId(projectId, field);
+      const contextControl = promptContextControlForTarget(targetId);
       const promptPackage = buildConceptFieldPromptPackage(
         projectQuery.data.project,
         bookForPrompt,
-        field
+        field,
+        contextControl
       );
       const prompt = renderPromptPackage(promptPackage);
       const snapshot = {
@@ -391,6 +419,7 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
       };
 
       enqueueProposal(snapshot);
+      resetPromptContextDraft(targetId);
       return null;
 
     },
@@ -417,6 +446,36 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
 
   function generateField(field: ConceptFieldKey) {
     setAiError("");
+    activateFieldPromptContext(field);
+    queueFieldGeneration(field);
+  }
+
+  function activateFieldPromptContext(field: ConceptFieldKey) {
+    const config = conceptFieldConfigs[field];
+    const loading = fieldStatus(field);
+
+    activatePromptContextTarget(
+      createConceptPromptContextTarget(projectId, field, {
+        submitLabel: "Wy\u015blij do AI",
+        submitDisabled: Boolean(loading),
+        submitDisabledReason: loading
+          ? `Pole "${config.label}" jest ju\u017c w kolejce AI.`
+          : "Codex CLI nie jest teraz gotowy.",
+        onSubmit: () => queueFieldGeneration(field)
+      })
+    );
+  }
+
+  function queueFieldGeneration(field: ConceptFieldKey) {
+    const currentStatus = pendingProposalStatus(useProposalStore.getState().proposals, {
+      projectId,
+      field,
+      scope: "bookConcept"
+    });
+    if (currentStatus) {
+      return;
+    }
+
     generateFieldMutation.mutate(field);
   }
 
@@ -482,7 +541,8 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
     conceptStages.find((stage) => stage.key === activeStage) ?? conceptStages[0];
 
   return (
-    <section className="content-panel concept-panel">
+    <ConceptPromptContext.Provider value={activateFieldPromptContext}>
+      <section className="content-panel concept-panel">
       <div className="section-title-row">
         <div>
           <p className="eyebrow">Faza 2</p>
@@ -905,7 +965,8 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
         image={previewImage}
         onClose={() => setPreviewImage(null)}
       />
-    </section>
+      </section>
+    </ConceptPromptContext.Provider>
   );
 }
 
@@ -996,11 +1057,26 @@ function FieldFrame({
   loading,
   onGenerate
 }: FieldFrameProps) {
+  const activatePromptContext = useContext(ConceptPromptContext);
+
   return (
-    <div className="field-shell" title={fieldHints[field]}>
+    <div
+      className="field-shell"
+      title={fieldHints[field]}
+      onClick={(event) => {
+        if (isEditablePromptTarget(event.target)) {
+          activatePromptContext(field);
+        }
+      }}
+      onFocusCapture={(event) => {
+        if (isEditablePromptTarget(event.target)) {
+          activatePromptContext(field);
+        }
+      }}
+    >
       <div className="field-heading">
         <span className="field-label-text">{label}</span>
-        <AiFieldButton
+        <AiFieldActions
           field={field}
           disabled={disabled}
           loading={loading}
@@ -1021,6 +1097,76 @@ type AiFieldButtonProps = {
   loading: AiProposalStatus | null;
   onGenerate: (field: ConceptFieldKey) => void;
 };
+
+function AiFieldActions({
+  field,
+  disabled,
+  loading,
+  onGenerate
+}: AiFieldButtonProps) {
+  const config = conceptFieldConfigs[field];
+  const activeTargetId = useAiPromptContextStore((state) => state.activeTargetId);
+  const activeTarget = useAiPromptContextStore((state) =>
+    activeTargetId ? state.targets[activeTargetId] : null
+  );
+  const addContextSourceToActiveTarget = useAiPromptContextStore(
+    (state) => state.addContextSourceToActiveTarget
+  );
+  const running = loading === "running";
+  const queued = loading === "queued";
+  const label = running ? "Generuje" : queued ? "W kolejce" : "AI";
+  const fieldAlreadyInContext = Boolean(
+    activeTarget?.sources.some((source) => source.key === field)
+  );
+  const addDisabled = !activeTarget || fieldAlreadyInContext;
+
+  return (
+    <div className="ai-field-actions">
+      <button
+        type="button"
+        className="icon-button ai-field-button"
+        onClick={() => onGenerate(field)}
+        disabled={disabled || queued || running}
+        title={
+          queued
+            ? `Pole "${config.label}" czeka w kolejce AI.`
+            : running
+              ? `Pole "${config.label}" jest generowane.`
+              : `Generuj pole "${config.label}" z AI.`
+        }
+        aria-label={`Generuj ${config.label} z AI`}
+      >
+        {running ? (
+          <Loader2 size={15} className="spin-icon" />
+        ) : queued ? (
+          <Clock3 size={15} />
+        ) : (
+          <Sparkles size={15} />
+        )}
+        <span>{label}</span>
+      </button>
+      <button
+        type="button"
+        className="icon-button ai-context-add-button"
+        onClick={(event) => {
+          event.stopPropagation();
+          addContextSourceToActiveTarget(conceptPromptContextSource(field));
+        }}
+        disabled={addDisabled}
+        title={
+          !activeTarget
+            ? "Najpierw zaznacz pole tekstowe, aby otworzyc kontekst promptu."
+            : fieldAlreadyInContext
+              ? `Pole "${config.label}" jest juz w kontekscie promptu.`
+              : `Dodaj pole "${config.label}" do kontekstu promptu.`
+        }
+        aria-label={`Dodaj ${config.label} do kontekstu promptu`}
+      >
+        <Plus size={14} />
+      </button>
+    </div>
+  );
+}
 
 function AiFieldButton({
   field,
@@ -1058,6 +1204,10 @@ function AiFieldButton({
       <span>{label}</span>
     </button>
   );
+}
+
+function isEditablePromptTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
 
 type MultiChoiceFieldProps = {

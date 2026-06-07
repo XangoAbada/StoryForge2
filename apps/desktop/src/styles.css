@@ -313,11 +313,17 @@ a:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.project-card-ai-button {
+.project-card-ai-actions {
   position: absolute;
   top: 10px;
   right: 10px;
   z-index: 2;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.project-card-ai-button,
+.project-card-context-button {
   box-shadow: 0 8px 18px rgba(37, 35, 31, 0.16);
 }
 
@@ -787,7 +793,7 @@ a:focus-visible {
 }
 
 .new-project-title-control {
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
 }
 
 .inline-control > svg {
@@ -861,6 +867,30 @@ a:focus-visible {
 
 .ai-field-button:disabled {
   opacity: 0.82;
+}
+
+.ai-field-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 5px;
+  align-items: center;
+}
+
+.ai-context-add-button {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-color: #d9c49c;
+  background: #fffdf6;
+  color: #8a6122;
+}
+
+.ai-context-add-button:disabled {
+  border-color: var(--line);
+  background: #f4f1ea;
+  color: #a9a093;
+  cursor: not-allowed;
+  opacity: 0.78;
 }
 
 .ai-inline-button {
@@ -1026,6 +1056,91 @@ a:focus-visible {
 
 .reasoning-labels .active {
   color: var(--green);
+}
+
+.prompt-context-panel {
+  gap: 12px;
+}
+
+.prompt-context-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.prompt-context-reset,
+.prompt-context-close {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+}
+
+.prompt-context-close {
+  color: var(--red);
+}
+
+.prompt-context-list {
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.prompt-context-source {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffefb;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.prompt-context-source.required {
+  border-color: #d9c49c;
+  background: #fff8ea;
+}
+
+.prompt-context-source input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--green);
+}
+
+.prompt-context-source span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.prompt-context-source em {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--gold);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.prompt-context-comment {
+  min-height: 86px;
+  font-size: 13px;
+}
+
+.prompt-context-command-row {
+  display: flex;
+  justify-content: stretch;
+}
+
+.prompt-context-submit {
+  width: 100%;
+  min-height: 36px;
 }
 
 .spin-icon {

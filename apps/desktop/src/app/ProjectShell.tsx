@@ -19,6 +19,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { getProject } from "../shared/api/commands";
 import { AiProposalPanel } from "../features/ai/AiProposalPanel";
+import { AiPromptContextPanel } from "../features/ai/AiPromptContextPanel";
 import { CodexStatusPanel } from "../features/ai/CodexStatusPanel";
 import { useCodexSettingsStore } from "../features/ai/codexSettingsStore";
 import {
@@ -183,6 +184,7 @@ export function ProjectShell({
           aria-label="Zmień szerokość panelu AI"
         />
         <CodexStatusPanel compact />
+        <AiPromptContextPanel />
         <AiProposalPanel projectId={projectId} />
         <button
           type="button"

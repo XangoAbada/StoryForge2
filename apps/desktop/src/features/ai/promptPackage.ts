@@ -27,6 +27,18 @@ export type ConceptFieldKey =
 export type AIProviderId = "codex-cli-bridge";
 export type PromptGenerationMode = "generate" | "expand";
 
+export type PromptContextSource = {
+  key: string;
+  label: string;
+  required: boolean;
+};
+
+export type PromptContextControl = {
+  includedContextKeys: string[];
+  authorPriorityComment: string;
+  contextSources: PromptContextSource[];
+};
+
 export type BookConceptPromptContext = Pick<
   Book,
   | "title"
@@ -65,6 +77,7 @@ export type PromptPackage = {
     targetFieldCurrentValue: string;
     maxResponseCharacters: number | null;
     book: BookConceptPromptContext;
+    contextControl?: PromptContextControl;
   };
   outputContract: {
     kind: "concept_field_suggestion" | "premise_development";
@@ -84,6 +97,7 @@ export type NewProjectTitlePromptPackage = {
   context: {
     seedTitle: string;
     maxResponseCharacters: number;
+    contextControl?: PromptContextControl;
   };
   outputContract: {
     kind: "concept_field_suggestion";
@@ -127,6 +141,225 @@ export const longConceptFields: ConceptFieldKey[] = [
   "unwantedThemes",
   "styleGuide"
 ];
+
+export const conceptPromptContextFieldKeys: ConceptFieldKey[] = [
+  "title",
+  "workingTitle",
+  "premise",
+  "protagonistSummary",
+  "protagonistGoal",
+  "expandedPremise",
+  "logline",
+  "centralConflict",
+  "antagonistForce",
+  "stakes",
+  "settingSketch",
+  "endingDirection",
+  "genre",
+  "subgenre",
+  "targetAudience",
+  "tone",
+  "pointOfView",
+  "targetWordCount",
+  "themesJson",
+  "unwantedThemes",
+  "alternativeTitlesJson",
+  "styleGuide"
+];
+
+const titlePromptContextKeys: ConceptFieldKey[] = [
+  "workingTitle",
+  "premise",
+  "genre",
+  "subgenre",
+  "tone",
+  "styleGuide"
+];
+
+const storyCorePromptContextKeys: ConceptFieldKey[] = [
+  "workingTitle",
+  "premise",
+  "protagonistSummary",
+  "protagonistGoal",
+  "centralConflict",
+  "antagonistForce",
+  "stakes",
+  "settingSketch",
+  "genre",
+  "tone"
+];
+
+const readerFormPromptContextKeys: ConceptFieldKey[] = [
+  "workingTitle",
+  "premise",
+  "genre",
+  "subgenre",
+  "targetAudience",
+  "tone",
+  "pointOfView",
+  "styleGuide"
+];
+
+const conceptPromptContextDefaultKeys: Record<
+  ConceptFieldKey,
+  ConceptFieldKey[]
+> = {
+  title: [...titlePromptContextKeys, "alternativeTitlesJson"],
+  workingTitle: titlePromptContextKeys,
+  premise: storyCorePromptContextKeys,
+  protagonistSummary: [
+    "workingTitle",
+    "premise",
+    "protagonistGoal",
+    "centralConflict",
+    "settingSketch",
+    "genre",
+    "tone"
+  ],
+  protagonistGoal: [
+    "workingTitle",
+    "premise",
+    "protagonistSummary",
+    "centralConflict",
+    "stakes",
+    "genre",
+    "tone"
+  ],
+  expandedPremise: [
+    ...storyCorePromptContextKeys,
+    "logline",
+    "endingDirection",
+    "targetAudience"
+  ],
+  logline: [
+    "workingTitle",
+    "premise",
+    "protagonistSummary",
+    "protagonistGoal",
+    "centralConflict",
+    "antagonistForce",
+    "stakes",
+    "genre",
+    "tone"
+  ],
+  centralConflict: [
+    "workingTitle",
+    "premise",
+    "protagonistSummary",
+    "protagonistGoal",
+    "antagonistForce",
+    "stakes",
+    "genre",
+    "tone"
+  ],
+  antagonistForce: [
+    "workingTitle",
+    "premise",
+    "protagonistSummary",
+    "protagonistGoal",
+    "centralConflict",
+    "stakes",
+    "settingSketch",
+    "genre",
+    "tone"
+  ],
+  stakes: [
+    "workingTitle",
+    "premise",
+    "protagonistSummary",
+    "protagonistGoal",
+    "centralConflict",
+    "antagonistForce",
+    "endingDirection",
+    "genre",
+    "tone"
+  ],
+  settingSketch: [
+    "workingTitle",
+    "premise",
+    "protagonistSummary",
+    "centralConflict",
+    "antagonistForce",
+    "genre",
+    "tone",
+    "styleGuide"
+  ],
+  endingDirection: [
+    "workingTitle",
+    "premise",
+    "expandedPremise",
+    "protagonistSummary",
+    "protagonistGoal",
+    "centralConflict",
+    "antagonistForce",
+    "stakes",
+    "genre",
+    "tone"
+  ],
+  genre: readerFormPromptContextKeys,
+  subgenre: readerFormPromptContextKeys,
+  targetAudience: readerFormPromptContextKeys,
+  tone: readerFormPromptContextKeys,
+  pointOfView: [
+    "workingTitle",
+    "premise",
+    "protagonistSummary",
+    "genre",
+    "subgenre",
+    "targetAudience",
+    "tone",
+    "styleGuide"
+  ],
+  targetWordCount: [
+    "workingTitle",
+    "premise",
+    "genre",
+    "subgenre",
+    "targetAudience",
+    "tone"
+  ],
+  themesJson: [
+    "workingTitle",
+    "premise",
+    "protagonistSummary",
+    "centralConflict",
+    "antagonistForce",
+    "stakes",
+    "genre",
+    "tone",
+    "unwantedThemes"
+  ],
+  unwantedThemes: [
+    "workingTitle",
+    "premise",
+    "genre",
+    "targetAudience",
+    "tone",
+    "themesJson",
+    "styleGuide"
+  ],
+  alternativeTitlesJson: [
+    "workingTitle",
+    "title",
+    "premise",
+    "genre",
+    "subgenre",
+    "targetAudience",
+    "tone",
+    "styleGuide"
+  ],
+  styleGuide: [
+    "workingTitle",
+    "premise",
+    "genre",
+    "subgenre",
+    "targetAudience",
+    "tone",
+    "pointOfView",
+    "themesJson",
+    "unwantedThemes"
+  ]
+};
 
 export const conceptFieldMaxResponseCharacters: Record<ConceptFieldKey, number> = {
   title: 90,
@@ -373,7 +606,8 @@ export const conceptFieldConfigs: Record<ConceptFieldKey, ConceptFieldConfig> = 
 export function buildConceptFieldPromptPackage(
   project: Project,
   book: Book,
-  field: ConceptFieldKey
+  field: ConceptFieldKey,
+  contextControl?: PromptContextControl
 ): PromptPackage {
   const config = conceptFieldConfigs[field];
   const isPremiseDevelopment = config.action === "expand_premise";
@@ -394,7 +628,8 @@ export function buildConceptFieldPromptPackage(
       generationMode,
       targetFieldCurrentValue,
       maxResponseCharacters: conceptFieldMaxResponseCharacters[field] ?? null,
-      book: bookContext
+      book: bookContext,
+      ...(contextControl ? { contextControl } : {})
     },
     outputContract: {
       kind: isPremiseDevelopment
@@ -417,7 +652,8 @@ export function renderPromptPackage(promptPackage: PromptPackage): string {
     targetField,
     generationMode,
     targetFieldCurrentValue,
-    maxResponseCharacters
+    maxResponseCharacters,
+    contextControl
   } = promptPackage.context;
   const config = conceptFieldConfigs[targetField];
   const listRules = config.acceptsValues
@@ -442,6 +678,8 @@ Pole "${config.label}" jest puste albo wymaga nowej propozycji. Wygeneruj komple
     config,
     maxResponseCharacters
   );
+  const authorPriority = renderAuthorPriority(contextControl);
+  const bookContext = renderBookContext(book, contextControl);
 
   return `# Role
 Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
@@ -461,29 +699,10 @@ ${listRules}
 
 ${responseLengthRules}
 
+${authorPriority}
+
 # Book Context
-- Tytuł finalny: ${emptyFallback(book.title)}
-- Roboczy tytuł: ${emptyFallback(book.workingTitle)}
-- Premise: ${emptyFallback(book.premise)}
-- Bohater / bohaterka: ${emptyFallback(book.protagonistSummary)}
-- Cel bohatera: ${emptyFallback(book.protagonistGoal)}
-- Rozszerzona premisa: ${emptyFallback(book.expandedPremise)}
-- Logline: ${emptyFallback(book.logline)}
-- Konflikt centralny: ${emptyFallback(book.centralConflict)}
-- Siła przeciwna: ${emptyFallback(book.antagonistForce)}
-- Stawki: ${emptyFallback(book.stakes)}
-- Setting: ${emptyFallback(book.settingSketch)}
-- Kierunek zakończenia: ${emptyFallback(book.endingDirection)}
-- Gatunek: ${emptyFallback(book.genre)}
-- Podgatunek: ${emptyFallback(book.subgenre)}
-- Ton: ${emptyFallback(book.tone)}
-- Odbiorcy: ${emptyFallback(book.targetAudience)}
-- Punkt widzenia: ${emptyFallback(book.pointOfView)}
-- Docelowa liczba słów: ${book.targetWordCount ?? "(brak)"}
-- Tematy: ${emptyFallback(renderJsonList(book.themesJson))}
-- Granice i tematy niechciane: ${emptyFallback(book.unwantedThemes)}
-- Alternatywne tytuły: ${emptyFallback(renderJsonList(book.alternativeTitlesJson))}
-- Style guide: ${emptyFallback(book.styleGuide)}
+${bookContext}
 
 # Current Work
 Docelowe pole: ${targetField} (${config.label}).
@@ -500,7 +719,8 @@ ${JSON.stringify(promptPackage.outputContract.schema, null, 2)}
 
 export function buildNewProjectTitlePromptPackage(
   seedTitle: string,
-  locale: "pl" | "en" = "pl"
+  locale: "pl" | "en" = "pl",
+  contextControl?: PromptContextControl
 ): NewProjectTitlePromptPackage {
   const field: ConceptFieldKey = "workingTitle";
 
@@ -512,7 +732,8 @@ export function buildNewProjectTitlePromptPackage(
       "Wygeneruj jedną mocną propozycję tytułu roboczego dla nowego projektu książki.",
     context: {
       seedTitle,
-      maxResponseCharacters: conceptFieldMaxResponseCharacters[field]
+      maxResponseCharacters: conceptFieldMaxResponseCharacters[field],
+      ...(contextControl ? { contextControl } : {})
     },
     outputContract: {
       kind: "concept_field_suggestion",
@@ -528,6 +749,10 @@ export function buildNewProjectTitlePromptPackage(
 export function renderNewProjectTitlePromptPackage(
   promptPackage: NewProjectTitlePromptPackage
 ): string {
+  const authorPriority = renderAuthorPriority(
+    promptPackage.context.contextControl
+  );
+
   return `# Role
 Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
 
@@ -541,6 +766,8 @@ ${promptPackage.userInstruction}
 - Jeśli autor wpisał szkic tytułu, potraktuj go jako inspirację, a nie polecenie przepisania.
 - Nie dodawaj komentarzy poza wymaganym JSON.
 - Odpowiedz wyłącznie poprawnym JSON bez trailing commas.
+
+${authorPriority}
 
 # New Project Seed
 - Wpis autora: ${emptyFallback(promptPackage.context.seedTitle)}
@@ -557,6 +784,166 @@ Autor jest na dashboardzie i chce szybko nazwać nowy projekt książki przed je
 Zwróć JSON:
 ${JSON.stringify(promptPackage.outputContract.schema, null, 2)}
 `;
+}
+
+export function conceptPromptContextSources(
+  targetField: ConceptFieldKey
+): PromptContextSource[] {
+  return uniqueConceptFieldKeys([
+    targetField,
+    ...(conceptPromptContextDefaultKeys[targetField] ?? [])
+  ]).map((field) => conceptPromptContextSource(field, field === targetField));
+}
+
+export function allConceptPromptContextSources(
+  targetField?: ConceptFieldKey
+): PromptContextSource[] {
+  return conceptPromptContextFieldKeys.map((field) =>
+    conceptPromptContextSource(field, field === targetField)
+  );
+}
+
+export function conceptPromptContextSource(
+  field: ConceptFieldKey,
+  required = false
+): PromptContextSource {
+  return {
+    key: field,
+    label: conceptFieldConfigs[field].label,
+    required
+  };
+}
+
+const bookContextRows: Array<{
+  key: ConceptFieldKey;
+  label: string;
+  value: (book: BookConceptPromptContext) => string;
+}> = [
+  { key: "title", label: "Tytuł finalny", value: (book) => book.title },
+  {
+    key: "workingTitle",
+    label: "Roboczy tytuł",
+    value: (book) => book.workingTitle
+  },
+  { key: "premise", label: "Premise", value: (book) => book.premise },
+  {
+    key: "protagonistSummary",
+    label: "Bohater / bohaterka",
+    value: (book) => book.protagonistSummary
+  },
+  {
+    key: "protagonistGoal",
+    label: "Cel bohatera",
+    value: (book) => book.protagonistGoal
+  },
+  {
+    key: "expandedPremise",
+    label: "Rozszerzona premisa",
+    value: (book) => book.expandedPremise
+  },
+  { key: "logline", label: "Logline", value: (book) => book.logline },
+  {
+    key: "centralConflict",
+    label: "Konflikt centralny",
+    value: (book) => book.centralConflict
+  },
+  {
+    key: "antagonistForce",
+    label: "Siła przeciwna",
+    value: (book) => book.antagonistForce
+  },
+  { key: "stakes", label: "Stawki", value: (book) => book.stakes },
+  { key: "settingSketch", label: "Setting", value: (book) => book.settingSketch },
+  {
+    key: "endingDirection",
+    label: "Kierunek zakończenia",
+    value: (book) => book.endingDirection
+  },
+  { key: "genre", label: "Gatunek", value: (book) => book.genre },
+  { key: "subgenre", label: "Podgatunek", value: (book) => book.subgenre },
+  { key: "tone", label: "Ton", value: (book) => book.tone },
+  {
+    key: "targetAudience",
+    label: "Odbiorcy",
+    value: (book) => book.targetAudience
+  },
+  {
+    key: "pointOfView",
+    label: "Punkt widzenia",
+    value: (book) => book.pointOfView
+  },
+  {
+    key: "targetWordCount",
+    label: "Docelowa liczba słów",
+    value: (book) => (book.targetWordCount === null ? "" : String(book.targetWordCount))
+  },
+  {
+    key: "themesJson",
+    label: "Tematy",
+    value: (book) => renderJsonList(book.themesJson)
+  },
+  {
+    key: "unwantedThemes",
+    label: "Granice i tematy niechciane",
+    value: (book) => book.unwantedThemes
+  },
+  {
+    key: "alternativeTitlesJson",
+    label: "Alternatywne tytuły",
+    value: (book) => renderJsonList(book.alternativeTitlesJson)
+  },
+  { key: "styleGuide", label: "Style guide", value: (book) => book.styleGuide }
+];
+
+function renderBookContext(
+  book: BookConceptPromptContext,
+  contextControl?: PromptContextControl
+): string {
+  const rows = bookContextRows.filter((row) =>
+    isContextKeyIncluded(row.key, contextControl)
+  );
+
+  if (rows.length === 0) {
+    return "(brak wybranych pól kontekstu)";
+  }
+
+  return rows
+    .map((row) => `- ${row.label}: ${emptyFallback(row.value(book))}`)
+    .join("\n");
+}
+
+function isContextKeyIncluded(
+  key: string,
+  contextControl?: PromptContextControl
+): boolean {
+  if (!contextControl) {
+    return true;
+  }
+
+  const requiredKeys = new Set(
+    contextControl.contextSources
+      .filter((source) => source.required)
+      .map((source) => source.key)
+  );
+
+  return requiredKeys.has(key) || contextControl.includedContextKeys.includes(key);
+}
+
+function uniqueConceptFieldKeys(fields: ConceptFieldKey[]): ConceptFieldKey[] {
+  return fields.filter((field, index) => fields.indexOf(field) === index);
+}
+
+function renderAuthorPriority(
+  contextControl?: PromptContextControl
+): string {
+  const comment = contextControl?.authorPriorityComment.trim();
+  if (!comment) {
+    return "";
+  }
+
+  return `# Author Priority
+Komentarz autora ma najwyższy priorytet merytoryczny po Hard Rules i Output Contract:
+${comment}`;
 }
 
 function bookConceptContext(book: Book): BookConceptPromptContext {
