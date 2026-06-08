@@ -20,6 +20,7 @@ import {
   Plus,
   Route,
   Save,
+  Search,
   Sparkles,
   Target,
   Trash2,
@@ -84,6 +85,15 @@ type SelectedPlanItem =
 type ChapterModalState =
   | { mode: "create"; actId?: string | null }
   | { mode: "edit"; chapterId: string };
+type BeatSortMode = "order" | "name" | "role";
+type BeatBoardLane = {
+  id: string;
+  actId: string | null;
+  name: string;
+  color: string;
+  rangeLabel: string;
+  beats: Beat[];
+};
 
 const planSteps: Array<{ key: PlanStep; label: string; icon: typeof Map }> = [
   { key: "structure", label: "Struktura", icon: Map },
@@ -1066,6 +1076,45 @@ function BeatsStep({
   onDelete: (item: SelectedPlanItem) => void;
   onSelect: (item: SelectedPlanItem) => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [actFilter, setActFilter] = useState("all");
+  const [threadFilter, setThreadFilter] = useState("all");
+  const [sortMode, setSortMode] = useState<BeatSortMode>("order");
+  const [expandedBeatId, setExpandedBeatId] = useState<string | null>(null);
+  const [addingBeat, setAddingBeat] = useState(false);
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase("pl-PL");
+  const visibleBeats = plan.beats
+    .filter((beat) => {
+      const threadIds = beatThreadIdsForBeat(plan, beat.id);
+      const threadNames = plan.threads
+        .filter((thread) => threadIds.includes(thread.id))
+        .map((thread) => thread.name)
+        .join(" ");
+      const searchable = `${beat.name} ${beat.description} ${beat.role} ${threadNames}`
+        .toLocaleLowerCase("pl-PL");
+      const matchesSearch = !normalizedSearch || searchable.includes(normalizedSearch);
+      const matchesAct =
+        actFilter === "all" ||
+        (actFilter === "none" ? !beat.actId : beat.actId === actFilter);
+      const matchesThread =
+        threadFilter === "all" || threadIds.includes(threadFilter);
+
+      return matchesSearch && matchesAct && matchesThread;
+    })
+    .sort((first, second) => {
+      if (sortMode === "name") {
+        return first.name.localeCompare(second.name, "pl-PL");
+      }
+      if (sortMode === "role") {
+        return (
+          first.role.localeCompare(second.role, "pl-PL") ||
+          first.orderIndex - second.orderIndex
+        );
+      }
+      return first.orderIndex - second.orderIndex;
+    });
+  const lanes = beatBoardLanesForPlan(plan, visibleBeats);
+
   return (
     <PlanCard
       title="Beaty"
@@ -1078,26 +1127,183 @@ function BeatsStep({
         />
       }
     >
-      <div className="plan-grid-list">
-        {plan.beats.map((beat) => (
-          <BeatForm
-            key={beat.id}
-            bookId={bookId}
-            beat={beat}
-            plan={plan}
-            saving={saving}
-            onSave={onSave}
-            onDelete={() => onDelete({ type: "beat", id: beat.id })}
-            onSelect={() => onSelect({ type: "beat", id: beat.id })}
-          />
-        ))}
-        <BeatForm
-          bookId={bookId}
-          plan={plan}
-          saving={saving}
-          orderIndex={plan.beats.length}
-          onSave={onSave}
-        />
+      <div className="beat-board-shell">
+        <div className="beat-board-toolbar">
+          <div className="beat-board-heading">
+            <strong>{visibleBeats.length} / {plan.beats.length}</strong>
+            <span>beatów w widoku</span>
+          </div>
+          <label className="beat-board-search">
+            <Search size={16} />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Szukaj beatu..."
+              aria-label="Szukaj beatu"
+            />
+          </label>
+          <select
+            value={actFilter}
+            onChange={(event) => setActFilter(event.target.value)}
+            aria-label="Filtruj beaty po akcie"
+          >
+            <option value="all">Akt: Wszystkie</option>
+            <option value="none">Bez aktu</option>
+            {plan.acts.map((act) => (
+              <option value={act.id} key={act.id}>
+                {act.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={threadFilter}
+            onChange={(event) => setThreadFilter(event.target.value)}
+            aria-label="Filtruj beaty po wątku"
+          >
+            <option value="all">Wątek: Wszystkie</option>
+            {plan.threads.map((thread) => (
+              <option value={thread.id} key={thread.id}>
+                {thread.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={sortMode}
+            onChange={(event) => setSortMode(event.target.value as BeatSortMode)}
+            aria-label="Sortuj beaty"
+          >
+            <option value="order">Sortuj: Kolejność</option>
+            <option value="name">Sortuj: Nazwa</option>
+            <option value="role">Sortuj: Rola</option>
+          </select>
+          <button
+            type="button"
+            className="primary-button beat-board-add-button"
+            onClick={() => {
+              setExpandedBeatId(null);
+              setAddingBeat((current) => !current);
+            }}
+          >
+            <Plus size={16} />
+            Dodaj beat
+          </button>
+        </div>
+
+        <div className="beat-board-timeline" aria-label="Oś aktów">
+          {lanes.map((lane) => (
+            <div
+              className="beat-board-timeline-segment"
+              style={{ borderTopColor: lane.color }}
+              key={lane.id}
+            >
+              <span style={{ background: lane.color }} />
+              <strong>{lane.name}</strong>
+              <small>{lane.rangeLabel}</small>
+            </div>
+          ))}
+        </div>
+
+        {addingBeat ? (
+          <div className="beat-board-new-form">
+            <BeatForm
+              bookId={bookId}
+              plan={plan}
+              saving={saving}
+              orderIndex={plan.beats.length}
+              onSave={onSave}
+              onCancel={() => setAddingBeat(false)}
+              formClassName="beat-board-editor-form"
+            />
+          </div>
+        ) : null}
+
+        <div className="beat-board-columns">
+          {lanes.map((lane) => (
+            <section className="beat-board-column" key={lane.id}>
+              <div className="beat-board-column-header">
+                <div>
+                  <span style={{ background: lane.color }} />
+                  <h4>{lane.name}</h4>
+                </div>
+                <small>{lane.beats.length} beatów</small>
+              </div>
+              <div className="beat-board-card-stack">
+                {lane.beats.length === 0 ? (
+                  <p className="beat-board-empty">Brak beatów dla tych filtrów.</p>
+                ) : null}
+                {lane.beats.map((beat) => {
+                  const threads = threadsForBeat(plan, beat);
+                  const chapters = chaptersForBeat(plan, beat);
+                  const expanded = expandedBeatId === beat.id;
+
+                  return (
+                    <article
+                      className={expanded ? "beat-board-card-shell active" : "beat-board-card-shell"}
+                      key={beat.id}
+                    >
+                      <button
+                        type="button"
+                        className="beat-board-card"
+                        onClick={() => {
+                          setAddingBeat(false);
+                          setExpandedBeatId(expanded ? null : beat.id);
+                          onSelect({ type: "beat", id: beat.id });
+                        }}
+                        aria-expanded={expanded}
+                        aria-label={`Otwórz beat ${beat.name}`}
+                      >
+                        <span className="beat-board-card-topline">
+                          <span className="beat-board-number">{beat.orderIndex + 1}</span>
+                          <MoreHorizontal size={16} />
+                        </span>
+                        <strong>{beat.name}</strong>
+                        <span className="beat-board-description">
+                          {beat.description || "Dodaj opis roli tego beatu w historii."}
+                        </span>
+                        <span className="beat-board-role">{beat.role || "Bez roli"}</span>
+                        <span className="beat-board-meta">
+                          <span>
+                            Wątki:
+                            {threads.length > 0 ? (
+                              threads.map((thread) => (
+                                <em key={thread.id}>{thread.name}</em>
+                              ))
+                            ) : (
+                              <em>Brak</em>
+                            )}
+                          </span>
+                          <span>
+                            Rozdz.:
+                            {chapters.length > 0 ? (
+                              chapters.map((chapter) => (
+                                <em key={chapter.id}>{chapter.number}</em>
+                              ))
+                            ) : (
+                              <em>Brak</em>
+                            )}
+                          </span>
+                        </span>
+                      </button>
+                      {expanded ? (
+                        <BeatForm
+                          bookId={bookId}
+                          beat={beat}
+                          plan={plan}
+                          saving={saving}
+                          onSave={onSave}
+                          onDelete={() => onDelete({ type: "beat", id: beat.id })}
+                          onSelect={() => onSelect({ type: "beat", id: beat.id })}
+                          onCancel={() => setExpandedBeatId(null)}
+                          formClassName="beat-board-editor-form"
+                        />
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
     </PlanCard>
   );
@@ -1111,7 +1317,9 @@ function BeatForm({
   saving,
   onSave,
   onDelete,
-  onSelect
+  onSelect,
+  onCancel,
+  formClassName
 }: {
   bookId: string;
   beat?: Beat;
@@ -1121,6 +1329,8 @@ function BeatForm({
   onSave: (input: UpsertBeatInput) => void;
   onDelete?: () => void;
   onSelect?: () => void;
+  onCancel?: () => void;
+  formClassName?: string;
 }) {
   const beatThreadIds = plan.beatThreads
     .filter((item) => item.beatId === beat?.id)
@@ -1162,7 +1372,10 @@ function BeatForm({
   }
 
   return (
-    <form className="plan-entity-card" onSubmit={submit}>
+    <form
+      className={formClassName ? `plan-entity-card ${formClassName}` : "plan-entity-card"}
+      onSubmit={submit}
+    >
       <button
         type="button"
         className="plan-link-title"
@@ -1206,7 +1419,14 @@ function BeatForm({
         selectedIds={threadIds}
         onChange={setThreadIds}
       />
-      <EntityActions saving={saving} onDelete={onDelete} />
+      <div className="beat-form-actions">
+        <EntityActions saving={saving} onDelete={onDelete} />
+        {onCancel ? (
+          <button type="button" className="ghost-button" onClick={onCancel}>
+            Zamknij
+          </button>
+        ) : null}
+      </div>
     </form>
   );
 }
@@ -2521,6 +2741,54 @@ function chapterLanesForPlan(plan: BookPlan): ChapterLane[] {
   }
 
   return lanes;
+}
+
+function beatBoardLanesForPlan(plan: BookPlan, beats: Beat[]): BeatBoardLane[] {
+  const actIds = new Set(plan.acts.map((act) => act.id));
+  const lanes: BeatBoardLane[] = plan.acts.map((act) => ({
+    id: act.id,
+    actId: act.id,
+    name: act.name,
+    color: act.color,
+    rangeLabel: `${act.startPercent}-${act.endPercent}%`,
+    beats: beats.filter((beat) => beat.actId === act.id)
+  }));
+  const unassignedBeats = beats.filter((beat) => !beat.actId || !actIds.has(beat.actId));
+
+  if (unassignedBeats.length > 0 || lanes.length === 0) {
+    lanes.push({
+      id: "without-act",
+      actId: null,
+      name: "Bez aktu",
+      color: "#8a9791",
+      rangeLabel: "Poza aktami",
+      beats: unassignedBeats
+    });
+  }
+
+  return lanes;
+}
+
+function beatThreadIdsForBeat(plan: BookPlan, beatId: string): string[] {
+  return plan.beatThreads
+    .filter((relation) => relation.beatId === beatId)
+    .map((relation) => relation.threadId);
+}
+
+function threadsForBeat(plan: BookPlan, beat: Beat): PlotThread[] {
+  const threadIds = new Set(beatThreadIdsForBeat(plan, beat.id));
+
+  return plan.threads.filter((thread) => threadIds.has(thread.id));
+}
+
+function chaptersForBeat(plan: BookPlan, beat: Beat): Chapter[] {
+  const chapterIds = new Set(
+    plan.chapterBeats
+      .filter((relation) => relation.beatId === beat.id)
+      .map((relation) => relation.chapterId)
+  );
+
+  return plan.chapters.filter((chapter) => chapterIds.has(chapter.id));
 }
 
 function plannedWordsForChapters(chapters: Chapter[]): number {
