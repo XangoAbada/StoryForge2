@@ -12,6 +12,8 @@ import type { PromptContextControl, PromptContextSource } from "./promptPackage"
 
 export type PlanFieldKey =
   | "storyStructure"
+  | "storyStructureDescription"
+  | "storyStructureNotes"
   | "acts"
   | "actPurpose"
   | "actSummary"
@@ -72,6 +74,8 @@ export type PlanPromptPackage = {
       threads: PlotThread[];
       chapters: Chapter[];
     };
+    generationMode: "generate" | "expand";
+    targetFieldCurrentValue: string;
     contextControl?: PromptContextControl;
   };
   outputContract: {
@@ -91,7 +95,23 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "suggest_story_structure",
     targetKind: "structure",
     userInstruction:
-      "Zaproponuj najlepsza strukture fabularna dla ksiazki i uzasadnij wybor."
+      "Zaproponuj tylko typ struktury fabularnej dla ksiazki. Nie generuj ani nie edytuj opisu, notatek, aktow, beatow, watkow ani rozdzialow."
+  },
+  storyStructureDescription: {
+    key: "storyStructureDescription",
+    label: "Opis struktury",
+    action: "suggest_story_structure",
+    targetKind: "structure",
+    userInstruction:
+      "Wygeneruj tylko wartosc pola opisu struktury. Jesli pole ma juz tresc, rozwin ja w kompletna docelowa wersje bez zmiany typu struktury, notatek ani encji planu."
+  },
+  storyStructureNotes: {
+    key: "storyStructureNotes",
+    label: "Notatki do planu",
+    action: "suggest_story_structure",
+    targetKind: "structure",
+    userInstruction:
+      "Wygeneruj tylko wartosc pola notatek do planu. Jesli pole ma juz tresc, rozwin ja w kompletna docelowa wersje bez zmiany typu struktury, opisu ani encji planu."
   },
   acts: {
     key: "acts",
@@ -99,7 +119,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_acts",
     targetKind: "act",
     userInstruction:
-      "Rozbij historie na akty z zakresem fabuly, celem i zwiezlym streszczeniem."
+      "Wygeneruj tylko akty z zakresem fabuly, celem i zwiezlym streszczeniem. Nie generuj beatow, watkow ani rozdzialow."
   },
   actPurpose: {
     key: "actPurpose",
@@ -107,7 +127,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_act_field",
     targetKind: "act",
     userInstruction:
-      "Wygeneruj albo dopracuj cel wybranego aktu, korzystajac z calego planu jako kontekstu."
+      "Wygeneruj tylko wartosc pola celu wybranego aktu, korzystajac z planu jako kontekstu. Nie zmieniaj innych pol ani encji."
   },
   actSummary: {
     key: "actSummary",
@@ -115,7 +135,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_act_field",
     targetKind: "act",
     userInstruction:
-      "Wygeneruj albo dopracuj streszczenie wybranego aktu bez zmiany pozostalych elementow."
+      "Wygeneruj tylko wartosc pola streszczenia wybranego aktu. Nie zmieniaj innych pol ani encji."
   },
   beatSheet: {
     key: "beatSheet",
@@ -123,7 +143,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_beat_sheet",
     targetKind: "beat",
     userInstruction:
-      "Wygeneruj beat sheet przypisany do aktow i watkow, gotowy do pozniejszego dopracowania."
+      "Wygeneruj tylko beat sheet przypisany do aktow i watkow. Nie generuj struktury, aktow, watkow ani rozdzialow."
   },
   plotThreads: {
     key: "plotThreads",
@@ -131,7 +151,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_plot_threads",
     targetKind: "thread",
     userInstruction:
-      "Zaproponuj watki fabularne wraz z rola i kolorem do mapy planu."
+      "Zaproponuj tylko watki fabularne wraz z rola i kolorem do mapy planu. Nie generuj struktury, aktow, beatow ani rozdzialow."
   },
   chapterPlan: {
     key: "chapterPlan",
@@ -139,7 +159,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_chapter_plan",
     targetKind: "chapter",
     userInstruction:
-      "Wygeneruj plan rozdzialow z celami, konfliktami, punktami zwrotnymi oraz przypisaniami do aktow, beatow i watkow."
+      "Wygeneruj tylko plan rozdzialow z celami, konfliktami, punktami zwrotnymi oraz przypisaniami do istniejacych aktow, beatow i watkow."
   },
   chapterSummary: {
     key: "chapterSummary",
@@ -147,7 +167,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_chapter_field",
     targetKind: "chapter",
     userInstruction:
-      "Wygeneruj albo dopracuj streszczenie wybranego rozdzialu."
+      "Wygeneruj tylko wartosc pola streszczenia wybranego rozdzialu. Nie zmieniaj innych pol ani encji."
   },
   chapterPurpose: {
     key: "chapterPurpose",
@@ -155,7 +175,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_chapter_field",
     targetKind: "chapter",
     userInstruction:
-      "Wygeneruj albo dopracuj cel fabularny wybranego rozdzialu."
+      "Wygeneruj tylko wartosc pola celu fabularnego wybranego rozdzialu. Nie zmieniaj innych pol ani encji."
   },
   chapterConflict: {
     key: "chapterConflict",
@@ -163,7 +183,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_chapter_field",
     targetKind: "chapter",
     userInstruction:
-      "Wygeneruj albo dopracuj konflikt wybranego rozdzialu."
+      "Wygeneruj tylko wartosc pola konfliktu wybranego rozdzialu. Nie zmieniaj innych pol ani encji."
   },
   chapterTurningPoint: {
     key: "chapterTurningPoint",
@@ -171,7 +191,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_chapter_field",
     targetKind: "chapter",
     userInstruction:
-      "Wygeneruj albo dopracuj punkt zwrotny wybranego rozdzialu."
+      "Wygeneruj tylko wartosc pola punktu zwrotnego wybranego rozdzialu. Nie zmieniaj innych pol ani encji."
   },
   planGaps: {
     key: "planGaps",
@@ -192,6 +212,8 @@ export function buildPlanPromptPackage(
   contextControl?: PromptContextControl
 ): PlanPromptPackage {
   const config = planFieldConfigs[field];
+  const targetFieldCurrentValue = currentPlanFieldValue(plan, field, targetEntity);
+  const generationMode = targetFieldCurrentValue.trim() ? "expand" : "generate";
 
   return {
     id: createPromptId(config.action),
@@ -218,6 +240,8 @@ export function buildPlanPromptPackage(
         threads: plan.threads,
         chapters: plan.chapters
       },
+      generationMode,
+      targetFieldCurrentValue,
       ...(contextControl ? { contextControl } : {})
     },
     outputContract: {
@@ -236,6 +260,15 @@ export function renderPlanPromptPackage(promptPackage: PlanPromptPackage): strin
   const authorPriority = renderAuthorPriority(
     promptPackage.context.contextControl
   );
+  const modeInstruction =
+    promptPackage.context.generationMode === "expand"
+      ? `Tryb pracy: expand.
+Obecna zawartosc pola "${config.label}" jest materialem wyjsciowym:
+${emptyFallback(promptPackage.context.targetFieldCurrentValue)}
+
+Uwzglednij te tresc i rozwin ja w lepsza, pelniejsza propozycje. Mozesz przebudowac, doprecyzowac i przepisac istniejaca tresc, jesli dzieki temu wynik bedzie spojniejszy. Zwroc kompletna docelowa wartosc pola, nie sam dopisek.`
+      : `Tryb pracy: generate.
+Pole "${config.label}" jest puste albo wymaga nowej propozycji. Wygeneruj kompletna docelowa wartosc pola.`;
 
   return `# Role
 Jestes asystentem pisarskim pracujacym wewnatrz StoryForge2.
@@ -249,6 +282,7 @@ ${promptPackage.userInstruction}
 - Nie zapisuj danych. Zwroc tylko propozycje jako JSON.
 - Nie kasuj istniejacych aktow, beatow, watkow ani rozdzialow; proponuj zmiany i dodatki.
 - Elementy planu, ktore odwolujesz, identyfikuj po id albo dokladnej nazwie.
+- Zwroc tylko sekcje przewidziane w Output Contract dla docelowego pola. Nie dopisuj pozostalych czesci planu.
 - Odpowiedz wylacznie poprawnym JSON bez trailing commas.
 
 ${authorPriority}
@@ -262,6 +296,7 @@ ${renderPlanContext(promptPackage.context.plan, promptPackage.context.contextCon
 # Current Work
 Docelowe pole: ${promptPackage.context.targetField} (${config.label}).
 Docelowy element: ${promptPackage.context.targetEntityLabel ?? "(brak)"}
+${modeInstruction}
 
 # Output Contract
 Zwroc JSON:
@@ -375,60 +410,152 @@ function renderPlanContext(
   return sections.length ? sections.join("\n") : "(brak wybranego kontekstu planu)";
 }
 
+function currentPlanFieldValue(
+  plan: BookPlan,
+  field: PlanFieldKey,
+  targetEntity?: Act | Beat | PlotThread | Chapter
+): string {
+  if (field === "storyStructure") {
+    return plan.structure?.structureType ?? "";
+  }
+  if (field === "storyStructureDescription") {
+    return plan.structure?.description ?? "";
+  }
+  if (field === "storyStructureNotes") {
+    return plan.structure?.notes ?? "";
+  }
+  if (targetEntity && "purpose" in targetEntity && field === "actPurpose") {
+    return targetEntity.purpose ?? "";
+  }
+  if (targetEntity && "summary" in targetEntity && field === "actSummary") {
+    return targetEntity.summary ?? "";
+  }
+  if (targetEntity && "summary" in targetEntity && field === "chapterSummary") {
+    return targetEntity.summary ?? "";
+  }
+  if (targetEntity && "purpose" in targetEntity && field === "chapterPurpose") {
+    return targetEntity.purpose ?? "";
+  }
+  if (targetEntity && "conflict" in targetEntity && field === "chapterConflict") {
+    return targetEntity.conflict ?? "";
+  }
+  if (
+    targetEntity &&
+    "turningPoint" in targetEntity &&
+    field === "chapterTurningPoint"
+  ) {
+    return targetEntity.turningPoint ?? "";
+  }
+
+  return "";
+}
+
 function planSuggestionSchema(field: PlanFieldKey): unknown {
-  return {
+  const base = {
     version: 1,
     kind: "book_plan_suggestion",
     field,
     summary: "string",
-    value: "string or structured object matching the requested plan element",
-    structure: {
-      structureType: "three_act | save_the_cat | heros_journey | mystery_outline | custom",
-      description: "string",
-      notes: "string"
-    },
-    acts: [
-      {
-        name: "string",
-        purpose: "string",
-        summary: "string",
-        startPercent: 0,
-        endPercent: 25,
-        color: "#3f8f6b"
-      }
-    ],
-    beats: [
-      {
-        name: "string",
-        description: "string",
-        role: "string",
-        actNameOrId: "string",
-        threadNamesOrIds: ["string"]
-      }
-    ],
-    threads: [
-      {
-        name: "string",
-        description: "string",
-        color: "#3f8f6b",
-        status: "planned"
-      }
-    ],
-    chapters: [
-      {
-        number: 1,
-        workingTitle: "string",
-        summary: "string",
-        purpose: "string",
-        conflict: "string",
-        turningPoint: "string",
-        actNameOrId: "string",
-        beatNamesOrIds: ["string"],
-        threadNamesOrIds: ["string"],
-        targetWordCount: 2500
-      }
-    ],
     warnings: ["string"]
+  };
+
+  if (field === "storyStructure") {
+    return {
+      ...base,
+      structure: {
+        structureType: "three_act | save_the_cat | heros_journey | mystery_outline | custom"
+      }
+    };
+  }
+
+  if (field === "storyStructureDescription" || field === "storyStructureNotes") {
+    return {
+      ...base,
+      value: "string"
+    };
+  }
+
+  if (field === "acts") {
+    return {
+      ...base,
+      acts: [
+        {
+          name: "string",
+          purpose: "string",
+          summary: "string",
+          startPercent: 0,
+          endPercent: 25,
+          color: "#3f8f6b"
+        }
+      ]
+    };
+  }
+
+  if (field === "beatSheet") {
+    return {
+      ...base,
+      beats: [
+        {
+          name: "string",
+          description: "string",
+          role: "string",
+          actNameOrId: "string",
+          threadNamesOrIds: ["string"]
+        }
+      ]
+    };
+  }
+
+  if (field === "plotThreads") {
+    return {
+      ...base,
+      threads: [
+        {
+          name: "string",
+          description: "string",
+          color: "#3f8f6b",
+          status: "planned"
+        }
+      ]
+    };
+  }
+
+  if (field === "chapterPlan") {
+    return {
+      ...base,
+      chapters: [
+        {
+          number: 1,
+          workingTitle: "string",
+          summary: "string",
+          purpose: "string",
+          conflict: "string",
+          turningPoint: "string",
+          actNameOrId: "string",
+          beatNamesOrIds: ["string"],
+          threadNamesOrIds: ["string"],
+          targetWordCount: 2500
+        }
+      ]
+    };
+  }
+
+  if (field === "planGaps") {
+    return {
+      ...base,
+      value: [
+        {
+          problem: "string",
+          whyItMatters: "string",
+          suggestedFix: "string"
+        }
+      ]
+    };
+  }
+
+  return {
+    ...base,
+    value: "string"
   };
 }
 

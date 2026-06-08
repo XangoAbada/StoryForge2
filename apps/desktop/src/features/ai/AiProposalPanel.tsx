@@ -8,7 +8,13 @@ import {
   acceptGeneratedBookCover,
   generateBookCover,
   generateNewProjectTitle,
+  getBookPlan,
   runCodexPrompt,
+  saveStoryStructure,
+  upsertAct,
+  upsertBeat,
+  upsertChapter,
+  upsertPlotThread,
   updateBookConcept
 } from "../../shared/api/commands";
 import type {
@@ -24,6 +30,7 @@ import {
   longConceptFields
 } from "./promptPackage";
 import { planFieldConfigs, PlanFieldKey } from "./planPromptPackage";
+import { applyPlanProposalPayload } from "./planProposalApplication";
 import {
   ActiveAiProposal,
   BOOK_COVER_FIELD,
@@ -95,7 +102,28 @@ export function AiProposalPanel({
       }
 
       if (proposal.scope === "bookPlan") {
-        throw new Error("Propozycje planu zastosuj w widoku Plan.");
+        const plan = await getBookPlan(proposal.bookId);
+        const payload = planPayloadFromEditableValue(proposal);
+        const packageContext =
+          "context" in proposal.promptPackageJson
+            ? proposal.promptPackageJson.context
+            : {};
+
+        await applyPlanProposalPayload(
+          payload,
+          proposal.field as PlanFieldKey,
+          packageContext,
+          {
+            bookId: proposal.bookId,
+            plan,
+            saveStructure: saveStoryStructure,
+            saveAct: upsertAct,
+            saveBeat: upsertBeat,
+            saveThread: upsertPlotThread,
+            saveChapter: upsertChapter
+          }
+        );
+        return null;
       }
 
       if (isPremiseDevelopment(proposal.parsed)) {
@@ -116,8 +144,13 @@ export function AiProposalPanel({
       const proposal = useProposalStore
         .getState()
         .proposals.find((item) => item.id === proposalId);
+      if (!proposal) {
+        return;
+      }
+
       clearProposal(proposalId);
-      if (proposal?.scope !== "newProject") {
+      if (proposal.scope !== "newProject") {
+        await queryClient.invalidateQueries({ queryKey: ["book-plan", proposal.bookId] });
         await queryClient.invalidateQueries({ queryKey: ["project", projectId] });
         await queryClient.invalidateQueries({ queryKey: ["projects"] });
       }
@@ -235,7 +268,7 @@ function ProposalQueueItem({
   const canAccept = coverProposal
     ? Boolean((proposal.coverImagePath || proposal.editableValue).trim())
     : planProposal
-      ? false
+      ? proposal.editableValue.trim().length > 0
       : structured
         ? hasSelectedEditableField(proposal)
         : proposal.editableValue.trim().length > 0;
@@ -367,8 +400,8 @@ function ProposalQueueItem({
 
       {planProposal && success ? (
         <p className="muted-text">
-          Zastosuj te dane z sekcji propozycji w widoku Plan, aby utworzyć albo
-          uzupełnić encje planu.
+          Akceptacja zapisze tylko zakres tego widoku planu. Pozostałe sekcje z
+          odpowiedzi AI zostaną pominięte.
         </p>
       ) : null}
 
@@ -648,7 +681,7 @@ export function parseProposalResult(
   action: string
 ): ParsedAiProposal {
   if (isPlanAction(action)) {
-    return parsePlanSuggestion(rawOutput);
+    return parsePlanSuggestion(rawOutput, expectedField as PlanFieldKey);
   }
 
   if (action === "expand_premise") {
@@ -658,7 +691,10 @@ export function parseProposalResult(
   return parseConceptFieldSuggestion(rawOutput, expectedField);
 }
 
-function parsePlanSuggestion(rawOutput: string): ParsedAiProposal {
+function parsePlanSuggestion(
+  rawOutput: string,
+  expectedField: PlanFieldKey
+): ParsedAiProposal {
   const parsed = JSON.parse(rawOutput) as unknown;
   const value =
     parsed && typeof parsed === "object"
@@ -669,19 +705,82 @@ function parsePlanSuggestion(rawOutput: string): ParsedAiProposal {
           value: String(parsed ?? "")
         };
   const record = value as {
+    structure?: unknown;
     summary?: unknown;
+    value?: unknown;
     warnings?: unknown;
   };
+  const textValue = planProposalTextValue(value, expectedField);
 
   return {
     kind: "book_plan_suggestion",
     summary: typeof record.summary === "string" ? record.summary : "Propozycja planu",
-    textValue: JSON.stringify(value, null, 2),
+    textValue,
     value,
     warnings: Array.isArray(record.warnings)
       ? record.warnings.filter((item): item is string => typeof item === "string")
       : []
   };
+}
+
+function planProposalTextValue(value: unknown, field: PlanFieldKey): string {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  if (isPlanTextField(field) && typeof record.value === "string") {
+    return record.value;
+  }
+
+  if (field === "storyStructure" && record.structure && typeof record.structure === "object") {
+    const structure = record.structure as Record<string, unknown>;
+    if (typeof structure.structureType === "string") {
+      return structure.structureType;
+    }
+  }
+
+  return JSON.stringify(value, null, 2);
+}
+
+function planPayloadFromEditableValue(proposal: ActiveAiProposal): unknown {
+  const field = proposal.field as PlanFieldKey;
+  const editableValue = proposal.editableValue.trim();
+
+  if (isPlanTextField(field)) {
+    return {
+      version: 1,
+      kind: "book_plan_suggestion",
+      field,
+      value: editableValue
+    };
+  }
+
+  if (field === "storyStructure" && !editableValue.startsWith("{")) {
+    return {
+      version: 1,
+      kind: "book_plan_suggestion",
+      field,
+      structure: {
+        structureType: editableValue
+      }
+    };
+  }
+
+  return JSON.parse(editableValue || proposal.rawOutput);
+}
+
+function isPlanTextField(field: PlanFieldKey): boolean {
+  return [
+    "storyStructureDescription",
+    "storyStructureNotes",
+    "actPurpose",
+    "actSummary",
+    "chapterSummary",
+    "chapterPurpose",
+    "chapterConflict",
+    "chapterTurningPoint"
+  ].includes(field);
 }
 
 function isPlanAction(action: string): boolean {

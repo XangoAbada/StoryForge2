@@ -1,6 +1,4 @@
 import {
-  Bot,
-  Check,
   ChevronRight,
   Clock3,
   FileText,
@@ -17,7 +15,7 @@ import {
   Target,
   Trash2
 } from "lucide-react";
-import { FormEvent, ReactNode, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteAct,
@@ -58,11 +56,7 @@ import {
   promptContextControlForActiveTarget,
   useAiPromptContextStore
 } from "../ai/aiPromptContextStore";
-import {
-  ActiveAiProposal,
-  pendingProposalStatus,
-  useProposalStore
-} from "../ai/proposalStore";
+import { pendingProposalStatus, useProposalStore } from "../ai/proposalStore";
 
 type BookPlanPageProps = {
   projectId: string;
@@ -85,15 +79,180 @@ const planSteps: Array<{ key: PlanStep; label: string; icon: typeof Map }> = [
   { key: "chapters", label: "Rozdziały", icon: FileText }
 ];
 
-const structureOptions = [
-  { value: "three_act", label: "Trzy akty" },
-  { value: "save_the_cat", label: "Save the Cat" },
-  { value: "heros_journey", label: "Hero's Journey" },
-  { value: "mystery_outline", label: "Mystery outline" },
-  { value: "custom", label: "Custom" }
-];
-
 const actColors = ["#3f8f6b", "#4f8fd9", "#8b5cf6", "#f59e42", "#d94f8f"];
+
+type StructureActTemplate = {
+  name: string;
+  purpose: string;
+  summary: string;
+  startPercent: number;
+  endPercent: number;
+  color: string;
+};
+
+type SaveStoryStructureWithSkeletonInput = SaveStoryStructureInput & {
+  actTemplates?: StructureActTemplate[];
+};
+
+type StructureOption = {
+  value: string;
+  label: string;
+  bestFor: string;
+  organizes: string;
+  result: string;
+  actTemplates: StructureActTemplate[];
+};
+
+const structureOptions: StructureOption[] = [
+  {
+    value: "three_act",
+    label: "Trzy akty",
+    bestFor: "Uniwersalne powieści, gdy potrzebujesz prostego kręgosłupa historii.",
+    organizes: "Ustawia początek, konfrontację i rozwiązanie w czytelnych proporcjach.",
+    result: "Doda 3 akty: Początek, Konfrontacja, Rozwiązanie.",
+    actTemplates: [
+      {
+        name: "Początek",
+        purpose: "Przedstawić bohatera, świat, pragnienie i zdarzenie uruchamiające fabułę.",
+        summary: "",
+        startPercent: 0,
+        endPercent: 25,
+        color: actColors[0]
+      },
+      {
+        name: "Konfrontacja",
+        purpose: "Rozwijać konflikt, komplikacje, próby i punkt zwrotny w środku historii.",
+        summary: "",
+        startPercent: 25,
+        endPercent: 75,
+        color: actColors[1]
+      },
+      {
+        name: "Rozwiązanie",
+        purpose: "Doprowadzić konflikt do finału i pokazać konsekwencje wyborów bohatera.",
+        summary: "",
+        startPercent: 75,
+        endPercent: 100,
+        color: actColors[2]
+      }
+    ]
+  },
+  {
+    value: "save_the_cat",
+    label: "Save the Cat",
+    bestFor: "Historie komercyjne, gatunkowe i mocno rytmiczne.",
+    organizes: "Prowadzi przez obietnicę historii, zabawę gatunkiem, kryzys i finał.",
+    result: "Doda 3 akty: Setup, Fun and Games / Bad Guys Close In, Finale.",
+    actTemplates: [
+      {
+        name: "Setup",
+        purpose: "Ustawić świat, bohatera, temat, katalizator i decyzję wejścia w historię.",
+        summary: "",
+        startPercent: 0,
+        endPercent: 25,
+        color: actColors[0]
+      },
+      {
+        name: "Fun and Games / Bad Guys Close In",
+        purpose: "Rozwinąć obietnicę gatunku, midpoint, presję przeciwnika i najgłębszy kryzys.",
+        summary: "",
+        startPercent: 25,
+        endPercent: 75,
+        color: actColors[1]
+      },
+      {
+        name: "Finale",
+        purpose: "Pozwolić bohaterowi użyć lekcji historii i rozwiązać główny konflikt.",
+        summary: "",
+        startPercent: 75,
+        endPercent: 100,
+        color: actColors[2]
+      }
+    ]
+  },
+  {
+    value: "heros_journey",
+    label: "Hero's Journey",
+    bestFor: "Przemianę bohatera, fantasy, przygodę albo opowieść inicjacyjną.",
+    organizes: "Dzieli historię na wezwanie, próby i powrót z przemianą.",
+    result: "Doda 3 akty: Ordinary World / Call, Trials and Transformation, Return.",
+    actTemplates: [
+      {
+        name: "Ordinary World / Call",
+        purpose: "Pokazać zwykły świat, brak bohatera, wezwanie i przekroczenie progu.",
+        summary: "",
+        startPercent: 0,
+        endPercent: 25,
+        color: actColors[0]
+      },
+      {
+        name: "Trials and Transformation",
+        purpose: "Przeprowadzić bohatera przez próby, sojuszników, kryzys i wewnętrzną zmianę.",
+        summary: "",
+        startPercent: 25,
+        endPercent: 75,
+        color: actColors[1]
+      },
+      {
+        name: "Return",
+        purpose: "Doprowadzić do powrotu, konfrontacji i nowej równowagi po przemianie.",
+        summary: "",
+        startPercent: 75,
+        endPercent: 100,
+        color: actColors[2]
+      }
+    ]
+  },
+  {
+    value: "mystery_outline",
+    label: "Mystery outline",
+    bestFor: "Kryminał, thriller śledczy i fabuły oparte na pytaniu: co naprawdę zaszło?",
+    organizes: "Porządkuje zbrodnię, śledztwo, fałszywe tropy oraz ujawnienie prawdy.",
+    result: "Doda 4 akty: Zbrodnia i pytanie, Śledztwo, Komplikacje i fałszywe tropy, Ujawnienie i konsekwencje.",
+    actTemplates: [
+      {
+        name: "Zbrodnia i pytanie",
+        purpose: "Ustawić tajemnicę, stawkę, podejrzanych i pytanie napędzające śledztwo.",
+        summary: "",
+        startPercent: 0,
+        endPercent: 20,
+        color: actColors[0]
+      },
+      {
+        name: "Śledztwo",
+        purpose: "Zbierać wskazówki, budować hipotezy i poszerzać krąg podejrzeń.",
+        summary: "",
+        startPercent: 20,
+        endPercent: 50,
+        color: actColors[1]
+      },
+      {
+        name: "Komplikacje i fałszywe tropy",
+        purpose: "Zwiększać presję, podważać dowody i prowadzić do błędnych wniosków.",
+        summary: "",
+        startPercent: 50,
+        endPercent: 80,
+        color: actColors[2]
+      },
+      {
+        name: "Ujawnienie i konsekwencje",
+        purpose: "Odsłonić prawdę, skonfrontować winnego i pokazać koszt rozwiązania.",
+        summary: "",
+        startPercent: 80,
+        endPercent: 100,
+        color: actColors[3]
+      }
+    ]
+  },
+  {
+    value: "custom",
+    label: "Custom",
+    bestFor: "Eksperymentalną albo autorską konstrukcję bez narzuconych etapów.",
+    organizes: "Zostawia pełną swobodę w definiowaniu aktów, beatów i proporcji.",
+    result: "Nie doda aktów automatycznie.",
+    actTemplates: []
+  }
+];
 
 export function BookPlanPage({ projectId }: BookPlanPageProps) {
   const queryClient = useQueryClient();
@@ -108,8 +267,6 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
   );
   const enqueueProposal = useProposalStore((state) => state.enqueueProposal);
   const proposals = useProposalStore((state) => state.proposals);
-  const setEditableValue = useProposalStore((state) => state.setEditableValue);
-  const clearProposal = useProposalStore((state) => state.clearProposal);
   const activatePromptContextTarget = useAiPromptContextStore(
     (state) => state.activateTarget
   );
@@ -143,9 +300,33 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
   };
 
   const structureMutation = useMutation({
-    mutationFn: (input: SaveStoryStructureInput) => saveStoryStructure(input),
-    onSuccess: async () => {
-      setMessage("Zapisano strukturę planu.");
+    mutationFn: async (input: SaveStoryStructureWithSkeletonInput) => {
+      const { actTemplates, ...structureInput } = input;
+      const structure = await saveStoryStructure(structureInput);
+
+      if (actTemplates?.length) {
+        for (const [index, act] of actTemplates.entries()) {
+          await upsertAct({
+            bookId: structureInput.bookId,
+            name: act.name,
+            purpose: act.purpose,
+            summary: act.summary,
+            startPercent: act.startPercent,
+            endPercent: act.endPercent,
+            color: act.color,
+            orderIndex: index
+          });
+        }
+      }
+
+      return structure;
+    },
+    onSuccess: async (_structure, variables) => {
+      setMessage(
+        variables.actTemplates?.length
+          ? "Zapisano strukturę planu i przygotowano akty."
+          : "Zapisano strukturę planu."
+      );
       await invalidatePlan();
     },
     onError: showError
@@ -209,9 +390,6 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
     onError: showError
   });
 
-  const planProposals = proposals
-    .filter((proposal) => proposal.projectId === projectId && proposal.scope === "bookPlan")
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   const selectedDetails = selectedItem
     ? selectedItemDetails(selectedItem, plan)
     : null;
@@ -292,30 +470,6 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
     );
   }
 
-  async function applyProposal(proposal: ActiveAiProposal) {
-    try {
-      if (!bookId) {
-        throw new Error("Brak aktywnej książki.");
-      }
-
-      const payload = JSON.parse(proposal.editableValue || proposal.rawOutput);
-      await applyPlanPayload(payload, proposal, {
-        bookId,
-        plan,
-        saveStructure: (input) => structureMutation.mutateAsync(input),
-        saveAct: (input) => actMutation.mutateAsync(input),
-        saveBeat: (input) => beatMutation.mutateAsync(input),
-        saveThread: (input) => threadMutation.mutateAsync(input),
-        saveChapter: (input) => chapterMutation.mutateAsync(input)
-      });
-      clearProposal(proposal.id);
-      setMessage("Zastosowano propozycję AI do planu.");
-      await invalidatePlan();
-    } catch (error) {
-      showError(error);
-    }
-  }
-
   if (projectQuery.isLoading || planQuery.isLoading) {
     return (
       <section className="plan-page">
@@ -371,15 +525,6 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
 
       {message ? <p className="success-text">{message}</p> : null}
       {errorMessage ? <p className="warning-text">{errorMessage}</p> : null}
-
-      {planProposals.length > 0 ? (
-        <PlanProposalStrip
-          proposals={planProposals}
-          onApply={applyProposal}
-          onChange={setEditableValue}
-          onDismiss={clearProposal}
-        />
-      ) : null}
 
       {mode === "preview" ? (
         <PlanPreview
@@ -496,13 +641,28 @@ function StructureStep({
   onGenerate,
   onActivatePrompt
 }: StepProps & {
-  onSave: (input: SaveStoryStructureInput) => void;
+  onSave: (input: SaveStoryStructureWithSkeletonInput) => void;
 }) {
   const [structureType, setStructureType] = useState(
     plan.structure?.structureType ?? "three_act"
   );
   const [description, setDescription] = useState(plan.structure?.description ?? "");
   const [notes, setNotes] = useState(plan.structure?.notes ?? "");
+  const selectedOption =
+    structureOptions.find((option) => option.value === structureType) ??
+    structureOptions[0];
+  const shouldCreateActSkeleton =
+    plan.acts.length === 0 && selectedOption.actTemplates.length > 0;
+
+  useEffect(() => {
+    setStructureType(plan.structure?.structureType ?? "three_act");
+    setDescription(plan.structure?.description ?? "");
+    setNotes(plan.structure?.notes ?? "");
+  }, [
+    plan.structure?.structureType,
+    plan.structure?.description,
+    plan.structure?.notes
+  ]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -512,7 +672,10 @@ function StructureStep({
       structureType,
       description,
       notes,
-      status: "draft"
+      status: "draft",
+      ...(shouldCreateActSkeleton
+        ? { actTemplates: selectedOption.actTemplates }
+        : {})
     });
   }
 
@@ -529,37 +692,91 @@ function StructureStep({
       }
     >
       <form className="plan-form" onSubmit={submit}>
-        <label className="field-label">
-          Typ struktury
-          <select
-            value={structureType}
-            onChange={(event) => setStructureType(event.target.value)}
-          >
-            {structureOptions.map((option) => (
-              <option value={option.value} key={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field-label">
-          Opis struktury
-          <textarea
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            onFocus={() => onActivatePrompt("storyStructure")}
-            rows={5}
-          />
-        </label>
-        <label className="field-label">
-          Notatki do planu
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            onFocus={() => onActivatePrompt("storyStructure")}
-            rows={4}
-          />
-        </label>
+        <fieldset className="structure-choice-grid">
+          <legend>Typ struktury</legend>
+          {structureOptions.map((option) => {
+            const selected = option.value === structureType;
+            const createsActs = plan.acts.length === 0 && option.actTemplates.length > 0;
+
+            return (
+              <label
+                className={selected ? "structure-choice active" : "structure-choice"}
+                key={option.value}
+              >
+                <input
+                  type="radio"
+                  name="structureType"
+                  value={option.value}
+                  checked={selected}
+                  onChange={() => setStructureType(option.value)}
+                />
+                <span className="structure-choice-heading">
+                  <strong>{option.label}</strong>
+                  <em>{option.actTemplates.length || "Custom"}</em>
+                </span>
+                <span className="structure-choice-copy">
+                  <b>Najlepsze dla</b>
+                  {option.bestFor}
+                </span>
+                <span className="structure-choice-copy">
+                  <b>Porządkuje</b>
+                  {option.organizes}
+                </span>
+                <span className={createsActs ? "structure-choice-result ready" : "structure-choice-result"}>
+                  {plan.acts.length > 0 && option.actTemplates.length > 0
+                    ? "Akty już istnieją, więc wybór nie nadpisze szkieletu."
+                    : option.result}
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+        <div className="structure-act-preview">
+          <div>
+            <p className="eyebrow">Szkielet aktów</p>
+            <h4>{selectedOption.label}</h4>
+          </div>
+          {selectedOption.actTemplates.length > 0 ? (
+            <ol>
+              {selectedOption.actTemplates.map((act) => (
+                <li key={act.name}>
+                  <span style={{ background: act.color }} />
+                  <strong>{act.name}</strong>
+                  <small>{act.startPercent}-{act.endPercent}%</small>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="muted-text">
+              Struktura własna nie tworzy aktów automatycznie.
+            </p>
+          )}
+          <p className={shouldCreateActSkeleton ? "success-text" : "muted-text"}>
+            {shouldCreateActSkeleton
+              ? "Po zapisie aplikacja przygotuje te akty."
+              : plan.acts.length > 0
+                ? "Istniejące akty pozostaną bez zmian."
+                : "Ten wybór nie doda aktów automatycznie."}
+          </p>
+        </div>
+        <PlanInlineField
+          label="Opis struktury"
+          value={description}
+          rows={5}
+          field="storyStructureDescription"
+          onChange={setDescription}
+          onGenerate={onGenerate}
+          onActivatePrompt={onActivatePrompt}
+        />
+        <PlanInlineField
+          label="Notatki do planu"
+          value={notes}
+          rows={4}
+          field="storyStructureNotes"
+          onChange={setNotes}
+          onGenerate={onGenerate}
+          onActivatePrompt={onActivatePrompt}
+        />
         <button type="submit" className="primary-button" disabled={saving}>
           <Save size={16} />
           {saving ? "Zapisuję" : "Zapisz strukturę"}
@@ -642,8 +859,11 @@ function ActForm({
   onSave: (input: UpsertActInput) => void;
   onDelete?: () => void;
   onSelect?: () => void;
-  onGenerate: (field: PlanFieldKey, targetEntity?: Act) => void;
-  onActivatePrompt: (field: PlanFieldKey, targetEntity?: Act) => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: Act | Beat | PlotThread | Chapter) => void;
+  onActivatePrompt: (
+    field: PlanFieldKey,
+    targetEntity?: Act | Beat | PlotThread | Chapter
+  ) => void;
 }) {
   const [name, setName] = useState(act?.name ?? `Akt ${orderIndex + 1}`);
   const [purpose, setPurpose] = useState(act?.purpose ?? "");
@@ -651,6 +871,23 @@ function ActForm({
   const [startPercent, setStartPercent] = useState(act?.startPercent ?? orderIndex * 25);
   const [endPercent, setEndPercent] = useState(act?.endPercent ?? (orderIndex + 1) * 25);
   const [color, setColor] = useState(act?.color ?? actColors[orderIndex % actColors.length]);
+
+  useEffect(() => {
+    setName(act?.name ?? `Akt ${orderIndex + 1}`);
+    setPurpose(act?.purpose ?? "");
+    setSummary(act?.summary ?? "");
+    setStartPercent(act?.startPercent ?? orderIndex * 25);
+    setEndPercent(act?.endPercent ?? (orderIndex + 1) * 25);
+    setColor(act?.color ?? actColors[orderIndex % actColors.length]);
+  }, [
+    act?.name,
+    act?.purpose,
+    act?.summary,
+    act?.startPercent,
+    act?.endPercent,
+    act?.color,
+    orderIndex
+  ]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -818,6 +1055,22 @@ function BeatForm({
   const [actId, setActId] = useState(beat?.actId ?? plan.acts[0]?.id ?? "");
   const [threadIds, setThreadIds] = useState(beatThreadIds);
 
+  useEffect(() => {
+    setName(beat?.name ?? `Beat ${orderIndex + 1}`);
+    setDescription(beat?.description ?? "");
+    setRole(beat?.role ?? "");
+    setActId(beat?.actId ?? plan.acts[0]?.id ?? "");
+    setThreadIds(beatThreadIds);
+  }, [
+    beat?.name,
+    beat?.description,
+    beat?.role,
+    beat?.actId,
+    plan.acts,
+    beatThreadIds.join("|"),
+    orderIndex
+  ]);
+
   function submit(event: FormEvent) {
     event.preventDefault();
     onSave({
@@ -952,6 +1205,19 @@ function ThreadForm({
   const [description, setDescription] = useState(thread?.description ?? "");
   const [color, setColor] = useState(thread?.color ?? actColors[orderIndex % actColors.length]);
   const [status, setStatus] = useState(thread?.status ?? "planned");
+
+  useEffect(() => {
+    setName(thread?.name ?? `Wątek ${orderIndex + 1}`);
+    setDescription(thread?.description ?? "");
+    setColor(thread?.color ?? actColors[orderIndex % actColors.length]);
+    setStatus(thread?.status ?? "planned");
+  }, [
+    thread?.name,
+    thread?.description,
+    thread?.color,
+    thread?.status,
+    orderIndex
+  ]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -1088,8 +1354,11 @@ function ChapterForm({
   onSave: (input: UpsertChapterInput) => void;
   onDelete?: () => void;
   onSelect?: () => void;
-  onGenerate: (field: PlanFieldKey, targetEntity?: Chapter) => void;
-  onActivatePrompt: (field: PlanFieldKey, targetEntity?: Chapter) => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: Act | Beat | PlotThread | Chapter) => void;
+  onActivatePrompt: (
+    field: PlanFieldKey,
+    targetEntity?: Act | Beat | PlotThread | Chapter
+  ) => void;
 }) {
   const chapterThreadIds = plan.chapterThreads
     .filter((item) => item.chapterId === chapter?.id)
@@ -1111,6 +1380,32 @@ function ChapterForm({
   const [actId, setActId] = useState(chapter?.actId ?? plan.acts[0]?.id ?? "");
   const [threadIds, setThreadIds] = useState(chapterThreadIds);
   const [beatIds, setBeatIds] = useState(chapterBeatIds);
+
+  useEffect(() => {
+    setNumber(chapter?.number ?? orderIndex + 1);
+    setWorkingTitle(chapter?.workingTitle ?? `Rozdział ${orderIndex + 1}`);
+    setSummary(chapter?.summary ?? "");
+    setPurpose(chapter?.purpose ?? "");
+    setConflict(chapter?.conflict ?? "");
+    setTurningPoint(chapter?.turningPoint ?? "");
+    setTargetWordCount(chapter?.targetWordCount?.toString() ?? "");
+    setActId(chapter?.actId ?? plan.acts[0]?.id ?? "");
+    setThreadIds(chapterThreadIds);
+    setBeatIds(chapterBeatIds);
+  }, [
+    chapter?.number,
+    chapter?.workingTitle,
+    chapter?.summary,
+    chapter?.purpose,
+    chapter?.conflict,
+    chapter?.turningPoint,
+    chapter?.targetWordCount,
+    chapter?.actId,
+    plan.acts,
+    chapterThreadIds.join("|"),
+    chapterBeatIds.join("|"),
+    orderIndex
+  ]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -1236,7 +1531,7 @@ function ChapterForm({
   );
 }
 
-function PlanInlineField<T extends Act | Chapter | undefined>({
+function PlanInlineField({
   label,
   value,
   rows,
@@ -1250,10 +1545,13 @@ function PlanInlineField<T extends Act | Chapter | undefined>({
   value: string;
   rows: number;
   field: PlanFieldKey;
-  entity: T;
+  entity?: Act | Chapter;
   onChange: (value: string) => void;
-  onGenerate: (field: PlanFieldKey, targetEntity?: NonNullable<T>) => void;
-  onActivatePrompt: (field: PlanFieldKey, targetEntity?: NonNullable<T>) => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: Act | Beat | PlotThread | Chapter) => void;
+  onActivatePrompt: (
+    field: PlanFieldKey,
+    targetEntity?: Act | Beat | PlotThread | Chapter
+  ) => void;
 }) {
   return (
     <label className="field-label plan-inline-field">
@@ -1262,14 +1560,14 @@ function PlanInlineField<T extends Act | Chapter | undefined>({
         <PlanAiActions
           field={field}
           targetEntity={entity}
-          onGenerate={() => onGenerate(field, entity as NonNullable<T>)}
-          onActivatePrompt={() => onActivatePrompt(field, entity as NonNullable<T>)}
+          onGenerate={() => onGenerate(field, entity)}
+          onActivatePrompt={() => onActivatePrompt(field, entity)}
         />
       </span>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        onFocus={() => onActivatePrompt(field, entity as NonNullable<T>)}
+        onFocus={() => onActivatePrompt(field, entity)}
         rows={rows}
       />
     </label>
@@ -1339,73 +1637,6 @@ function PlanAiActions({
         <Plus size={14} />
       </button>
     </span>
-  );
-}
-
-function PlanProposalStrip({
-  proposals,
-  onApply,
-  onChange,
-  onDismiss
-}: {
-  proposals: ActiveAiProposal[];
-  onApply: (proposal: ActiveAiProposal) => void;
-  onChange: (id: string, value: string) => void;
-  onDismiss: (id: string) => void;
-}) {
-  return (
-    <section className="plan-proposal-strip" aria-label="Propozycje AI planu">
-      <div className="section-title-row">
-        <div>
-          <p className="eyebrow">AI</p>
-          <h3>Propozycje do planu</h3>
-        </div>
-        <Bot size={18} />
-      </div>
-      {proposals.map((proposal) => (
-        <article className="plan-proposal-card" key={proposal.id}>
-          <div className="plan-proposal-heading">
-            <strong>
-              {planFieldConfigs[proposal.field as PlanFieldKey]?.label ?? "Plan"}
-            </strong>
-            <span className={proposal.status === "success" ? "status-pill ready" : "status-pill"}>
-              {proposal.status === "running" ? "Generuje" : proposal.status === "queued" ? "W kolejce" : proposal.status === "success" ? "Gotowe" : "Błąd"}
-            </span>
-          </div>
-          {proposal.status === "success" ? (
-            <textarea
-              value={proposal.editableValue}
-              onChange={(event) => onChange(proposal.id, event.target.value)}
-              rows={8}
-              aria-label="Edytuj propozycję planu przed zastosowaniem"
-            />
-          ) : (
-            <p className="muted-text">
-              {proposal.errorMessage || "Propozycja jest jeszcze przetwarzana."}
-            </p>
-          )}
-          <div className="button-row">
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => onApply(proposal)}
-              disabled={proposal.status !== "success"}
-            >
-              <Check size={16} />
-              Zastosuj
-            </button>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => onDismiss(proposal.id)}
-              disabled={proposal.status === "running"}
-            >
-              Odrzuć
-            </button>
-          </div>
-        </article>
-      ))}
-    </section>
   );
 }
 
@@ -1692,166 +1923,6 @@ function PlanStat({
   );
 }
 
-type ApplyPlanContext = {
-  bookId: string;
-  plan: BookPlan;
-  saveStructure: (input: SaveStoryStructureInput) => Promise<unknown>;
-  saveAct: (input: UpsertActInput) => Promise<unknown>;
-  saveBeat: (input: UpsertBeatInput) => Promise<unknown>;
-  saveThread: (input: UpsertPlotThreadInput) => Promise<unknown>;
-  saveChapter: (input: UpsertChapterInput) => Promise<unknown>;
-};
-
-async function applyPlanPayload(
-  payload: unknown,
-  proposal: ActiveAiProposal,
-  context: ApplyPlanContext
-) {
-  const record = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
-  const packageContext = "context" in proposal.promptPackageJson
-    ? proposal.promptPackageJson.context
-    : undefined;
-
-  if (record.structure && typeof record.structure === "object") {
-    const structure = record.structure as Record<string, unknown>;
-    await context.saveStructure({
-      id: context.plan.structure?.id,
-      bookId: context.bookId,
-      structureType: textValue(structure.structureType) || "custom",
-      description: textValue(structure.description),
-      notes: textValue(structure.notes),
-      status: "draft"
-    });
-  }
-
-  if (Array.isArray(record.acts)) {
-    for (const [index, item] of record.acts.entries()) {
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-      const act = item as Record<string, unknown>;
-      await context.saveAct({
-        bookId: context.bookId,
-        name: textValue(act.name) || `Akt ${index + 1}`,
-        purpose: textValue(act.purpose),
-        summary: textValue(act.summary),
-        startPercent: numberValue(act.startPercent, index * 25),
-        endPercent: numberValue(act.endPercent, (index + 1) * 25),
-        color: textValue(act.color) || actColors[index % actColors.length],
-        orderIndex: context.plan.acts.length + index
-      });
-    }
-  }
-
-  if (Array.isArray(record.threads)) {
-    for (const [index, item] of record.threads.entries()) {
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-      const thread = item as Record<string, unknown>;
-      await context.saveThread({
-        bookId: context.bookId,
-        name: textValue(thread.name) || `Wątek ${index + 1}`,
-        description: textValue(thread.description),
-        color: textValue(thread.color) || actColors[index % actColors.length],
-        status: textValue(thread.status) || "planned",
-        orderIndex: context.plan.threads.length + index
-      });
-    }
-  }
-
-  if (Array.isArray(record.beats)) {
-    for (const [index, item] of record.beats.entries()) {
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-      const beat = item as Record<string, unknown>;
-      const actId = findByNameOrId(context.plan.acts, textValue(beat.actNameOrId))?.id ?? null;
-      await context.saveBeat({
-        bookId: context.bookId,
-        actId,
-        name: textValue(beat.name) || `Beat ${index + 1}`,
-        description: textValue(beat.description),
-        role: textValue(beat.role),
-        threadIds: namesToIds(context.plan.threads, beat.threadNamesOrIds),
-        orderIndex: context.plan.beats.length + index
-      });
-    }
-  }
-
-  if (Array.isArray(record.chapters)) {
-    for (const [index, item] of record.chapters.entries()) {
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-      const chapter = item as Record<string, unknown>;
-      const actId = findByNameOrId(context.plan.acts, textValue(chapter.actNameOrId))?.id ?? null;
-      await context.saveChapter({
-        bookId: context.bookId,
-        actId,
-        number: numberValue(chapter.number, context.plan.chapters.length + index + 1),
-        workingTitle: textValue(chapter.workingTitle) || `Rozdział ${index + 1}`,
-        summary: textValue(chapter.summary),
-        purpose: textValue(chapter.purpose),
-        conflict: textValue(chapter.conflict),
-        turningPoint: textValue(chapter.turningPoint),
-        targetWordCount: numberValue(chapter.targetWordCount, 0) || null,
-        threadIds: namesToIds(context.plan.threads, chapter.threadNamesOrIds),
-        beatIds: namesToIds(context.plan.beats, chapter.beatNamesOrIds),
-        orderIndex: context.plan.chapters.length + index
-      });
-    }
-  }
-
-  if (typeof record.value === "string" && packageContext && typeof packageContext === "object") {
-    await applySingleField(record.value, packageContext as Record<string, unknown>, context);
-  }
-}
-
-async function applySingleField(
-  value: string,
-  packageContext: Record<string, unknown>,
-  context: ApplyPlanContext
-) {
-  const targetField = textValue(packageContext.targetField) as PlanFieldKey;
-  const targetEntityId = textValue(packageContext.targetEntityId);
-  if (!targetEntityId) {
-    return;
-  }
-
-  const act = context.plan.acts.find((item) => item.id === targetEntityId);
-  if (act && (targetField === "actPurpose" || targetField === "actSummary")) {
-    await context.saveAct({
-      ...act,
-      purpose: targetField === "actPurpose" ? value : act.purpose,
-      summary: targetField === "actSummary" ? value : act.summary
-    });
-  }
-
-  const chapter = context.plan.chapters.find((item) => item.id === targetEntityId);
-  if (
-    chapter &&
-    ["chapterSummary", "chapterPurpose", "chapterConflict", "chapterTurningPoint"].includes(
-      targetField
-    )
-  ) {
-    await context.saveChapter({
-      ...chapter,
-      summary: targetField === "chapterSummary" ? value : chapter.summary,
-      purpose: targetField === "chapterPurpose" ? value : chapter.purpose,
-      conflict: targetField === "chapterConflict" ? value : chapter.conflict,
-      turningPoint:
-        targetField === "chapterTurningPoint" ? value : chapter.turningPoint,
-      threadIds: context.plan.chapterThreads
-        .filter((item) => item.chapterId === chapter.id)
-        .map((item) => item.threadId),
-      beatIds: context.plan.chapterBeats
-        .filter((item) => item.chapterId === chapter.id)
-        .map((item) => item.beatId)
-    });
-  }
-}
-
 function selectedItemDetails(item: SelectedPlanItem | null, plan: BookPlan) {
   if (!item) {
     return null;
@@ -1968,42 +2039,4 @@ function parseOptionalPositiveInt(value: string): number | null {
   }
   const parsed = Number(trimmed.replace(/\s+/g, ""));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-function textValue(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function numberValue(value: unknown, fallback: number): number {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  }
-  return fallback;
-}
-
-function namesToIds<T extends { id: string; name?: string; workingTitle?: string }>(
-  items: T[],
-  value: unknown
-): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .map((item) => findByNameOrId(items, textValue(item))?.id)
-    .filter((id): id is string => Boolean(id));
-}
-
-function findByNameOrId<T extends { id: string; name?: string; workingTitle?: string }>(
-  items: T[],
-  value: string
-): T | undefined {
-  const normalized = value.toLowerCase();
-  return items.find((item) => {
-    const label = (item.name ?? item.workingTitle ?? "").toLowerCase();
-    return item.id === value || label === normalized;
-  });
 }

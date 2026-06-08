@@ -5,6 +5,7 @@ import { listAiRuns } from "../../shared/api/commands";
 import type { AiLogEntry } from "../../shared/api/types";
 import { formatLocalDateTime } from "../../shared/date";
 import { conceptFieldConfigs, ConceptFieldKey } from "./promptPackage";
+import { planFieldConfigs, PlanFieldKey } from "./planPromptPackage";
 import { extractJsonCandidate } from "./titleSuggestions";
 
 type AiLogPageProps = {
@@ -168,7 +169,9 @@ function requestSummary(entry: AiLogEntry): {
       : "";
   const fieldLabel = isConceptFieldKey(targetField)
     ? conceptFieldConfigs[targetField].label
-    : "";
+    : isPlanFieldKey(targetField)
+      ? planFieldConfigs[targetField].label
+      : "";
 
   return {
     title: fieldLabel || entry.action,
@@ -265,4 +268,8 @@ function reasoningLabel(reasoningEffort?: string | null): string {
 
 function isConceptFieldKey(value: string): value is ConceptFieldKey {
   return value in conceptFieldConfigs;
+}
+
+function isPlanFieldKey(value: string): value is PlanFieldKey {
+  return value in planFieldConfigs;
 }

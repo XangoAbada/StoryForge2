@@ -56,8 +56,7 @@
 
 .plan-header-actions,
 .plan-form-row,
-.plan-inline-label-row,
-.plan-proposal-heading {
+.plan-inline-label-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -82,8 +81,7 @@
 .plan-details-panel,
 .plan-card,
 .plan-preview-section,
-.plan-preview-sidebar,
-.plan-proposal-strip {
+.plan-preview-sidebar {
   border: 1px solid rgba(39, 63, 50, 0.13);
   background: rgba(255, 253, 248, 0.92);
   box-shadow: 0 14px 38px rgba(36, 45, 37, 0.06);
@@ -144,10 +142,15 @@
   gap: 10px;
 }
 
+.section-title-row > .plan-card-title {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
 .plan-card-title h3,
 .plan-preview-section h3,
-.plan-details-panel h3,
-.plan-proposal-strip h3 {
+.plan-details-panel h3 {
   margin: 0;
   font-size: 18px;
 }
@@ -166,6 +169,164 @@
 
 .plan-grid-list.compact {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.structure-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.structure-choice-grid legend {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  color: #5f6c61;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.structure-choice {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(39, 63, 50, 0.13);
+  border-radius: 8px;
+  background: #fffdf8;
+  cursor: pointer;
+}
+
+.structure-choice:hover {
+  border-color: rgba(47, 128, 103, 0.32);
+  background: #fbf8ef;
+}
+
+.structure-choice.active {
+  border-color: rgba(47, 128, 103, 0.58);
+  background: #edf7f1;
+  box-shadow: inset 0 0 0 1px rgba(47, 128, 103, 0.16);
+}
+
+.structure-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.structure-choice-heading {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.structure-choice-heading strong,
+.structure-choice-copy,
+.structure-choice-result {
+  overflow-wrap: anywhere;
+}
+
+.structure-choice-heading strong {
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.22;
+}
+
+.structure-choice-heading em {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(48, 78, 122, 0.1);
+  color: var(--blue);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.structure-choice-copy {
+  display: grid;
+  gap: 2px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.38;
+}
+
+.structure-choice-copy b {
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.structure-choice-result {
+  padding-top: 8px;
+  border-top: 1px solid rgba(39, 63, 50, 0.11);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.structure-choice-result.ready {
+  color: var(--green);
+}
+
+.structure-act-preview {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(39, 63, 50, 0.12);
+  border-radius: 8px;
+  background: #f8faf5;
+}
+
+.structure-act-preview h4 {
+  margin: 2px 0 0;
+  font-size: 15px;
+}
+
+.structure-act-preview ol {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.structure-act-preview li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #fffefb;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.structure-act-preview li span {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.structure-act-preview li strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.structure-act-preview li small {
+  color: var(--ink-soft);
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .plan-entity-card {
@@ -289,31 +450,6 @@
   background: #f5f1e8;
   font-size: 12px;
   font-weight: 700;
-}
-
-.plan-proposal-strip {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 14px;
-}
-
-.plan-proposal-card {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid rgba(39, 63, 50, 0.12);
-  border-radius: 10px;
-  background: #fffdf8;
-}
-
-.plan-proposal-heading {
-  justify-content: space-between;
-}
-
-.plan-proposal-card textarea {
-  width: 100%;
-  resize: vertical;
 }
 
 .plan-preview-layout {
