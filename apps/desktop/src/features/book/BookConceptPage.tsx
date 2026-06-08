@@ -1,14 +1,11 @@
 import {
   ArrowRight,
-  CheckCircle2,
-  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
-  ExternalLink,
-  Eye,
   Image as ImageIcon,
   ListChecks,
   Loader2,
-  MessageCircle,
   Plus,
   Save,
   Sparkles,
@@ -21,6 +18,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -37,8 +35,6 @@ import {
   renderBookCoverPromptPackage
 } from "../ai/coverPromptPackage";
 import { CoverImageLightbox } from "../ai/CoverImageLightbox";
-import { AiPromptContextPanel } from "../ai/AiPromptContextPanel";
-import { AiProposalPanel } from "../ai/AiProposalPanel";
 import {
   buildConceptFieldPromptPackage,
   conceptFieldConfigs,
@@ -63,7 +59,6 @@ import {
 
 type BookConceptPageProps = {
   projectId: string;
-  showAiPanels?: boolean;
 };
 
 type ConceptForm = {
@@ -93,8 +88,13 @@ type ConceptForm = {
 
 type ConceptStageKey =
   | "idea"
-  | "storyEngine"
-  | "readerForm"
+  | "hero"
+  | "world"
+  | "conflict"
+  | "antagonist"
+  | "stakesEnding"
+  | "genre"
+  | "readerVoice"
   | "rules"
   | "cover";
 
@@ -168,40 +168,50 @@ const conceptStages: ConceptStage[] = [
   {
     key: "idea",
     title: "Pomysł",
-    summary: "Rdzeń projektu, główna postać i świat, w którym konflikt ma sens.",
-    fields: [
-      "workingTitle",
-      "premise",
-      "protagonistSummary",
-      "protagonistGoal",
-      "settingSketch"
-    ]
+    summary: "Robocza nazwa i krótka obietnica historii.",
+    fields: ["workingTitle", "premise"]
   },
   {
-    key: "storyEngine",
-    title: "Silnik historii",
-    summary: "Napięcie, przeszkoda, stawki i roboczy kierunek finału.",
-    fields: [
-      "logline",
-      "centralConflict",
-      "antagonistForce",
-      "stakes",
-      "endingDirection",
-      "expandedPremise"
-    ]
+    key: "hero",
+    title: "Bohater",
+    summary: "Postać prowadząca i konkretne dążenie, które uruchamia fabułę.",
+    fields: ["protagonistSummary", "protagonistGoal"]
   },
   {
-    key: "readerForm",
+    key: "world",
+    title: "Świat",
+    summary: "Miejsce, czas i warunki, które wpływają na konflikt.",
+    fields: ["settingSketch"]
+  },
+  {
+    key: "conflict",
+    title: "Konflikt",
+    summary: "Logline i główne napięcie fabularne.",
+    fields: ["logline", "centralConflict"]
+  },
+  {
+    key: "antagonist",
+    title: "Antagonista",
+    summary: "Siła przeciwna stojąca na drodze bohatera.",
+    fields: ["antagonistForce"]
+  },
+  {
+    key: "stakesEnding",
+    title: "Stawki i finał",
+    summary: "Koszt porażki, kierunek zakończenia i rozwinięta premisa.",
+    fields: ["stakes", "endingDirection", "expandedPremise"]
+  },
+  {
+    key: "genre",
+    title: "Gatunek",
+    summary: "Konwencja i doprecyzowanie obietnicy gatunkowej.",
+    fields: ["genre", "subgenre"]
+  },
+  {
+    key: "readerVoice",
     title: "Czytelnik i forma",
-    summary: "Konwencja, odbiorca, ton, perspektywa i skala książki.",
-    fields: [
-      "genre",
-      "subgenre",
-      "targetAudience",
-      "tone",
-      "pointOfView",
-      "targetWordCount"
-    ]
+    summary: "Odbiorca, ton, perspektywa i skala książki.",
+    fields: ["targetAudience", "tone", "pointOfView", "targetWordCount"]
   },
   {
     key: "rules",
@@ -275,11 +285,9 @@ const themeOptions: ChoiceOption[] = [
   { value: "zdrada", hint: "Pęknięcie zaufania i jego konsekwencje." }
 ];
 
-export function BookConceptPage({
-  projectId,
-  showAiPanels = false
-}: BookConceptPageProps) {
+export function BookConceptPage({ projectId }: BookConceptPageProps) {
   const queryClient = useQueryClient();
+  const stageTabsRef = useRef<HTMLDivElement>(null);
   const codexPath = useCodexSettingsStore((state) => state.codexPath);
   const enqueueProposal = useProposalStore((state) => state.enqueueProposal);
   const proposals = useProposalStore((state) => state.proposals);
@@ -523,9 +531,6 @@ export function BookConceptPage({
 
   const codexUnavailable = codexStatusQuery.data?.available === false;
   const aiDisabled = !projectQuery.data || codexUnavailable;
-  const hasVisibleAiProposals = proposals.some(
-    (proposal) => proposal.projectId === projectId
-  );
   const fieldStatus = (field: ConceptFieldKey): AiProposalStatus | null =>
     pendingProposalStatus(proposals, {
       projectId,
@@ -562,13 +567,21 @@ export function BookConceptPage({
     conceptStages.findIndex((stage) => stage.key === activeStageConfig.key)
   );
   const activeStageNumber = activeStageIndex + 1;
-  const activeCompletion = stageCompletion(activeStageConfig, form);
   const nextStage = conceptStages[activeStageIndex + 1] ?? null;
-  const activeStagePreviewFields = activeStageConfig.fields.map((field) => ({
-    field: field as ConceptFieldKey,
-    label: conceptFieldConfigs[field as ConceptFieldKey].label,
-    value: form[field]
-  }));
+
+  useEffect(() => {
+    const selectedTab = stageTabsRef.current?.querySelector<HTMLElement>(
+      '[role="tab"][aria-selected="true"]'
+    );
+
+    if (typeof selectedTab?.scrollIntoView === "function") {
+      selectedTab.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest"
+      });
+    }
+  }, [activeStageConfig.key]);
 
   function goToNextStage() {
     if (!nextStage) {
@@ -578,10 +591,24 @@ export function BookConceptPage({
     setProjectViewState(projectId, "conceptStage", nextStage.key);
   }
 
-  function scrollChecklistIntoView() {
-    document
-      .getElementById("concept-checklist")
-      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  function scrollStageTabs(direction: -1 | 1) {
+    const tabList = stageTabsRef.current;
+
+    if (!tabList) {
+      return;
+    }
+
+    const scrollAmount = Math.max(tabList.clientWidth - 96, 180);
+
+    if (typeof tabList.scrollBy === "function") {
+      tabList.scrollBy({
+        left: direction * scrollAmount,
+        behavior: "smooth"
+      });
+      return;
+    }
+
+    tabList.scrollLeft += direction * scrollAmount;
   }
 
   return (
@@ -598,7 +625,17 @@ export function BookConceptPage({
 
           <form className="concept-form" onSubmit={handleSubmit}>
             <div className="concept-stage-card">
+              <button
+                type="button"
+                className="stage-scroll-button previous"
+                onClick={() => scrollStageTabs(-1)}
+                aria-label="Pokaż wcześniejsze etapy"
+                title="Pokaż wcześniejsze etapy"
+              >
+                <ChevronLeft size={18} />
+              </button>
               <div
+                ref={stageTabsRef}
                 className="concept-stage-tabs"
                 role="tablist"
                 aria-label="Etapy koncepcji"
@@ -628,6 +665,15 @@ export function BookConceptPage({
             );
           })}
               </div>
+              <button
+                type="button"
+                className="stage-scroll-button next"
+                onClick={() => scrollStageTabs(1)}
+                aria-label="Pokaż kolejne etapy"
+                title="Pokaż kolejne etapy"
+              >
+                <ChevronRight size={18} />
+              </button>
         </div>
 
             <div className="concept-editor-card">
@@ -641,14 +687,6 @@ export function BookConceptPage({
                   </h2>
                   <p>{activeStageConfig.summary}</p>
                 </div>
-                <button
-                  type="button"
-                  className="secondary-button checklist-jump-button"
-                  onClick={scrollChecklistIntoView}
-                >
-                  <ListChecks size={16} />
-                  Lista kontrolna
-                </button>
               </div>
 
               <div role="tabpanel" className="concept-stage-panel">
@@ -675,6 +713,11 @@ export function BookConceptPage({
                 onGenerate={generateField}
                 onChange={(value) => updateField("premise", value)}
               />
+            </FormSection>
+          ) : null}
+
+          {activeStage === "hero" ? (
+            <FormSection>
               <div className="form-grid">
                 <TextField
                   label="Bohater / bohaterka"
@@ -699,6 +742,11 @@ export function BookConceptPage({
                   onChange={(value) => updateField("protagonistGoal", value)}
                 />
               </div>
+            </FormSection>
+          ) : null}
+
+          {activeStage === "world" ? (
+            <FormSection>
               <TextField
                 label="Setting"
                 field="settingSketch"
@@ -713,7 +761,7 @@ export function BookConceptPage({
             </FormSection>
           ) : null}
 
-          {activeStage === "storyEngine" ? (
+          {activeStage === "conflict" ? (
             <FormSection>
               <div className="form-grid">
                 <TextField
@@ -739,7 +787,11 @@ export function BookConceptPage({
                   onChange={(value) => updateField("centralConflict", value)}
                 />
               </div>
-              <div className="form-grid">
+            </FormSection>
+          ) : null}
+
+          {activeStage === "antagonist" ? (
+            <FormSection>
                 <TextField
                   label="Siła przeciwna"
                   field="antagonistForce"
@@ -751,6 +803,12 @@ export function BookConceptPage({
                   onGenerate={generateField}
                   onChange={(value) => updateField("antagonistForce", value)}
                 />
+            </FormSection>
+          ) : null}
+
+          {activeStage === "stakesEnding" ? (
+            <FormSection>
+              <div className="form-grid">
                 <TextField
                   label="Stawki"
                   field="stakes"
@@ -788,7 +846,7 @@ export function BookConceptPage({
             </FormSection>
           ) : null}
 
-          {activeStage === "readerForm" ? (
+          {activeStage === "genre" ? (
             <FormSection>
               <div className="form-grid concept-choice-grid">
                 <MultiChoiceField
@@ -811,6 +869,13 @@ export function BookConceptPage({
                   disabled={aiDisabled}
                   loading={fieldStatus("subgenre")}
                 />
+              </div>
+            </FormSection>
+          ) : null}
+
+          {activeStage === "readerVoice" ? (
+            <FormSection>
+              <div className="form-grid concept-choice-grid">
                 <MultiChoiceField
                   label="Odbiorcy"
                   field="targetAudience"
@@ -1046,128 +1111,6 @@ export function BookConceptPage({
 
       {aiError ? <p className="warning-text">{aiError}</p> : null}
         </section>
-
-        <aside className="concept-side-column" aria-label="Panel koncepcji">
-          <section className="concept-side-card">
-            <div className="side-card-heading">
-              <h2>
-                <Eye size={17} />
-                Podgląd koncepcji
-              </h2>
-              <ChevronUp size={16} aria-hidden="true" />
-            </div>
-            <div className="concept-preview-box">
-              <span>Tytuł roboczy</span>
-              <strong>{form.workingTitle.trim() || "Bez tytułu"}</strong>
-            </div>
-            <div className="concept-preview-list">
-              {activeStagePreviewFields.map((item) => {
-                const filled = item.value.trim().length > 0;
-                return (
-                  <div className="concept-preview-row" key={item.field}>
-                    <span>{item.label}</span>
-                    <strong>{filled ? "Uzupełniono" : "Puste"}</strong>
-                  </div>
-                );
-              })}
-            </div>
-            <button type="button" className="ghost-button side-wide-button" disabled>
-              Zobacz całą koncepcję
-              <ExternalLink size={15} />
-            </button>
-          </section>
-
-          <section className="concept-side-card" id="concept-checklist">
-            <div className="side-card-heading">
-              <h2>
-                <CheckCircle2 size={17} />
-                Lista kontrolna: {activeStageConfig.title}
-              </h2>
-              <ChevronUp size={16} aria-hidden="true" />
-            </div>
-            <div className="checklist-items">
-              {activeStagePreviewFields.map((item) => {
-                const filled = item.value.trim().length > 0;
-                return (
-                  <div className={filled ? "checklist-item done" : "checklist-item"} key={item.field}>
-                    <CheckCircle2 size={15} />
-                    <span>{item.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="checklist-count">
-              {activeCompletion.complete} / {activeCompletion.total} uzupełnionych
-            </p>
-            <div className="checklist-progress" aria-hidden="true">
-              <span
-                style={{
-                  width: `${Math.round(
-                    (activeCompletion.complete / activeCompletion.total) * 100
-                  )}%`
-                }}
-              />
-            </div>
-          </section>
-
-          <section className="concept-side-card ai-assistant-card">
-            <div className="side-card-heading">
-              <h2>
-                <Sparkles size={17} />
-                Asystent AI
-              </h2>
-              <span className="status-pill">Beta</span>
-            </div>
-            <p className="muted-text">
-              Potrzebujesz inspiracji? AI może pomóc ulepszyć Twoją koncepcję.
-            </p>
-            <div className="assistant-action-list">
-              <button
-                type="button"
-                className="assistant-action"
-                onClick={() => generateField("premise")}
-                disabled={aiDisabled || Boolean(fieldStatus("premise"))}
-              >
-                <Sparkles size={16} />
-                Ulepsz premisę
-                <ArrowRight size={15} />
-              </button>
-              <button
-                type="button"
-                className="assistant-action"
-                onClick={() => generateField("protagonistSummary")}
-                disabled={aiDisabled || Boolean(fieldStatus("protagonistSummary"))}
-              >
-                <Sparkles size={16} />
-                Pogłęb bohatera
-                <ArrowRight size={15} />
-              </button>
-              <button
-                type="button"
-                className="assistant-action"
-                onClick={() => generateField("centralConflict")}
-                disabled={aiDisabled || Boolean(fieldStatus("centralConflict"))}
-              >
-                <Sparkles size={16} />
-                Zaproponuj konflikt
-                <ArrowRight size={15} />
-              </button>
-              <button type="button" className="ghost-button side-wide-button" disabled>
-                <MessageCircle size={16} />
-                Zadaj własne pytanie...
-              </button>
-            </div>
-          </section>
-
-          {showAiPanels ? (
-            <>
-              <AiPromptContextPanel />
-              {hasVisibleAiProposals ? (
-                <AiProposalPanel projectId={projectId} />
-              ) : null}
-            </>
-          ) : null}
-        </aside>
 
       <CoverImageLightbox
         image={previewImage}
