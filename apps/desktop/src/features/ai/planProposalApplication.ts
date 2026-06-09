@@ -60,6 +60,16 @@ export async function applyPlanProposalPayload(
     return;
   }
 
+  if (field === "chapterThreadSuggestions") {
+    await applyChapterRelationSuggestions(record, scopedPackageContext, context, "threads");
+    return;
+  }
+
+  if (field === "chapterBeatSuggestions") {
+    await applyChapterRelationSuggestions(record, scopedPackageContext, context, "beats");
+    return;
+  }
+
   if (typeof record.value === "string") {
     await applySingleField(record.value, scopedPackageContext, context);
   }
@@ -185,6 +195,49 @@ async function applyChapters(
   }
 }
 
+async function applyChapterRelationSuggestions(
+  record: Record<string, unknown>,
+  packageContext: Record<string, unknown>,
+  context: ApplyPlanContext,
+  relationKind: "threads" | "beats"
+) {
+  const targetEntityId = textValue(packageContext.targetEntityId);
+  const chapter = context.plan.chapters.find((item) => item.id === targetEntityId);
+  if (!chapter) {
+    return;
+  }
+
+  const currentThreadIds = context.plan.chapterThreads
+    .filter((item) => item.chapterId === chapter.id)
+    .map((item) => item.threadId);
+  const currentBeatIds = context.plan.chapterBeats
+    .filter((item) => item.chapterId === chapter.id)
+    .map((item) => item.beatId);
+
+  const suggestedIds =
+    relationKind === "threads"
+      ? namesToIds(context.plan.threads, record.threadNamesOrIds)
+      : namesToIds(context.plan.beats, record.beatNamesOrIds);
+  const existingIds = relationKind === "threads" ? currentThreadIds : currentBeatIds;
+  const additions = suggestedIds.filter((id) => !existingIds.includes(id));
+
+  if (additions.length === 0) {
+    return;
+  }
+
+  await context.saveChapter({
+    ...chapter,
+    threadIds:
+      relationKind === "threads"
+        ? uniqueOrderedIds([...currentThreadIds, ...additions])
+        : currentThreadIds,
+    beatIds:
+      relationKind === "beats"
+        ? uniqueOrderedIds([...currentBeatIds, ...additions])
+        : currentBeatIds
+  });
+}
+
 async function applySingleField(
   value: string,
   packageContext: Record<string, unknown>,
@@ -286,4 +339,8 @@ function findByNameOrId<T extends { id: string; name?: string; workingTitle?: st
     const label = (item.name ?? item.workingTitle ?? "").toLowerCase();
     return item.id === value || label === normalized;
   });
+}
+
+function uniqueOrderedIds(ids: string[]): string[] {
+  return [...new Set(ids)];
 }

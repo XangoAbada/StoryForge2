@@ -792,6 +792,7 @@ function isPlanAction(action: string): boolean {
     "generate_plot_threads",
     "generate_chapter_plan",
     "generate_chapter_field",
+    "suggest_chapter_relations",
     "find_plan_gaps"
   ].includes(action);
 }

@@ -86,6 +86,7 @@ type SelectedPlanItem =
 type ChapterModalState =
   | { mode: "create"; actId?: string | null }
   | { mode: "edit"; chapterId: string };
+type ChapterRelationKind = "threads" | "beats";
 type BeatSortMode = "order" | "name" | "role";
 type ThreadViewMode = "map" | "list" | "table";
 type ThreadSortMode = "order" | "name" | "status";
@@ -567,6 +568,7 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         saving={chapterMutation.isPending || chapterReorderMutation.isPending}
         onOpenChapter={openChapterModal}
         onCreateChapter={openNewChapterModal}
+        onSaveChapter={(input) => chapterMutation.mutate(input)}
         onReorderChapters={(inputs) => chapterReorderMutation.mutate(inputs)}
         onGenerate={queuePlanGeneration}
         onActivatePrompt={activatePlanPromptContext}
@@ -2170,12 +2172,14 @@ function ChaptersStep({
   saving,
   onOpenChapter,
   onCreateChapter,
+  onSaveChapter,
   onReorderChapters,
   onGenerate,
   onActivatePrompt
 }: StepProps & {
   onOpenChapter: (chapter: Chapter) => void;
   onCreateChapter: (actId?: string | null) => void;
+  onSaveChapter: (input: UpsertChapterInput) => void;
   onReorderChapters: (inputs: UpsertChapterInput[]) => void;
 }) {
   const chapterActRailRef = useRef<HTMLDivElement>(null);
@@ -2183,6 +2187,10 @@ function ChaptersStep({
   const chapterDragRef = useRef<ChapterPointerDrag | null>(null);
   const suppressChapterOpenRef = useRef(false);
   const [chapterDrag, setChapterDrag] = useState<ChapterPointerDrag | null>(null);
+  const [relationPicker, setRelationPicker] = useState<{
+    kind: ChapterRelationKind;
+    chapterId: string;
+  } | null>(null);
   const lanes = chapterLanesForPlan(plan);
   const totalWords = plannedWordsForChapters(plan.chapters);
   const draggedChapterId = chapterDrag?.chapterId ?? null;
@@ -2451,6 +2459,14 @@ function ChaptersStep({
                         event.stopPropagation();
                       }}
                       onOpen={() => onOpenChapter(chapter)}
+                      onOpenRelationPicker={(kind) =>
+                        setRelationPicker({ kind, chapterId: chapter.id })
+                      }
+                      onUpdateRelations={(threadIds, beatIds) =>
+                        onSaveChapter(
+                          chapterUpsertInputWithRelations(plan, chapter, threadIds, beatIds)
+                        )
+                      }
                       onSuppressOpen={() => {
                         if (!suppressChapterOpenRef.current) {
                           return false;
@@ -2485,6 +2501,41 @@ function ChaptersStep({
           ))}
         </div>
       </div>
+      {relationPicker ? (
+        <ChapterRelationPickerModal
+          kind={relationPicker.kind}
+          plan={plan}
+          selectedIds={
+            relationPicker.kind === "threads"
+              ? chapterThreadIdsForChapter(plan, relationPicker.chapterId)
+              : chapterBeatIdsForChapter(plan, relationPicker.chapterId)
+          }
+          onClose={() => setRelationPicker(null)}
+          onAdd={(ids) => {
+            const chapter = plan.chapters.find((item) => item.id === relationPicker.chapterId);
+            if (!chapter) {
+              setRelationPicker(null);
+              return;
+            }
+
+            const currentThreadIds = chapterThreadIdsForChapter(plan, chapter.id);
+            const currentBeatIds = chapterBeatIdsForChapter(plan, chapter.id);
+            onSaveChapter(
+              chapterUpsertInputWithRelations(
+                plan,
+                chapter,
+                relationPicker.kind === "threads"
+                  ? uniqueOrderedIds([...currentThreadIds, ...ids])
+                  : currentThreadIds,
+                relationPicker.kind === "beats"
+                  ? uniqueOrderedIds([...currentBeatIds, ...ids])
+                  : currentBeatIds
+              )
+            );
+            setRelationPicker(null);
+          }}
+        />
+      ) : null}
     </section>
   );
 }
@@ -2503,7 +2554,9 @@ function ChapterBoardCard({
   onLostPointerCapture,
   onHandleClick,
   onSuppressOpen,
-  onOpen
+  onOpen,
+  onOpenRelationPicker,
+  onUpdateRelations
 }: {
   chapter: Chapter;
   number: number;
@@ -2519,9 +2572,13 @@ function ChapterBoardCard({
   onHandleClick: (event: MouseEvent<HTMLElement>) => void;
   onSuppressOpen: () => boolean;
   onOpen: () => void;
+  onOpenRelationPicker: (kind: ChapterRelationKind) => void;
+  onUpdateRelations: (threadIds: string[], beatIds: string[]) => void;
 }) {
   const beats = beatsForChapter(plan, chapter);
   const threads = threadsForChapter(plan, chapter);
+  const beatIds = beats.map((beat) => beat.id);
+  const threadIds = threads.map((thread) => thread.id);
   const className = [
     "chapter-board-card",
     dragging ? "dragging" : "",
@@ -2584,19 +2641,80 @@ function ChapterBoardCard({
         {chapter.turningPoint || "Brak"}
       </span>
       <span className="chapter-chip-row">
-        {beats.slice(0, 2).map((beat) => (
-          <span className="chapter-chip beat" key={beat.id}>
+        {beats.map((beat) => (
+          <span className="chapter-chip beat" key={beat.id} title={beatPreviewText(beat)}>
             {beat.name}
+            <button
+              type="button"
+              className="chapter-chip-remove"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onUpdateRelations(
+                  threadIds,
+                  beatIds.filter((beatId) => beatId !== beat.id)
+                );
+              }}
+              aria-label={`Odepnij beat ${beat.name}`}
+              title={`Odepnij beat ${beat.name}`}
+            >
+              -
+            </button>
           </span>
         ))}
-        {threads.slice(0, 2).map((thread) => (
-          <span className="chapter-chip thread" key={thread.id}>
+        {threads.map((thread) => (
+          <span
+            className="chapter-chip thread"
+            key={thread.id}
+            title={thread.description || "Brak opisu wątku."}
+          >
             {thread.name}
+            <button
+              type="button"
+              className="chapter-chip-remove"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onUpdateRelations(
+                  threadIds.filter((threadId) => threadId !== thread.id),
+                  beatIds
+                );
+              }}
+              aria-label={`Odepnij wątek ${thread.name}`}
+              title={`Odepnij wątek ${thread.name}`}
+            >
+              -
+            </button>
           </span>
         ))}
-        {beats.length + threads.length > 4 ? (
-          <span className="chapter-chip muted">+{beats.length + threads.length - 4}</span>
-        ) : null}
+        <button
+          type="button"
+          className="chapter-card-relation-add-button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onOpenRelationPicker("beats");
+          }}
+          aria-label={`Dodaj beat do rozdziału ${chapter.workingTitle}`}
+          title="Dodaj beat"
+        >
+          <Plus size={13} />
+          <span>Beat</span>
+        </button>
+        <button
+          type="button"
+          className="chapter-card-relation-add-button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onOpenRelationPicker("threads");
+          }}
+          aria-label={`Dodaj wątek do rozdziału ${chapter.workingTitle}`}
+          title="Dodaj wątek"
+        >
+          <Plus size={13} />
+          <span>Wątek</span>
+        </button>
       </span>
     </article>
   );
@@ -2762,6 +2880,7 @@ function ChapterForm({
   const [actId, setActId] = useState(chapter?.actId ?? defaultActId);
   const [threadIds, setThreadIds] = useState(chapterThreadIds);
   const [beatIds, setBeatIds] = useState(chapterBeatIds);
+  const [relationPicker, setRelationPicker] = useState<ChapterRelationKind | null>(null);
 
   useEffect(() => {
     setWorkingTitle(chapter?.workingTitle ?? `Rozdział ${orderIndex + 1}`);
@@ -2773,6 +2892,7 @@ function ChapterForm({
     setActId(chapter?.actId ?? defaultChapterActId(initialActId, plan));
     setThreadIds(chapterThreadIds);
     setBeatIds(chapterBeatIds);
+    setRelationPicker(null);
   }, [
     chapter?.workingTitle,
     chapter?.summary,
@@ -2829,16 +2949,6 @@ function ChapterForm({
       : completionPercent >= 50
         ? "W trakcie"
         : "Szkic";
-  const summaryPreview =
-    summary.trim() ||
-    "Dodaj krótkie streszczenie, aby podgląd rozdziału pomagał ocenić kierunek scen.";
-  const purposePreview =
-    purpose.trim() ||
-    "Określ, co rozdział ma zmienić w historii, wiedzy bohatera albo napięciu fabularnym.";
-  const notesPreview =
-    conflict.trim() || turningPoint.trim()
-      ? [conflict.trim(), turningPoint.trim()].filter(Boolean).join(" ")
-      : "Konflikt i punkt zwrotny utworzą tu szybką notatkę kontrolną.";
   const openChapterLabel = chapter ? `Otwórz rozdział ${chapter.workingTitle}` : "";
 
   return (
@@ -2875,45 +2985,6 @@ function ChapterForm({
 
       <div className="chapter-edit-content-grid">
         <main className="chapter-edit-main">
-          <section className="chapter-edit-section">
-            <div className="chapter-section-heading">
-              <FileText size={17} />
-              <h4>Podstawy</h4>
-            </div>
-            <div className="chapter-basic-grid">
-              <div className="field-label chapter-number-static">
-                Numer
-                <span>{dynamicNumber}</span>
-              </div>
-              <label className="field-label">
-                Akt
-                <select value={actId} onChange={(event) => setActId(event.target.value)}>
-                  <option value="">Bez aktu</option>
-                  {plan.acts.map((act) => (
-                    <option value={act.id} key={act.id}>
-                      {act.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field-label chapter-title-field">
-                Tytuł roboczy
-                <input
-                  value={workingTitle}
-                  onChange={(event) => setWorkingTitle(event.target.value)}
-                />
-              </label>
-              <label className="field-label">
-                Cel słów
-                <input
-                  inputMode="numeric"
-                  value={targetWordCount}
-                  onChange={(event) => setTargetWordCount(event.target.value)}
-                />
-              </label>
-            </div>
-          </section>
-
           <section className="chapter-edit-section">
             <div className="chapter-section-heading">
               <LayoutList size={17} />
@@ -2962,54 +3033,43 @@ function ChapterForm({
               />
             </div>
           </section>
-
-          <section className="chapter-edit-section">
-            <div className="chapter-section-heading">
-              <ClipboardList size={17} />
-              <h4>Beaty i znaczniki</h4>
-            </div>
-            <div className="chapter-relation-grid">
-              <RelationPicker
-                label="Beaty"
-                items={plan.beats}
-                selectedIds={beatIds}
-                onChange={setBeatIds}
-              />
-              <RelationPicker
-                label="Wątki"
-                items={plan.threads}
-                selectedIds={threadIds}
-                onChange={setThreadIds}
-              />
-            </div>
-          </section>
         </main>
 
-        <aside className="chapter-edit-sidebar" aria-label="Podgląd rozdziału">
-          <section className="chapter-side-section">
-            <div className="chapter-side-heading">
-              <Eye size={16} />
-              <h4>Podgląd rozdziału</h4>
-            </div>
-            <p>{summaryPreview}</p>
-          </section>
-          <section className="chapter-side-section">
-            <div className="chapter-side-heading">
-              <Target size={16} />
-              <h4>Rola w akcji</h4>
-            </div>
-            <p>{purposePreview}</p>
-          </section>
+        <aside className="chapter-edit-sidebar" aria-label="Powiązania rozdziału">
           <section className="chapter-side-section">
             <div className="chapter-side-heading">
               <Link2 size={16} />
               <h4>Powiązane wątki</h4>
+              <ChapterRelationActions
+                field="chapterThreadSuggestions"
+                chapter={chapter}
+                onGenerate={() => onGenerate("chapterThreadSuggestions", chapter)}
+                onActivatePrompt={() => onActivatePrompt("chapterThreadSuggestions", chapter)}
+                onOpenPicker={() => setRelationPicker("threads")}
+              />
             </div>
             <div className="chapter-side-chip-list">
               {selectedThreads.length > 0 ? (
                 selectedThreads.map((thread) => (
-                  <span className="chapter-side-chip thread" key={thread.id}>
+                  <span
+                    className="chapter-side-chip thread"
+                    key={thread.id}
+                    title={thread.description || "Brak opisu wątku."}
+                  >
                     {thread.name}
+                    <button
+                      type="button"
+                      className="chapter-side-chip-remove"
+                      onClick={() =>
+                        setThreadIds((currentIds) =>
+                          currentIds.filter((threadId) => threadId !== thread.id)
+                        )
+                      }
+                      aria-label={`Odepnij wątek ${thread.name}`}
+                      title={`Odepnij wątek ${thread.name}`}
+                    >
+                      -
+                    </button>
                   </span>
                 ))
               ) : (
@@ -3021,12 +3081,36 @@ function ChapterForm({
             <div className="chapter-side-heading">
               <Route size={16} />
               <h4>Powiązane beaty</h4>
+              <ChapterRelationActions
+                field="chapterBeatSuggestions"
+                chapter={chapter}
+                onGenerate={() => onGenerate("chapterBeatSuggestions", chapter)}
+                onActivatePrompt={() => onActivatePrompt("chapterBeatSuggestions", chapter)}
+                onOpenPicker={() => setRelationPicker("beats")}
+              />
             </div>
             <div className="chapter-side-chip-list">
               {selectedBeats.length > 0 ? (
                 selectedBeats.map((beat) => (
-                  <span className="chapter-side-chip beat" key={beat.id}>
+                  <span
+                    className="chapter-side-chip beat"
+                    key={beat.id}
+                    title={beatPreviewText(beat)}
+                  >
                     {beat.name}
+                    <button
+                      type="button"
+                      className="chapter-side-chip-remove"
+                      onClick={() =>
+                        setBeatIds((currentIds) =>
+                          currentIds.filter((beatId) => beatId !== beat.id)
+                        )
+                      }
+                      aria-label={`Odepnij beat ${beat.name}`}
+                      title={`Odepnij beat ${beat.name}`}
+                    >
+                      -
+                    </button>
                   </span>
                 ))
               ) : (
@@ -3034,30 +3118,25 @@ function ChapterForm({
               )}
             </div>
           </section>
-          <section className="chapter-side-section">
-            <div className="chapter-side-heading">
-              <ClipboardList size={16} />
-              <h4>Lista kontrolna</h4>
-            </div>
-            <ul className="chapter-checklist">
-              {completionItems.map((item) => (
-                <li className={item.complete ? "complete" : undefined} key={item.label}>
-                  {item.complete ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-                  <span>{item.label}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="chapter-side-note">{notesPreview}</p>
-            <div className="chapter-progress-row">
-              <span>Postęp rozdziału</span>
-              <strong>{completionPercent}%</strong>
-            </div>
-            <div className="chapter-progress-track" aria-hidden="true">
-              <span style={{ width: `${completionPercent}%` }} />
-            </div>
-          </section>
         </aside>
       </div>
+
+      {relationPicker ? (
+        <ChapterRelationPickerModal
+          kind={relationPicker}
+          plan={plan}
+          selectedIds={relationPicker === "threads" ? threadIds : beatIds}
+          onClose={() => setRelationPicker(null)}
+          onAdd={(ids) => {
+            if (relationPicker === "threads") {
+              setThreadIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
+            } else {
+              setBeatIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
+            }
+            setRelationPicker(null);
+          }}
+        />
+      ) : null}
 
       <footer className="chapter-edit-footer">
         <div className="chapter-footer-status">
@@ -3094,6 +3173,176 @@ function ChapterForm({
         </div>
       </footer>
     </form>
+  );
+}
+
+function ChapterRelationActions({
+  field,
+  chapter,
+  onGenerate,
+  onActivatePrompt,
+  onOpenPicker
+}: {
+  field: Extract<PlanFieldKey, "chapterThreadSuggestions" | "chapterBeatSuggestions">;
+  chapter?: Chapter;
+  onGenerate: () => void;
+  onActivatePrompt: () => void;
+  onOpenPicker: () => void;
+}) {
+  const proposals = useProposalStore((state) => state.proposals);
+  const loading = pendingProposalStatus(proposals, {
+    field,
+    scope: "bookPlan"
+  });
+  const running = loading === "running";
+  const queued = loading === "queued";
+  const label = planFieldConfigs[field].label;
+
+  return (
+    <span className="chapter-relation-actions">
+      <button
+        type="button"
+        className="icon-button ai-field-button chapter-relation-ai-button"
+        onClick={onGenerate}
+        onFocus={onActivatePrompt}
+        disabled={!chapter || queued || running}
+        title={
+          chapter
+            ? `Zasugeruj ${label.toLowerCase()} z AI`
+            : "Zapisz rozdział, aby AI mogło zasugerować powiązania."
+        }
+        aria-label={
+          chapter
+            ? `Zasugeruj ${label.toLowerCase()} z AI`
+            : "Zapisz rozdział przed sugestią AI"
+        }
+      >
+        {running ? (
+          <Loader2 size={15} className="spin-icon" />
+        ) : queued ? (
+          <Clock3 size={15} />
+        ) : (
+          <Sparkles size={15} />
+        )}
+        <span>{running ? "Generuje" : queued ? "W kolejce" : "AI"}</span>
+      </button>
+      <button
+        type="button"
+        className="icon-button chapter-relation-add-button"
+        onClick={onOpenPicker}
+        title={`Dodaj ${label.toLowerCase()}`}
+        aria-label={`Dodaj ${label.toLowerCase()}`}
+      >
+        <Plus size={15} />
+      </button>
+    </span>
+  );
+}
+
+function ChapterRelationPickerModal({
+  kind,
+  plan,
+  selectedIds,
+  onClose,
+  onAdd
+}: {
+  kind: ChapterRelationKind;
+  plan: BookPlan;
+  selectedIds: string[];
+  onClose: () => void;
+  onAdd: (ids: string[]) => void;
+}) {
+  const [checkedIds, setCheckedIds] = useState<string[]>([]);
+  const selectedSet = new Set(selectedIds);
+  const items =
+    kind === "threads"
+      ? plan.threads.filter((thread) => !selectedSet.has(thread.id))
+      : plan.beats.filter((beat) => !selectedSet.has(beat.id));
+  const title = kind === "threads" ? "Dodaj wątki" : "Dodaj beaty";
+  const emptyText =
+    kind === "threads"
+      ? "Wszystkie wątki są już przypisane do tego rozdziału."
+      : "Wszystkie beaty są już przypisane do tego rozdziału.";
+
+  function toggle(id: string) {
+    setCheckedIds((currentIds) =>
+      currentIds.includes(id)
+        ? currentIds.filter((currentId) => currentId !== id)
+        : [...currentIds, id]
+    );
+  }
+
+  return (
+    <div className="chapter-relation-modal" role="dialog" aria-modal="true">
+      <button
+        type="button"
+        className="chapter-relation-backdrop"
+        onClick={onClose}
+        aria-label="Zamknij wybór powiązań"
+      />
+      <section className="chapter-relation-shell" aria-label={title}>
+        <header className="chapter-relation-header">
+          <div>
+            <p className="eyebrow">Powiązania rozdziału</p>
+            <h4>{title}</h4>
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Zamknij wybór powiązań"
+            title="Zamknij"
+          >
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="chapter-relation-list">
+          {items.length === 0 ? (
+            <p className="chapter-relation-empty">{emptyText}</p>
+          ) : (
+            items.map((item) => {
+              const checked = checkedIds.includes(item.id);
+              const description =
+                kind === "threads" ? item.description : beatPreviewText(item as Beat);
+              return (
+                <button
+                  type="button"
+                  className={
+                    checked ? "chapter-relation-option selected" : "chapter-relation-option"
+                  }
+                  key={item.id}
+                  onClick={() => toggle(item.id)}
+                  title={description}
+                  aria-pressed={checked}
+                >
+                  <span className={kind === "threads" ? "relation-dot thread" : "relation-dot beat"} />
+                  <span>
+                    <strong>{item.name}</strong>
+                    <em>{description || "Brak opisu."}</em>
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <footer className="chapter-relation-footer">
+          <button type="button" className="ghost-button" onClick={onClose}>
+            Anuluj
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={checkedIds.length === 0}
+            onClick={() => onAdd(checkedIds)}
+          >
+            <Plus size={16} />
+            Dodaj wybrane
+          </button>
+        </footer>
+      </section>
+    </div>
   );
 }
 
@@ -3673,6 +3922,29 @@ function chapterUpsertInputForPlan(
   };
 }
 
+function chapterUpsertInputWithRelations(
+  plan: BookPlan,
+  chapter: Chapter,
+  threadIds: string[],
+  beatIds: string[]
+): UpsertChapterInput {
+  return {
+    id: chapter.id,
+    bookId: chapter.bookId,
+    actId: chapter.actId,
+    number: dynamicChapterNumber(plan, chapter.id),
+    workingTitle: chapter.workingTitle,
+    summary: chapter.summary,
+    purpose: chapter.purpose,
+    conflict: chapter.conflict,
+    turningPoint: chapter.turningPoint,
+    targetWordCount: chapter.targetWordCount,
+    orderIndex: chapter.orderIndex,
+    threadIds,
+    beatIds
+  };
+}
+
 function chapterLanesForPlan(plan: BookPlan): ChapterLane[] {
   const lanes: ChapterLane[] = plan.acts.map((act) => ({
     id: act.id,
@@ -3998,8 +4270,20 @@ function isEntityField(field: PlanFieldKey): boolean {
     "chapterSummary",
     "chapterPurpose",
     "chapterConflict",
-    "chapterTurningPoint"
+    "chapterTurningPoint",
+    "chapterThreadSuggestions",
+    "chapterBeatSuggestions"
   ].includes(field);
+}
+
+function beatPreviewText(beat: Beat): string {
+  return [beat.description, beat.role ? `Rola: ${beat.role}` : ""]
+    .filter(Boolean)
+    .join("\n") || "Brak opisu beatu.";
+}
+
+function uniqueOrderedIds(ids: string[]): string[] {
+  return [...new Set(ids)];
 }
 
 function parseOptionalPositiveInt(value: string): number | null {

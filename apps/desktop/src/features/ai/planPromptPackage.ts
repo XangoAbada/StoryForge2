@@ -24,6 +24,8 @@ export type PlanFieldKey =
   | "chapterPurpose"
   | "chapterConflict"
   | "chapterTurningPoint"
+  | "chapterThreadSuggestions"
+  | "chapterBeatSuggestions"
   | "planGaps";
 
 export type PlanFieldConfig = {
@@ -73,6 +75,9 @@ export type PlanPromptPackage = {
       beats: Beat[];
       threads: PlotThread[];
       chapters: Chapter[];
+      chapterThreads: BookPlan["chapterThreads"];
+      beatThreads: BookPlan["beatThreads"];
+      chapterBeats: BookPlan["chapterBeats"];
     };
     generationMode: "generate" | "expand";
     targetFieldCurrentValue: string;
@@ -193,6 +198,22 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     userInstruction:
       "Wygeneruj tylko wartosc pola punktu zwrotnego wybranego rozdzialu. Nie zmieniaj innych pol ani encji."
   },
+  chapterThreadSuggestions: {
+    key: "chapterThreadSuggestions",
+    label: "Powiazane watki",
+    action: "suggest_chapter_relations",
+    targetKind: "chapter",
+    userInstruction:
+      "Zasugeruj tylko istniejace watki fabularne, ktore warto dopiac do wybranego rozdzialu. AI moze nie sugerowac zadnego watku, jesli nie ma to zastosowania w tym rozdziale. Nie tworz nowych watkow, nie sugeruj watkow spoza Current Plan i wyklucz watki juz przypisane do rozdzialu."
+  },
+  chapterBeatSuggestions: {
+    key: "chapterBeatSuggestions",
+    label: "Powiazane beaty",
+    action: "suggest_chapter_relations",
+    targetKind: "chapter",
+    userInstruction:
+      "Zasugeruj tylko istniejace beaty, ktore warto dopiac do wybranego rozdzialu. AI moze nie sugerowac zadnego beatu, jesli nie ma to zastosowania w tym rozdziale. Nie tworz nowych beatow, nie sugeruj beatow spoza Current Plan i wyklucz beaty juz przypisane do rozdzialu."
+  },
   planGaps: {
     key: "planGaps",
     label: "Luki planu",
@@ -238,7 +259,10 @@ export function buildPlanPromptPackage(
         acts: plan.acts,
         beats: plan.beats,
         threads: plan.threads,
-        chapters: plan.chapters
+        chapters: plan.chapters,
+        chapterThreads: plan.chapterThreads,
+        beatThreads: plan.beatThreads,
+        chapterBeats: plan.chapterBeats
       },
       generationMode,
       targetFieldCurrentValue,
@@ -404,6 +428,15 @@ function renderPlanContext(
       : "",
     !contextControl || isContextKeyIncluded("chapters", contextControl)
       ? `Rozdzialy: ${JSON.stringify(plan.chapters)}`
+      : "",
+    !contextControl || isContextKeyIncluded("chapters", contextControl)
+      ? `Relacje rozdzialow z watkami: ${JSON.stringify(plan.chapterThreads)}`
+      : "",
+    !contextControl || isContextKeyIncluded("beats", contextControl)
+      ? `Relacje beatow z watkami: ${JSON.stringify(plan.beatThreads)}`
+      : "",
+    !contextControl || isContextKeyIncluded("chapters", contextControl)
+      ? `Relacje rozdzialow z beatami: ${JSON.stringify(plan.chapterBeats)}`
       : ""
   ].filter(Boolean);
 
@@ -445,6 +478,28 @@ function currentPlanFieldValue(
     field === "chapterTurningPoint"
   ) {
     return targetEntity.turningPoint ?? "";
+  }
+  if (targetEntity && "workingTitle" in targetEntity && field === "chapterThreadSuggestions") {
+    const assignedThreadIds = new Set(
+      plan.chapterThreads
+        .filter((relation) => relation.chapterId === targetEntity.id)
+        .map((relation) => relation.threadId)
+    );
+    const assignedThreads = plan.threads
+      .filter((thread) => assignedThreadIds.has(thread.id))
+      .map((thread) => ({ id: thread.id, name: thread.name }));
+    return assignedThreads.length ? JSON.stringify(assignedThreads) : "";
+  }
+  if (targetEntity && "workingTitle" in targetEntity && field === "chapterBeatSuggestions") {
+    const assignedBeatIds = new Set(
+      plan.chapterBeats
+        .filter((relation) => relation.chapterId === targetEntity.id)
+        .map((relation) => relation.beatId)
+    );
+    const assignedBeats = plan.beats
+      .filter((beat) => assignedBeatIds.has(beat.id))
+      .map((beat) => ({ id: beat.id, name: beat.name }));
+    return assignedBeats.length ? JSON.stringify(assignedBeats) : "";
   }
 
   return "";
@@ -537,6 +592,20 @@ function planSuggestionSchema(field: PlanFieldKey): unknown {
           targetWordCount: 2500
         }
       ]
+    };
+  }
+
+  if (field === "chapterThreadSuggestions") {
+    return {
+      ...base,
+      threadNamesOrIds: ["existing thread id or exact thread name"]
+    };
+  }
+
+  if (field === "chapterBeatSuggestions") {
+    return {
+      ...base,
+      beatNamesOrIds: ["existing beat id or exact beat name"]
     };
   }
 
