@@ -11,6 +11,33 @@ import type {
 } from "../../shared/api/types";
 import type { PromptContextControl, PromptContextSource } from "./promptPackage";
 
+type PlanContextKey =
+  | PlanFieldKey
+  | "bookCore"
+  | "styleGuide"
+  | "storyStructure"
+  | "allActs"
+  | "targetAct"
+  | "siblingActs"
+  | "actChapters"
+  | "allChapters"
+  | "targetChapter"
+  | "chapterAct"
+  | "neighborChapters"
+  | "assignedBeats"
+  | "assignedThreads"
+  | "allBeats"
+  | "targetBeat"
+  | "beatChapter"
+  | "siblingBeats"
+  | "allThreads"
+  | "targetThread"
+  | "threadChapters"
+  | "threadActs"
+  | "targetThreadChapter"
+  | "threadNeighborChapters"
+  | "planAudit";
+
 export type PlanFieldKey =
   | "storyStructure"
   | "storyStructureDescription"
@@ -270,6 +297,77 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
   }
 };
 
+const planContextSourceLabels: Record<PlanContextKey, string> = {
+  storyStructure: "Struktura fabuly",
+  storyStructureDescription: "Opis struktury",
+  storyStructureNotes: "Notatki do planu",
+  acts: "Akty",
+  actPurpose: "Cel aktu",
+  actSummary: "Streszczenie aktu",
+  beatSheet: "Beat sheet",
+  beatName: "Nazwa beatu",
+  beatRole: "Rola beatu",
+  beatDescription: "Opis beatu",
+  plotThreads: "Watki",
+  threadDescription: "Opis watku",
+  chapterPlan: "Plan rozdzialow",
+  chapterSummary: "Streszczenie rozdzialu",
+  chapterPurpose: "Cel rozdzialu",
+  chapterConflict: "Konflikt rozdzialu",
+  chapterTurningPoint: "Punkt zwrotny",
+  threadChapterDescription: "Opis watku w rozdziale",
+  chapterThreadSuggestions: "Powiazane watki",
+  chapterBeatSuggestions: "Powiazane beaty",
+  planGaps: "Luki planu",
+  bookCore: "Rdzen koncepcji",
+  styleGuide: "Style guide",
+  allActs: "Wszystkie akty",
+  targetAct: "Docelowy akt",
+  siblingActs: "Sasiednie akty",
+  actChapters: "Rozdzialy aktu",
+  allChapters: "Wszystkie rozdzialy",
+  targetChapter: "Docelowy rozdzial",
+  chapterAct: "Akt rozdzialu",
+  neighborChapters: "Sasiednie rozdzialy",
+  assignedBeats: "Przypisane beaty",
+  assignedThreads: "Przypisane watki",
+  allBeats: "Wszystkie beaty",
+  targetBeat: "Docelowy beat",
+  beatChapter: "Rozdzial beatu",
+  siblingBeats: "Sasiednie beaty",
+  allThreads: "Wszystkie watki",
+  targetThread: "Docelowy watek",
+  threadChapters: "Rozdzialy watku",
+  threadActs: "Akty watku",
+  targetThreadChapter: "Relacja watku z rozdzialem",
+  threadNeighborChapters: "Sasiednie rozdzialy watku",
+  planAudit: "Pelny plan"
+};
+
+const planPromptContextDefaultKeys: Record<PlanFieldKey, PlanContextKey[]> = {
+  storyStructure: ["bookCore", "styleGuide", "storyStructure"],
+  storyStructureDescription: ["bookCore", "styleGuide", "storyStructure", "allActs"],
+  storyStructureNotes: ["bookCore", "styleGuide", "storyStructure", "allActs"],
+  acts: ["bookCore", "styleGuide", "storyStructure", "allActs"],
+  actPurpose: ["bookCore", "storyStructure", "targetAct", "siblingActs"],
+  actSummary: ["bookCore", "storyStructure", "targetAct", "siblingActs", "actChapters"],
+  beatSheet: ["bookCore", "styleGuide", "storyStructure", "allActs", "allChapters", "allBeats", "allThreads"],
+  beatName: ["storyStructure", "targetBeat", "beatChapter", "siblingBeats", "assignedThreads"],
+  beatRole: ["storyStructure", "targetBeat", "beatChapter", "siblingBeats", "assignedThreads"],
+  beatDescription: ["storyStructure", "targetBeat", "beatChapter", "siblingBeats", "assignedThreads"],
+  plotThreads: ["bookCore", "styleGuide", "storyStructure", "allThreads", "allChapters"],
+  threadDescription: ["bookCore", "targetThread", "threadChapters", "threadActs"],
+  chapterPlan: ["bookCore", "styleGuide", "storyStructure", "allActs", "allChapters", "allBeats", "allThreads"],
+  chapterSummary: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
+  chapterPurpose: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
+  chapterConflict: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
+  chapterTurningPoint: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
+  threadChapterDescription: ["targetThreadChapter", "targetThread", "targetChapter", "threadNeighborChapters", "assignedBeats"],
+  chapterThreadSuggestions: ["bookCore", "targetChapter", "assignedThreads", "allThreads", "assignedBeats", "neighborChapters"],
+  chapterBeatSuggestions: ["bookCore", "targetChapter", "assignedBeats", "allBeats", "assignedThreads", "neighborChapters"],
+  planGaps: ["bookCore", "styleGuide", "planAudit"]
+};
+
 export function buildPlanPromptPackage(
   project: Project,
   book: Book,
@@ -281,6 +379,7 @@ export function buildPlanPromptPackage(
   const config = planFieldConfigs[field];
   const targetFieldCurrentValue = currentPlanFieldValue(plan, field, targetEntity);
   const generationMode = targetFieldCurrentValue.trim() ? "expand" : "generate";
+  const effectiveContextControl = contextControl ?? defaultPlanContextControl(field);
 
   return {
     id: createPromptId(config.action),
@@ -308,7 +407,7 @@ export function buildPlanPromptPackage(
       },
       generationMode,
       targetFieldCurrentValue,
-      ...(contextControl ? { contextControl } : {})
+      contextControl: effectiveContextControl
     },
     outputContract: {
       kind: "book_plan_suggestion",
@@ -357,7 +456,12 @@ ${authorPriority}
 ${renderBookContext(promptPackage.context.book, promptPackage.context.contextControl)}
 
 # Current Plan
-${renderPlanContext(promptPackage.context.plan, promptPackage.context.contextControl)}
+${renderPlanContext(
+  promptPackage.context.plan,
+  promptPackage.context.targetField,
+  promptPackage.context.targetEntityId,
+  promptPackage.context.contextControl
+)}
 
 # Current Work
 Docelowe pole: ${promptPackage.context.targetField} (${config.label}).
@@ -377,24 +481,37 @@ export function planPromptContextSources(field: PlanFieldKey): PromptContextSour
     label: planFieldConfigs[field].label,
     required: true
   };
+  const defaultKeys = planPromptContextDefaultKeys[field].filter((key) => key !== field);
 
   return [
     required,
-    { key: "bookCore", label: "Rdzen koncepcji", required: false },
-    { key: "styleGuide", label: "Style guide", required: false },
-    { key: "storyStructure", label: "Struktura planu", required: false },
-    { key: "acts", label: "Akty", required: false },
-    { key: "beats", label: "Beaty", required: false },
-    { key: "plotThreads", label: "Watki", required: false },
-    { key: "chapters", label: "Rozdzialy", required: false }
+    ...defaultKeys.map((key) => ({
+      key,
+      label: planContextSourceLabels[key],
+      required: false
+    }))
   ];
 }
 
-export function planPromptContextSource(field: PlanFieldKey): PromptContextSource {
+export function planPromptContextSource(
+  field: PlanFieldKey,
+  targetEntity?: Act | Beat | PlotThread | Chapter | ChapterThread
+): PromptContextSource {
+  const entityId = targetEntity ? planTargetEntityId(targetEntity) : "global";
   return {
-    key: field,
-    label: planFieldConfigs[field].label,
+    key: `field:${field}:${entityId}`,
+    label: `Pole: ${planFieldConfigs[field].label}`,
     required: false
+  };
+}
+
+function defaultPlanContextControl(field: PlanFieldKey): PromptContextControl {
+  const sources = planPromptContextSources(field);
+
+  return {
+    includedContextKeys: sources.map((source) => source.key),
+    authorPriorityComment: "",
+    contextSources: sources
   };
 }
 
@@ -454,33 +571,504 @@ function renderBookContext(
 
 function renderPlanContext(
   plan: PlanPromptPackage["context"]["plan"],
+  targetField: PlanFieldKey,
+  targetEntityId?: string,
   contextControl?: PromptContextControl
 ): string {
+  const target = targetEntityForPlanContext(plan, targetEntityId);
   const sections = [
-    !contextControl || isContextKeyIncluded("storyStructure", contextControl)
-      ? `Struktura: ${emptyFallback(plan.structureType)}; ${emptyFallback(plan.structureDescription)}`
+    isContextKeyIncluded("storyStructure", contextControl)
+      ? `Struktura: ${JSON.stringify({
+          type: plan.structureType,
+          description: plan.structureDescription,
+          notes: plan.structureNotes
+        })}`
       : "",
-    !contextControl || isContextKeyIncluded("acts", contextControl)
-      ? `Akty: ${JSON.stringify(plan.acts)}`
+    isContextKeyIncluded("allActs", contextControl)
+      ? `Wszystkie akty: ${JSON.stringify(plan.acts.map(compactAct))}`
       : "",
-    !contextControl || isContextKeyIncluded("beats", contextControl)
-      ? `Beaty: ${JSON.stringify(plan.beats)}`
+    isContextKeyIncluded("targetAct", contextControl)
+      ? `Docelowy akt: ${JSON.stringify(target.act ? compactAct(target.act) : null)}`
       : "",
-    !contextControl || isContextKeyIncluded("plotThreads", contextControl)
-      ? `Watki: ${JSON.stringify(plan.threads)}`
+    isContextKeyIncluded("siblingActs", contextControl)
+      ? `Sasiednie akty: ${JSON.stringify(siblingActs(plan, target.act).map(compactAct))}`
       : "",
-    !contextControl || isContextKeyIncluded("chapters", contextControl)
-      ? `Rozdzialy: ${JSON.stringify(plan.chapters)}`
+    isContextKeyIncluded("actChapters", contextControl)
+      ? `Rozdzialy aktu: ${JSON.stringify(chaptersForAct(plan, target.act?.id).map(compactChapter))}`
       : "",
-    !contextControl || isContextKeyIncluded("chapters", contextControl)
-      ? `Relacje rozdzialow z watkami: ${JSON.stringify(plan.chapterThreads)}`
+    isContextKeyIncluded("allChapters", contextControl)
+      ? `Wszystkie rozdzialy: ${JSON.stringify(orderedChapters(plan).map(compactChapter))}`
       : "",
-    !contextControl || isContextKeyIncluded("chapters", contextControl)
-      ? `Relacje rozdzialow z beatami: ${JSON.stringify(plan.chapterBeats)}`
-      : ""
+    isContextKeyIncluded("targetChapter", contextControl)
+      ? `Docelowy rozdzial: ${JSON.stringify(target.chapter ? compactChapter(target.chapter) : null)}`
+      : "",
+    isContextKeyIncluded("chapterAct", contextControl)
+      ? `Akt rozdzialu: ${JSON.stringify(target.chapter ? compactAct(actForChapter(plan, target.chapter)) : null)}`
+      : "",
+    isContextKeyIncluded("neighborChapters", contextControl)
+      ? `Sasiednie rozdzialy: ${JSON.stringify(neighborChapters(plan, target.chapter).map(compactChapter))}`
+      : "",
+    isContextKeyIncluded("assignedBeats", contextControl)
+      ? `Przypisane beaty: ${JSON.stringify(assignedBeatsForChapter(plan, target.chapter).map((beat) => compactBeat(plan, beat)))}`
+      : "",
+    isContextKeyIncluded("assignedThreads", contextControl)
+      ? `Przypisane watki: ${JSON.stringify(assignedThreadsForChapter(plan, target.chapter).map(compactThread))}`
+      : "",
+    isContextKeyIncluded("allBeats", contextControl)
+      ? `Wszystkie beaty: ${JSON.stringify(plan.beats.map((beat) => compactBeat(plan, beat)))}`
+      : "",
+    isContextKeyIncluded("targetBeat", contextControl)
+      ? `Docelowy beat: ${JSON.stringify(target.beat ? compactBeat(plan, target.beat) : null)}`
+      : "",
+    isContextKeyIncluded("beatChapter", contextControl)
+      ? `Rozdzial beatu: ${JSON.stringify(target.beat ? compactChapter(chapterForBeat(plan, target.beat)) : null)}`
+      : "",
+    isContextKeyIncluded("siblingBeats", contextControl)
+      ? `Sasiednie beaty: ${JSON.stringify(siblingBeats(plan, target.beat).map((beat) => compactBeat(plan, beat)))}`
+      : "",
+    isContextKeyIncluded("allThreads", contextControl)
+      ? `Wszystkie watki: ${JSON.stringify(plan.threads.map(compactThread))}`
+      : "",
+    isContextKeyIncluded("targetThread", contextControl)
+      ? `Docelowy watek: ${JSON.stringify(target.thread ? compactThread(target.thread) : null)}`
+      : "",
+    isContextKeyIncluded("threadChapters", contextControl)
+      ? `Rozdzialy watku: ${JSON.stringify(chaptersForThread(plan, target.thread?.id).map(compactChapter))}`
+      : "",
+    isContextKeyIncluded("threadActs", contextControl)
+      ? `Akty watku: ${JSON.stringify(actsForThread(plan, target.thread?.id).map(compactAct))}`
+      : "",
+    isContextKeyIncluded("targetThreadChapter", contextControl)
+      ? `Relacja watku z rozdzialem: ${JSON.stringify(target.relation ? compactChapterThread(plan, target.relation) : null)}`
+      : "",
+    isContextKeyIncluded("threadNeighborChapters", contextControl)
+      ? `Sasiednie rozdzialy watku: ${JSON.stringify(threadNeighborChapters(plan, target.relation).map(compactChapter))}`
+      : "",
+    isContextKeyIncluded("planAudit", contextControl)
+      ? `Pelny plan: ${JSON.stringify({
+          structure: {
+            type: plan.structureType,
+            description: plan.structureDescription,
+            notes: plan.structureNotes
+          },
+          acts: plan.acts.map(compactAct),
+          chapters: orderedChapters(plan).map(compactChapter),
+          beats: plan.beats.map((beat) => compactBeat(plan, beat)),
+          threads: plan.threads.map(compactThread),
+          chapterThreads: plan.chapterThreads,
+          chapterBeats: plan.chapterBeats
+        })}`
+      : "",
+    renderManualFieldContext(plan, targetField, contextControl)
   ].filter(Boolean);
 
   return sections.length ? sections.join("\n") : "(brak wybranego kontekstu planu)";
+}
+
+function targetEntityForPlanContext(
+  plan: PlanPromptPackage["context"]["plan"],
+  targetEntityId?: string
+) {
+  const relation =
+    targetEntityId && targetEntityId.includes(":")
+      ? relationForId(plan, targetEntityId)
+      : null;
+  const chapterFromRelation = relation
+    ? plan.chapters.find((chapter) => chapter.id === relation.chapterId) ?? null
+    : null;
+  const threadFromRelation = relation
+    ? plan.threads.find((thread) => thread.id === relation.threadId) ?? null
+    : null;
+  const chapter =
+    chapterFromRelation ??
+    plan.chapters.find((item) => item.id === targetEntityId) ??
+    null;
+  const beat = plan.beats.find((item) => item.id === targetEntityId) ?? null;
+  const thread =
+    threadFromRelation ??
+    plan.threads.find((item) => item.id === targetEntityId) ??
+    null;
+  const act =
+    plan.acts.find((item) => item.id === targetEntityId) ??
+    (chapter ? actForChapter(plan, chapter) : null);
+
+  return {
+    act,
+    beat,
+    chapter: chapter ?? (beat ? chapterForBeat(plan, beat) : null),
+    thread,
+    relation
+  };
+}
+
+function relationForId(
+  plan: PlanPromptPackage["context"]["plan"],
+  relationId: string
+): ChapterThread | null {
+  const [threadId, chapterId] = relationId.split(":");
+  if (!threadId || !chapterId) {
+    return null;
+  }
+
+  return (
+    plan.chapterThreads.find(
+      (relation) =>
+        relation.threadId === threadId && relation.chapterId === chapterId
+    ) ?? null
+  );
+}
+
+function compactAct(act: Act | null | undefined) {
+  return act
+    ? {
+        id: act.id,
+        name: act.name,
+        purpose: act.purpose,
+        summary: act.summary,
+        startPercent: act.startPercent,
+        endPercent: act.endPercent,
+        orderIndex: act.orderIndex
+      }
+    : null;
+}
+
+function compactChapter(chapter: Chapter | null | undefined) {
+  return chapter
+    ? {
+        id: chapter.id,
+        actId: chapter.actId,
+        number: chapter.number,
+        workingTitle: chapter.workingTitle,
+        summary: chapter.summary,
+        purpose: chapter.purpose,
+        conflict: chapter.conflict,
+        turningPoint: chapter.turningPoint,
+        targetWordCount: chapter.targetWordCount,
+        orderIndex: chapter.orderIndex
+      }
+    : null;
+}
+
+function compactBeat(plan: PlanPromptPackage["context"]["plan"], beat: Beat) {
+  const chapter = chapterForBeat(plan, beat);
+
+  return {
+    id: beat.id,
+    name: beat.name,
+    role: beat.role,
+    description: beat.description,
+    orderIndex: beat.orderIndex,
+    chapterId: chapter?.id ?? null,
+    chapterTitle: chapter?.workingTitle ?? null
+  };
+}
+
+function compactThread(thread: PlotThread | null | undefined) {
+  return thread
+    ? {
+        id: thread.id,
+        name: thread.name,
+        description: thread.description,
+        status: thread.status,
+        orderIndex: thread.orderIndex
+      }
+    : null;
+}
+
+function compactChapterThread(
+  plan: PlanPromptPackage["context"]["plan"],
+  relation: ChapterThread
+) {
+  const thread = plan.threads.find((item) => item.id === relation.threadId);
+  const chapter = plan.chapters.find((item) => item.id === relation.chapterId);
+
+  return {
+    threadId: relation.threadId,
+    threadName: thread?.name ?? "",
+    chapterId: relation.chapterId,
+    chapterTitle: chapter?.workingTitle ?? "",
+    chapterNumber: chapter?.number ?? null,
+    description: relation.description
+  };
+}
+
+function orderedChapters(plan: PlanPromptPackage["context"]["plan"]): Chapter[] {
+  return [...plan.chapters].sort((left, right) => {
+    if (left.orderIndex !== right.orderIndex) {
+      return left.orderIndex - right.orderIndex;
+    }
+
+    return left.number - right.number;
+  });
+}
+
+function actForChapter(
+  plan: PlanPromptPackage["context"]["plan"],
+  chapter: Chapter | null | undefined
+): Act | null {
+  if (!chapter?.actId) {
+    return null;
+  }
+
+  return plan.acts.find((act) => act.id === chapter.actId) ?? null;
+}
+
+function siblingActs(
+  plan: PlanPromptPackage["context"]["plan"],
+  act: Act | null | undefined
+): Act[] {
+  if (!act) {
+    return [];
+  }
+
+  const orderedActs = [...plan.acts].sort((left, right) => left.orderIndex - right.orderIndex);
+  const index = orderedActs.findIndex((item) => item.id === act.id);
+  if (index < 0) {
+    return [];
+  }
+
+  return [orderedActs[index - 1], orderedActs[index + 1]].filter(
+    (item): item is Act => Boolean(item)
+  );
+}
+
+function chaptersForAct(
+  plan: PlanPromptPackage["context"]["plan"],
+  actId: string | null | undefined
+): Chapter[] {
+  if (!actId) {
+    return [];
+  }
+
+  return orderedChapters(plan).filter((chapter) => chapter.actId === actId);
+}
+
+function neighborChapters(
+  plan: PlanPromptPackage["context"]["plan"],
+  chapter: Chapter | null | undefined
+): Chapter[] {
+  if (!chapter) {
+    return [];
+  }
+
+  const chapters = orderedChapters(plan);
+  const index = chapters.findIndex((item) => item.id === chapter.id);
+  if (index < 0) {
+    return [];
+  }
+
+  return [chapters[index - 1], chapters[index + 1]].filter(
+    (item): item is Chapter => Boolean(item)
+  );
+}
+
+function chapterForBeat(
+  plan: PlanPromptPackage["context"]["plan"],
+  beat: Beat | null | undefined
+): Chapter | null {
+  if (!beat) {
+    return null;
+  }
+
+  const chapterId =
+    "chapterId" in beat && typeof beat.chapterId === "string"
+      ? beat.chapterId
+      : plan.chapterBeats.find((relation) => relation.beatId === beat.id)?.chapterId;
+
+  return chapterId
+    ? plan.chapters.find((chapter) => chapter.id === chapterId) ?? null
+    : null;
+}
+
+function assignedBeatsForChapter(
+  plan: PlanPromptPackage["context"]["plan"],
+  chapter: Chapter | null | undefined
+): Beat[] {
+  if (!chapter) {
+    return [];
+  }
+
+  const beatIds = new Set(
+    plan.chapterBeats
+      .filter((relation) => relation.chapterId === chapter.id)
+      .map((relation) => relation.beatId)
+  );
+
+  return plan.beats.filter((beat) => beatIds.has(beat.id));
+}
+
+function assignedThreadsForChapter(
+  plan: PlanPromptPackage["context"]["plan"],
+  chapter: Chapter | null | undefined
+): PlotThread[] {
+  if (!chapter) {
+    return [];
+  }
+
+  const threadIds = new Set(
+    plan.chapterThreads
+      .filter((relation) => relation.chapterId === chapter.id)
+      .map((relation) => relation.threadId)
+  );
+
+  return plan.threads.filter((thread) => threadIds.has(thread.id));
+}
+
+function siblingBeats(
+  plan: PlanPromptPackage["context"]["plan"],
+  beat: Beat | null | undefined
+): Beat[] {
+  const chapter = chapterForBeat(plan, beat);
+  if (!beat || !chapter) {
+    return [];
+  }
+
+  const beats = assignedBeatsForChapter(plan, chapter).sort(
+    (left, right) => left.orderIndex - right.orderIndex
+  );
+  const index = beats.findIndex((item) => item.id === beat.id);
+  if (index < 0) {
+    return [];
+  }
+
+  return [beats[index - 1], beats[index + 1]].filter(
+    (item): item is Beat => Boolean(item)
+  );
+}
+
+function chaptersForThread(
+  plan: PlanPromptPackage["context"]["plan"],
+  threadId: string | null | undefined
+): Chapter[] {
+  if (!threadId) {
+    return [];
+  }
+
+  const chapterIds = new Set(
+    plan.chapterThreads
+      .filter((relation) => relation.threadId === threadId)
+      .map((relation) => relation.chapterId)
+  );
+
+  return orderedChapters(plan).filter((chapter) => chapterIds.has(chapter.id));
+}
+
+function actsForThread(
+  plan: PlanPromptPackage["context"]["plan"],
+  threadId: string | null | undefined
+): Act[] {
+  const actIds = new Set(
+    chaptersForThread(plan, threadId)
+      .map((chapter) => chapter.actId)
+      .filter((actId): actId is string => Boolean(actId))
+  );
+
+  return plan.acts.filter((act) => actIds.has(act.id));
+}
+
+function threadNeighborChapters(
+  plan: PlanPromptPackage["context"]["plan"],
+  relation: ChapterThread | null | undefined
+): Chapter[] {
+  if (!relation) {
+    return [];
+  }
+
+  const chapters = chaptersForThread(plan, relation.threadId);
+  const index = chapters.findIndex((chapter) => chapter.id === relation.chapterId);
+  if (index < 0) {
+    return [];
+  }
+
+  return [chapters[index - 1], chapters[index + 1]].filter(
+    (item): item is Chapter => Boolean(item)
+  );
+}
+
+function renderManualFieldContext(
+  plan: PlanPromptPackage["context"]["plan"],
+  targetField: PlanFieldKey,
+  contextControl?: PromptContextControl
+): string {
+  if (!contextControl) {
+    return "";
+  }
+
+  const selectedManualSources = contextControl.contextSources.filter(
+    (source) =>
+      source.key.startsWith("field:") &&
+      source.key !== targetField &&
+      isContextKeyIncluded(source.key, contextControl)
+  );
+  if (selectedManualSources.length === 0) {
+    return "";
+  }
+
+  const values = selectedManualSources.map((source) => {
+    const [, field, entityId] = source.key.split(":");
+    const planField = field as PlanFieldKey;
+    return {
+      label: source.label,
+      field: planField,
+      entityId,
+      value: currentPlanContextFieldValue(plan, planField, entityId)
+    };
+  });
+
+  return `Dodatkowe pola dodane przez autora: ${JSON.stringify(values)}`;
+}
+
+function currentPlanContextFieldValue(
+  plan: PlanPromptPackage["context"]["plan"],
+  field: PlanFieldKey,
+  entityId: string | undefined
+): string {
+  if (field === "storyStructure") {
+    return plan.structureType;
+  }
+  if (field === "storyStructureDescription") {
+    return plan.structureDescription;
+  }
+  if (field === "storyStructureNotes") {
+    return plan.structureNotes;
+  }
+
+  const target = targetEntityForPlanContext(plan, entityId === "global" ? undefined : entityId);
+  if (field === "actPurpose") {
+    return target.act?.purpose ?? "";
+  }
+  if (field === "actSummary") {
+    return target.act?.summary ?? "";
+  }
+  if (field === "beatName") {
+    return target.beat?.name ?? "";
+  }
+  if (field === "beatRole") {
+    return target.beat?.role ?? "";
+  }
+  if (field === "beatDescription") {
+    return target.beat?.description ?? "";
+  }
+  if (field === "threadDescription") {
+    return target.thread?.description ?? "";
+  }
+  if (field === "chapterSummary") {
+    return target.chapter?.summary ?? "";
+  }
+  if (field === "chapterPurpose") {
+    return target.chapter?.purpose ?? "";
+  }
+  if (field === "chapterConflict") {
+    return target.chapter?.conflict ?? "";
+  }
+  if (field === "chapterTurningPoint") {
+    return target.chapter?.turningPoint ?? "";
+  }
+  if (field === "threadChapterDescription") {
+    return target.relation?.description ?? "";
+  }
+
+  return "";
 }
 
 function planTargetEntityId(entity: Act | Beat | PlotThread | Chapter | ChapterThread): string {

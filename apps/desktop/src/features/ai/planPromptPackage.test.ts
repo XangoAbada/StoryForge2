@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Beat, Book, BookPlan, Project } from "../../shared/api/types";
+import type { Beat, Book, BookPlan, Chapter, PlotThread, Project } from "../../shared/api/types";
 import {
   buildPlanPromptPackage,
+  planPromptContextSource,
+  planPromptContextSources,
   renderPlanPromptPackage
 } from "./planPromptPackage";
 
@@ -61,6 +63,73 @@ const beat: Beat & { chapterId?: string | null } = {
   chapterId: "chapter-1"
 };
 
+const unrelatedBeat: Beat = {
+  id: "beat-2",
+  bookId: "book-1",
+  name: "Maskarada archiwistow",
+  role: "False victory",
+  description: "Archiwisci ukrywaja maszyne do przepisywania snow.",
+  orderIndex: 1,
+  createdAt: "2026-06-05T12:00:00Z",
+  updatedAt: "2026-06-05T12:00:00Z"
+};
+
+const chapter: Chapter = {
+  id: "chapter-1",
+  bookId: "book-1",
+  actId: "act-1",
+  number: 1,
+  workingTitle: "Drukowany sen",
+  summary: "Pierwszy trop.",
+  purpose: "Pokazac anomalie.",
+  conflict: "Bohaterka ryzykuje prace.",
+  turningPoint: "Odnajduje falszywa odbitke.",
+  targetWordCount: 3000,
+  orderIndex: 0,
+  createdAt: "2026-06-05T12:00:00Z",
+  updatedAt: "2026-06-05T12:00:00Z"
+};
+
+const unrelatedChapter: Chapter = {
+  id: "chapter-2",
+  bookId: "book-1",
+  actId: "act-1",
+  number: 2,
+  workingTitle: "Bal bez pamieci",
+  summary: "Elity miasta celebruja falszywa wersje historii.",
+  purpose: "Pokazac skale manipulacji.",
+  conflict: "Bohaterka musi milczec przy dawnych sojusznikach.",
+  turningPoint: "Ktos rozpoznaje jej prawdziwe wspomnienie.",
+  targetWordCount: 3200,
+  orderIndex: 1,
+  createdAt: "2026-06-05T12:00:00Z",
+  updatedAt: "2026-06-05T12:00:00Z"
+};
+
+const thread: PlotThread = {
+  id: "thread-1",
+  bookId: "book-1",
+  name: "Pamiec miasta",
+  description: "Watek kontroli wspomnien.",
+  color: "#3f8f6b",
+  status: "planned",
+  orderIndex: 0,
+  createdAt: "2026-06-05T12:00:00Z",
+  updatedAt: "2026-06-05T12:00:00Z"
+};
+
+const unrelatedThread: PlotThread = {
+  id: "thread-2",
+  bookId: "book-1",
+  name: "Rodzina introligatorow",
+  description: "Poboczny watek lojalnosci rodzinnej.",
+  color: "#4f8fd9",
+  status: "planned",
+  orderIndex: 1,
+  createdAt: "2026-06-05T12:00:00Z",
+  updatedAt: "2026-06-05T12:00:00Z"
+};
+
 const plan: BookPlan = {
   structure: {
     id: "structure-1",
@@ -87,37 +156,9 @@ const plan: BookPlan = {
       updatedAt: "2026-06-05T12:00:00Z"
     }
   ],
-  beats: [beat],
-  threads: [
-    {
-      id: "thread-1",
-      bookId: "book-1",
-      name: "Pamiec miasta",
-      description: "Watek kontroli wspomnien.",
-      color: "#3f8f6b",
-      status: "planned",
-      orderIndex: 0,
-      createdAt: "2026-06-05T12:00:00Z",
-      updatedAt: "2026-06-05T12:00:00Z"
-    }
-  ],
-  chapters: [
-    {
-      id: "chapter-1",
-      bookId: "book-1",
-      actId: "act-1",
-      number: 1,
-      workingTitle: "Drukowany sen",
-      summary: "Pierwszy trop.",
-      purpose: "Pokazac anomalie.",
-      conflict: "Bohaterka ryzykuje prace.",
-      turningPoint: "Odnajduje falszywa odbitke.",
-      targetWordCount: 3000,
-      orderIndex: 0,
-      createdAt: "2026-06-05T12:00:00Z",
-      updatedAt: "2026-06-05T12:00:00Z"
-    }
-  ],
+  beats: [beat, unrelatedBeat],
+  threads: [thread, unrelatedThread],
+  chapters: [chapter, unrelatedChapter],
   chapterThreads: [{ chapterId: "chapter-1", threadId: "thread-1", description: "" }],
   chapterBeats: [{ chapterId: "chapter-1", beatId: "beat-1" }]
 };
@@ -138,7 +179,65 @@ describe("buildPlanPromptPackage", () => {
       expect(prompt).toContain(beat.description);
       expect(prompt).toContain("Drukowany sen");
       expect(prompt).toContain("Pamiec miasta");
-      expect(prompt).toContain(book.premise);
+      expect(prompt).not.toContain("Maskarada archiwistow");
+      expect(prompt).not.toContain("Bal bez pamieci");
+      expect(prompt).not.toContain("Rodzina introligatorow");
     }
+  });
+
+  it("renders chapter fields with only the target chapter neighborhood and assigned relations by default", () => {
+    const promptPackage = buildPlanPromptPackage(project, book, plan, "chapterSummary", chapter);
+    const prompt = renderPlanPromptPackage(promptPackage);
+
+    expect(prompt).toContain("Drukowany sen");
+    expect(prompt).toContain("Bal bez pamieci");
+    expect(prompt).toContain("Pierwszy falszywy sen");
+    expect(prompt).toContain("Pamiec miasta");
+    expect(prompt).not.toContain("Maskarada archiwistow");
+    expect(prompt).not.toContain("Rodzina introligatorow");
+  });
+
+  it("keeps full pools for chapter planning and relation suggestions", () => {
+    const chapterPlanPrompt = renderPlanPromptPackage(
+      buildPlanPromptPackage(project, book, plan, "chapterPlan")
+    );
+    const threadSuggestionPrompt = renderPlanPromptPackage(
+      buildPlanPromptPackage(project, book, plan, "chapterThreadSuggestions", chapter)
+    );
+    const beatSuggestionPrompt = renderPlanPromptPackage(
+      buildPlanPromptPackage(project, book, plan, "chapterBeatSuggestions", chapter)
+    );
+
+    expect(chapterPlanPrompt).toContain("Bal bez pamieci");
+    expect(chapterPlanPrompt).toContain("Maskarada archiwistow");
+    expect(chapterPlanPrompt).toContain("Rodzina introligatorow");
+    expect(threadSuggestionPrompt).toContain("Rodzina introligatorow");
+    expect(beatSuggestionPrompt).toContain("Maskarada archiwistow");
+  });
+
+  it("renders manually added field context from the prompt context panel", () => {
+    const defaultSources = planPromptContextSources("chapterSummary");
+    const manualSource = planPromptContextSource("chapterPurpose", chapter);
+    const promptPackage = buildPlanPromptPackage(project, book, plan, "chapterSummary", chapter, {
+      includedContextKeys: [...defaultSources.map((source) => source.key), manualSource.key],
+      authorPriorityComment: "",
+      contextSources: [...defaultSources, manualSource]
+    });
+    const prompt = renderPlanPromptPackage(promptPackage);
+
+    expect(prompt).toContain("Dodatkowe pola dodane przez autora");
+    expect(prompt).toContain("chapterPurpose");
+    expect(prompt).toContain("Pokazac anomalie.");
+  });
+
+  it("renders full plan context for plan gap audits", () => {
+    const prompt = renderPlanPromptPackage(
+      buildPlanPromptPackage(project, book, plan, "planGaps")
+    );
+
+    expect(prompt).toContain("Pelny plan");
+    expect(prompt).toContain("Bal bez pamieci");
+    expect(prompt).toContain("Maskarada archiwistow");
+    expect(prompt).toContain("Rodzina introligatorow");
   });
 });

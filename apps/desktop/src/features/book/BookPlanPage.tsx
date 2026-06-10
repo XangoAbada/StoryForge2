@@ -4646,8 +4646,11 @@ function PlanAiActions({
   });
   const running = loading === "running";
   const queued = loading === "queued";
+  const promptContextSource = planPromptContextSource(field, targetEntity);
   const fieldAlreadyInContext = Boolean(
-    activeTarget?.sources.some((source) => source.key === field)
+    activeTarget?.sources.some(
+      (source) => source.key === field || source.key === promptContextSource.key
+    )
   );
 
   return (
@@ -4677,7 +4680,7 @@ function PlanAiActions({
         }}
         onClick={(event) => {
           event.stopPropagation();
-          addContextSourceToActiveTarget(planPromptContextSource(field));
+          addContextSourceToActiveTarget(promptContextSource);
         }}
         disabled={!activeTarget || fieldAlreadyInContext}
         title="Dodaj pole planu do aktywnego kontekstu promptu."
