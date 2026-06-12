@@ -505,6 +505,100 @@ pub struct CharacterWorkspace {
     pub visual_assets: Vec<VisualAsset>,
 }
 
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldElement {
+    pub id: String,
+    pub project_id: String,
+    pub element_type: String,
+    pub name: String,
+    pub summary: String,
+    pub details: String,
+    pub story_purpose: String,
+    pub constraints: String,
+    pub visual_prompt: String,
+    pub image_asset_id: Option<String>,
+    pub status: String,
+    pub order_index: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldRule {
+    pub id: String,
+    pub project_id: String,
+    pub name: String,
+    pub description: String,
+    pub scope: String,
+    pub cost: String,
+    pub limitation: String,
+    pub exceptions: String,
+    pub violation_consequences: String,
+    pub scene_examples: String,
+    pub status: String,
+    pub order_index: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldElementCharacter {
+    pub element_id: String,
+    pub character_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldElementThread {
+    pub element_id: String,
+    pub thread_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldElementChapter {
+    pub element_id: String,
+    pub chapter_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldElementRule {
+    pub element_id: String,
+    pub rule_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldRuleThread {
+    pub rule_id: String,
+    pub thread_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldRuleChapter {
+    pub rule_id: String,
+    pub chapter_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldWorkspace {
+    pub elements: Vec<WorldElement>,
+    pub rules: Vec<WorldRule>,
+    pub element_characters: Vec<WorldElementCharacter>,
+    pub element_threads: Vec<WorldElementThread>,
+    pub element_chapters: Vec<WorldElementChapter>,
+    pub element_rules: Vec<WorldElementRule>,
+    pub rule_threads: Vec<WorldRuleThread>,
+    pub rule_chapters: Vec<WorldRuleChapter>,
+    pub visual_assets: Vec<VisualAsset>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveStoryStructureInput {
@@ -666,6 +760,61 @@ pub struct UpsertCharacterMemoryLinkInput {
     pub link_type: String,
     pub description: String,
     pub strength: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertWorldElementInput {
+    pub id: Option<String>,
+    pub project_id: String,
+    pub element_type: String,
+    pub name: String,
+    pub summary: String,
+    pub details: String,
+    pub story_purpose: String,
+    pub constraints: String,
+    pub visual_prompt: String,
+    pub image_asset_id: Option<String>,
+    pub status: String,
+    pub order_index: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertWorldRuleInput {
+    pub id: Option<String>,
+    pub project_id: String,
+    pub name: String,
+    pub description: String,
+    pub scope: String,
+    pub cost: String,
+    pub limitation: String,
+    pub exceptions: String,
+    pub violation_consequences: String,
+    pub scene_examples: String,
+    pub status: String,
+    pub order_index: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetWorldElementRelationsInput {
+    pub project_id: String,
+    pub element_id: String,
+    pub character_ids: Vec<String>,
+    pub thread_ids: Vec<String>,
+    pub chapter_ids: Vec<String>,
+    pub rule_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetWorldRuleRelationsInput {
+    pub project_id: String,
+    pub rule_id: String,
+    pub element_ids: Vec<String>,
+    pub thread_ids: Vec<String>,
+    pub chapter_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1457,6 +1606,122 @@ pub async fn get_character_workspace_in_pool(
     })
 }
 
+pub async fn get_world_workspace_in_pool(
+    pool: &SqlitePool,
+    project_id: &str,
+) -> Result<WorldWorkspace, AppError> {
+    let elements = sqlx::query_as::<_, WorldElement>(
+        "SELECT * FROM world_elements WHERE project_id = ? ORDER BY order_index, created_at",
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    let rules = sqlx::query_as::<_, WorldRule>(
+        "SELECT * FROM world_rules WHERE project_id = ? ORDER BY order_index, created_at",
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    let element_characters = sqlx::query_as::<_, WorldElementCharacter>(
+        r#"
+        SELECT ec.*
+        FROM world_element_characters ec
+        JOIN world_elements e ON e.id = ec.element_id
+        WHERE e.project_id = ?
+        ORDER BY ec.element_id, ec.character_id
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    let element_threads = sqlx::query_as::<_, WorldElementThread>(
+        r#"
+        SELECT et.*
+        FROM world_element_threads et
+        JOIN world_elements e ON e.id = et.element_id
+        WHERE e.project_id = ?
+        ORDER BY et.element_id, et.thread_id
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    let element_chapters = sqlx::query_as::<_, WorldElementChapter>(
+        r#"
+        SELECT ec.*
+        FROM world_element_chapters ec
+        JOIN world_elements e ON e.id = ec.element_id
+        WHERE e.project_id = ?
+        ORDER BY ec.element_id, ec.chapter_id
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    let element_rules = sqlx::query_as::<_, WorldElementRule>(
+        r#"
+        SELECT er.*
+        FROM world_element_rules er
+        JOIN world_elements e ON e.id = er.element_id
+        WHERE e.project_id = ?
+        ORDER BY er.element_id, er.rule_id
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    let rule_threads = sqlx::query_as::<_, WorldRuleThread>(
+        r#"
+        SELECT rt.*
+        FROM world_rule_threads rt
+        JOIN world_rules r ON r.id = rt.rule_id
+        WHERE r.project_id = ?
+        ORDER BY rt.rule_id, rt.thread_id
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    let rule_chapters = sqlx::query_as::<_, WorldRuleChapter>(
+        r#"
+        SELECT rc.*
+        FROM world_rule_chapters rc
+        JOIN world_rules r ON r.id = rc.rule_id
+        WHERE r.project_id = ?
+        ORDER BY rc.rule_id, rc.chapter_id
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    let visual_assets = sqlx::query_as::<_, VisualAsset>(
+        "SELECT * FROM visual_assets WHERE project_id = ? AND related_type = 'world_element' ORDER BY created_at",
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(WorldWorkspace {
+        elements,
+        rules,
+        element_characters,
+        element_threads,
+        element_chapters,
+        element_rules,
+        rule_threads,
+        rule_chapters,
+        visual_assets,
+    })
+}
+
 pub async fn upsert_character_in_pool(
     pool: &SqlitePool,
     input: UpsertCharacterInput,
@@ -1755,6 +2020,259 @@ pub async fn delete_character_memory_link_in_pool(
     Ok(())
 }
 
+pub async fn upsert_world_element_in_pool(
+    pool: &SqlitePool,
+    input: UpsertWorldElementInput,
+) -> Result<WorldElement, AppError> {
+    if input.name.trim().is_empty() {
+        return Err(AppError::Process(
+            "Nazwa elementu swiata nie moze byc pusta.".into(),
+        ));
+    }
+
+    let now = Utc::now().to_rfc3339();
+    let id = input.id.unwrap_or_else(|| Uuid::new_v4().to_string());
+    let mut tx = pool.begin().await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO world_elements
+          (id, project_id, element_type, name, summary, details, story_purpose, constraints, visual_prompt, image_asset_id, status, order_index, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          element_type = excluded.element_type,
+          name = excluded.name,
+          summary = excluded.summary,
+          details = excluded.details,
+          story_purpose = excluded.story_purpose,
+          constraints = excluded.constraints,
+          visual_prompt = excluded.visual_prompt,
+          image_asset_id = COALESCE(excluded.image_asset_id, world_elements.image_asset_id),
+          status = excluded.status,
+          order_index = excluded.order_index,
+          updated_at = excluded.updated_at
+        "#,
+    )
+    .bind(&id)
+    .bind(&input.project_id)
+    .bind(input.element_type)
+    .bind(input.name)
+    .bind(input.summary)
+    .bind(input.details)
+    .bind(input.story_purpose)
+    .bind(input.constraints)
+    .bind(input.visual_prompt)
+    .bind(input.image_asset_id)
+    .bind(input.status)
+    .bind(input.order_index)
+    .bind(&now)
+    .bind(&now)
+    .execute(&mut *tx)
+    .await?;
+
+    touch_project_by_id(&mut tx, &input.project_id, &now).await?;
+    tx.commit().await?;
+
+    sqlx::query_as::<_, WorldElement>("SELECT * FROM world_elements WHERE id = ?")
+        .bind(&id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
+}
+
+pub async fn upsert_world_rule_in_pool(
+    pool: &SqlitePool,
+    input: UpsertWorldRuleInput,
+) -> Result<WorldRule, AppError> {
+    if input.name.trim().is_empty() {
+        return Err(AppError::Process(
+            "Nazwa reguly swiata nie moze byc pusta.".into(),
+        ));
+    }
+
+    let now = Utc::now().to_rfc3339();
+    let id = input.id.unwrap_or_else(|| Uuid::new_v4().to_string());
+    let mut tx = pool.begin().await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO world_rules
+          (id, project_id, name, description, scope, cost, limitation, exceptions, violation_consequences, scene_examples, status, order_index, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          description = excluded.description,
+          scope = excluded.scope,
+          cost = excluded.cost,
+          limitation = excluded.limitation,
+          exceptions = excluded.exceptions,
+          violation_consequences = excluded.violation_consequences,
+          scene_examples = excluded.scene_examples,
+          status = excluded.status,
+          order_index = excluded.order_index,
+          updated_at = excluded.updated_at
+        "#,
+    )
+    .bind(&id)
+    .bind(&input.project_id)
+    .bind(input.name)
+    .bind(input.description)
+    .bind(input.scope)
+    .bind(input.cost)
+    .bind(input.limitation)
+    .bind(input.exceptions)
+    .bind(input.violation_consequences)
+    .bind(input.scene_examples)
+    .bind(input.status)
+    .bind(input.order_index)
+    .bind(&now)
+    .bind(&now)
+    .execute(&mut *tx)
+    .await?;
+
+    touch_project_by_id(&mut tx, &input.project_id, &now).await?;
+    tx.commit().await?;
+
+    sqlx::query_as::<_, WorldRule>("SELECT * FROM world_rules WHERE id = ?")
+        .bind(&id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
+}
+
+pub async fn delete_world_element_in_pool(pool: &SqlitePool, id: &str) -> Result<(), AppError> {
+    sqlx::query("DELETE FROM world_elements WHERE id = ?")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn delete_world_rule_in_pool(pool: &SqlitePool, id: &str) -> Result<(), AppError> {
+    sqlx::query("DELETE FROM world_rules WHERE id = ?")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn set_world_element_relations_in_pool(
+    pool: &SqlitePool,
+    input: SetWorldElementRelationsInput,
+) -> Result<(), AppError> {
+    let now = Utc::now().to_rfc3339();
+    let mut tx = pool.begin().await?;
+    validate_world_element_in_project(&mut tx, &input.element_id, &input.project_id).await?;
+
+    sqlx::query("DELETE FROM world_element_characters WHERE element_id = ?")
+        .bind(&input.element_id)
+        .execute(&mut *tx)
+        .await?;
+    for character_id in unique_ids(input.character_ids) {
+        validate_character_in_project(&mut tx, &character_id, &input.project_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO world_element_characters (element_id, character_id) VALUES (?, ?)")
+            .bind(&input.element_id)
+            .bind(character_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    sqlx::query("DELETE FROM world_element_threads WHERE element_id = ?")
+        .bind(&input.element_id)
+        .execute(&mut *tx)
+        .await?;
+    for thread_id in unique_ids(input.thread_ids) {
+        validate_thread_in_project(&mut tx, &thread_id, &input.project_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO world_element_threads (element_id, thread_id) VALUES (?, ?)")
+            .bind(&input.element_id)
+            .bind(thread_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    sqlx::query("DELETE FROM world_element_chapters WHERE element_id = ?")
+        .bind(&input.element_id)
+        .execute(&mut *tx)
+        .await?;
+    for chapter_id in unique_ids(input.chapter_ids) {
+        validate_chapter_in_project(&mut tx, &chapter_id, &input.project_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO world_element_chapters (element_id, chapter_id) VALUES (?, ?)")
+            .bind(&input.element_id)
+            .bind(chapter_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    sqlx::query("DELETE FROM world_element_rules WHERE element_id = ?")
+        .bind(&input.element_id)
+        .execute(&mut *tx)
+        .await?;
+    for rule_id in unique_ids(input.rule_ids) {
+        validate_world_rule_in_project(&mut tx, &rule_id, &input.project_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO world_element_rules (element_id, rule_id) VALUES (?, ?)")
+            .bind(&input.element_id)
+            .bind(rule_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    touch_project_by_id(&mut tx, &input.project_id, &now).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+pub async fn set_world_rule_relations_in_pool(
+    pool: &SqlitePool,
+    input: SetWorldRuleRelationsInput,
+) -> Result<(), AppError> {
+    let now = Utc::now().to_rfc3339();
+    let mut tx = pool.begin().await?;
+    validate_world_rule_in_project(&mut tx, &input.rule_id, &input.project_id).await?;
+
+    sqlx::query("DELETE FROM world_element_rules WHERE rule_id = ?")
+        .bind(&input.rule_id)
+        .execute(&mut *tx)
+        .await?;
+    for element_id in unique_ids(input.element_ids) {
+        validate_world_element_in_project(&mut tx, &element_id, &input.project_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO world_element_rules (element_id, rule_id) VALUES (?, ?)")
+            .bind(element_id)
+            .bind(&input.rule_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    sqlx::query("DELETE FROM world_rule_threads WHERE rule_id = ?")
+        .bind(&input.rule_id)
+        .execute(&mut *tx)
+        .await?;
+    for thread_id in unique_ids(input.thread_ids) {
+        validate_thread_in_project(&mut tx, &thread_id, &input.project_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO world_rule_threads (rule_id, thread_id) VALUES (?, ?)")
+            .bind(&input.rule_id)
+            .bind(thread_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    sqlx::query("DELETE FROM world_rule_chapters WHERE rule_id = ?")
+        .bind(&input.rule_id)
+        .execute(&mut *tx)
+        .await?;
+    for chapter_id in unique_ids(input.chapter_ids) {
+        validate_chapter_in_project(&mut tx, &chapter_id, &input.project_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO world_rule_chapters (rule_id, chapter_id) VALUES (?, ?)")
+            .bind(&input.rule_id)
+            .bind(chapter_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    touch_project_by_id(&mut tx, &input.project_id, &now).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
 async fn validate_character_in_project(
     tx: &mut Transaction<'_, Sqlite>,
     character_id: &str,
@@ -1786,6 +2304,90 @@ async fn validate_memory_in_project(
             .await?;
     if exists.0 == 0 {
         return Err(AppError::Process("Nie znaleziono wspomnienia.".into()));
+    }
+
+    Ok(())
+}
+
+async fn validate_world_element_in_project(
+    tx: &mut Transaction<'_, Sqlite>,
+    element_id: &str,
+    project_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM world_elements WHERE id = ? AND project_id = ?")
+            .bind(element_id)
+            .bind(project_id)
+            .fetch_one(&mut **tx)
+            .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono elementu swiata.".into()));
+    }
+
+    Ok(())
+}
+
+async fn validate_world_rule_in_project(
+    tx: &mut Transaction<'_, Sqlite>,
+    rule_id: &str,
+    project_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM world_rules WHERE id = ? AND project_id = ?")
+            .bind(rule_id)
+            .bind(project_id)
+            .fetch_one(&mut **tx)
+            .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono reguly swiata.".into()));
+    }
+
+    Ok(())
+}
+
+async fn validate_thread_in_project(
+    tx: &mut Transaction<'_, Sqlite>,
+    thread_id: &str,
+    project_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*)
+        FROM plot_threads t
+        JOIN books b ON b.id = t.book_id
+        WHERE t.id = ? AND b.project_id = ?
+        "#,
+    )
+    .bind(thread_id)
+    .bind(project_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono watku.".into()));
+    }
+
+    Ok(())
+}
+
+async fn validate_chapter_in_project(
+    tx: &mut Transaction<'_, Sqlite>,
+    chapter_id: &str,
+    project_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*)
+        FROM chapters c
+        JOIN books b ON b.id = c.book_id
+        WHERE c.id = ? AND b.project_id = ?
+        "#,
+    )
+    .bind(chapter_id)
+    .bind(project_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono rozdzialu.".into()));
     }
 
     Ok(())
@@ -2386,6 +2988,16 @@ async fn get_character_workspace(
 }
 
 #[tauri::command]
+async fn get_world_workspace(
+    state: State<'_, AppState>,
+    project_id: String,
+) -> Result<WorldWorkspace, String> {
+    get_world_workspace_in_pool(&state.db, &project_id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
 async fn save_story_structure(
     state: State<'_, AppState>,
     input: SaveStoryStructureInput,
@@ -2542,6 +3154,60 @@ async fn delete_character_memory_link(
     id: String,
 ) -> Result<(), String> {
     delete_character_memory_link_in_pool(&state.db, &id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn upsert_world_element(
+    state: State<'_, AppState>,
+    input: UpsertWorldElementInput,
+) -> Result<WorldElement, String> {
+    upsert_world_element_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn delete_world_element(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    delete_world_element_in_pool(&state.db, &id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn upsert_world_rule(
+    state: State<'_, AppState>,
+    input: UpsertWorldRuleInput,
+) -> Result<WorldRule, String> {
+    upsert_world_rule_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn delete_world_rule(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    delete_world_rule_in_pool(&state.db, &id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn set_world_element_relations(
+    state: State<'_, AppState>,
+    input: SetWorldElementRelationsInput,
+) -> Result<(), String> {
+    set_world_element_relations_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn set_world_rule_relations(
+    state: State<'_, AppState>,
+    input: SetWorldRuleRelationsInput,
+) -> Result<(), String> {
+    set_world_rule_relations_in_pool(&state.db, input)
         .await
         .map_err(command_error)
 }
@@ -3848,6 +4514,7 @@ pub fn run() {
             get_project,
             get_book_plan,
             get_character_workspace,
+            get_world_workspace,
             save_story_structure,
             upsert_act,
             delete_act,
@@ -3868,6 +4535,12 @@ pub fn run() {
             delete_character_memory,
             upsert_character_memory_link,
             delete_character_memory_link,
+            upsert_world_element,
+            delete_world_element,
+            upsert_world_rule,
+            delete_world_rule,
+            set_world_element_relations,
+            set_world_rule_relations,
             list_ai_runs,
             update_book_concept,
             generate_book_cover,

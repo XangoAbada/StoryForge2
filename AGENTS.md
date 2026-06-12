@@ -6,6 +6,12 @@
 - Build commands and backend tests may be run when they are useful for validating non-UI changes.
 - After UI changes, describe what the user should inspect manually, especially awkward spacing, weak alignment, cramped or wasted space, poor proportions, visual imbalance, and overall layout coherence.
 
+## Polish UI Text
+
+- All Polish UI copy, labels, field descriptions, tab names, button text, status messages, AI prompt labels, and user-facing errors must use correct Polish diacritics.
+- Do not add new Polish text without characters such as `ą`, `ć`, `ę`, `ł`, `ń`, `ó`, `ś`, `ź`, and `ż` where the word requires them.
+- When editing an existing Polish UI area, fix nearby missing or mojibake Polish characters in the touched strings instead of preserving broken display text.
+
 ## Migration Hygiene
 
 - Do not edit existing database migration files that may already have been applied locally or by another developer.

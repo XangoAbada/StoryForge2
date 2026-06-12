@@ -126,38 +126,38 @@ export type CharacterPromptPackage = {
 };
 
 export const characterFieldConfigs: Record<CharacterFieldKey, CharacterFieldConfig> = {
-  characterProfile: field("characterProfile", "Pelny profil postaci", "generate_character_field", "character", "Wygeneruj kompletny tekstowy profil jednej nowej postaci do powiesci. Nie generuj obrazu ani sciezki obrazu. Uwzglednij rodzaj postaci: moze to byc czlowiek, zwierze, ozywiony przedmiot, istota albo inny byt pasujacy do ksiazki."),
-  characterRelation: field("characterRelation", "Pelna relacja", "generate_character_relation_field", "relation", "Wygeneruj kompletny szkic relacji miedzy wskazanymi postaciami: typ, opis, historie, konflikt, opinie, zaufanie, sekret i zmiane w czasie. Nie tworz nowych postaci."),
-  characterMemory: field("characterMemory", "Pelne wspomnienie", "generate_character_memory_field", "memory", "Wygeneruj kompletne wspomnienie dla wskazanej postaci: tytul, opis, szczegoly, typ, temat, emocje i waznosc. Nie tworz obrazu ani nowych postaci."),
-  characterType: field("characterType", "Rodzaj postaci", "generate_character_field", "character", "Wygeneruj tylko rodzaj postaci: czlowiek, zwierze, istota, ozywiony przedmiot albo inny precyzyjny typ."),
-  name: field("name", "Imie / nazwa", "generate_character_field", "character", "Wygeneruj tylko imie lub nazwe postaci."),
-  aliasesJson: field("aliasesJson", "Aliasy", "generate_character_field", "character", "Wygeneruj tylko liste aliasow postaci jako JSON array stringow."),
-  role: field("role", "Rola fabularna", "generate_character_field", "character", "Wygeneruj tylko role fabularna postaci."),
-  shortDescription: field("shortDescription", "Krotki opis", "generate_character_field", "character", "Wygeneruj tylko krotki opis postaci przydatny podczas pisania powiesci."),
-  externalGoal: field("externalGoal", "Cel zewnetrzny", "generate_character_field", "character", "Wygeneruj tylko zewnetrzny cel postaci."),
-  internalNeed: field("internalNeed", "Potrzeba wewnetrzna", "generate_character_field", "character", "Wygeneruj tylko wewnetrzna potrzebe postaci."),
-  wound: field("wound", "Rana", "generate_character_field", "character", "Wygeneruj tylko rane psychologiczna lub fabularna postaci."),
-  falseBelief: field("falseBelief", "Falszywe przekonanie", "generate_character_field", "character", "Wygeneruj tylko falszywe przekonanie postaci."),
+  characterProfile: field("characterProfile", "Pełny profil postaci", "generate_character_field", "character", "Wygeneruj kompletny tekstowy profil jednej nowej postaci do powieści. Nie generuj obrazu ani ścieżki obrazu. Uwzględnij rodzaj postaci: może to być człowiek, zwierzę, ożywiony przedmiot, istota albo inny byt pasujący do książki."),
+  characterRelation: field("characterRelation", "Pełna relacja", "generate_character_relation_field", "relation", "Wygeneruj kompletny szkic relacji między wskazanymi postaciami: typ, opis, historię, konflikt, opinię, zaufanie, sekret i zmianę w czasie. Nie twórz nowych postaci."),
+  characterMemory: field("characterMemory", "Pełne wspomnienie", "generate_character_memory_field", "memory", "Wygeneruj kompletne wspomnienie dla wskazanej postaci: tytuł, opis, szczegóły, typ, temat, emocję i ważność. Nie twórz obrazu ani nowych postaci."),
+  characterType: field("characterType", "Rodzaj postaci", "generate_character_field", "character", "Wygeneruj tylko rodzaj postaci: człowiek, zwierzę, istota, ożywiony przedmiot albo inny precyzyjny typ."),
+  name: field("name", "Imię / nazwa", "generate_character_field", "character", "Wygeneruj tylko imię lub nazwę postaci."),
+  aliasesJson: field("aliasesJson", "Aliasy", "generate_character_field", "character", "Wygeneruj tylko listę aliasów postaci jako JSON array stringów."),
+  role: field("role", "Rola fabularna", "generate_character_field", "character", "Wygeneruj tylko rolę fabularną postaci."),
+  shortDescription: field("shortDescription", "Krótki opis", "generate_character_field", "character", "Wygeneruj tylko krótki opis postaci przydatny podczas pisania powieści."),
+  externalGoal: field("externalGoal", "Cel zewnętrzny", "generate_character_field", "character", "Wygeneruj tylko zewnętrzny cel postaci."),
+  internalNeed: field("internalNeed", "Potrzeba wewnętrzna", "generate_character_field", "character", "Wygeneruj tylko wewnętrzną potrzebę postaci."),
+  wound: field("wound", "Rana", "generate_character_field", "character", "Wygeneruj tylko ranę psychologiczną lub fabularną postaci."),
+  falseBelief: field("falseBelief", "Fałszywe przekonanie", "generate_character_field", "character", "Wygeneruj tylko fałszywe przekonanie postaci."),
   secret: field("secret", "Sekret", "generate_character_field", "character", "Wygeneruj tylko sekret postaci."),
-  strengthsJson: field("strengthsJson", "Sily", "generate_character_field", "character", "Wygeneruj tylko liste sil postaci jako JSON array stringow."),
-  weaknessesJson: field("weaknessesJson", "Slabosci", "generate_character_field", "character", "Wygeneruj tylko liste slabosci postaci jako JSON array stringow."),
-  voiceNotes: field("voiceNotes", "Glos postaci", "generate_character_field", "character", "Wygeneruj tylko notatki o sposobie mowienia i glosie postaci."),
-  arcSummary: field("arcSummary", "Luk przemiany", "generate_character_field", "character", "Wygeneruj tylko streszczenie luku przemiany postaci."),
-  knowledgeNotes: field("knowledgeNotes", "Wiedza postaci", "generate_character_field", "character", "Wygeneruj tylko notatki o wiedzy postaci, pomylkach, domyslach i tajemnicach."),
+  strengthsJson: field("strengthsJson", "Siły", "generate_character_field", "character", "Wygeneruj tylko listę sił postaci jako JSON array stringów."),
+  weaknessesJson: field("weaknessesJson", "Słabości", "generate_character_field", "character", "Wygeneruj tylko listę słabości postaci jako JSON array stringów."),
+  voiceNotes: field("voiceNotes", "Głos postaci", "generate_character_field", "character", "Wygeneruj tylko notatki o sposobie mówienia i głosie postaci."),
+  arcSummary: field("arcSummary", "Łuk przemiany", "generate_character_field", "character", "Wygeneruj tylko streszczenie łuku przemiany postaci."),
+  knowledgeNotes: field("knowledgeNotes", "Wiedza postaci", "generate_character_field", "character", "Wygeneruj tylko notatki o wiedzy postaci, pomyłkach, domysłach i tajemnicach."),
   visualPrompt: field("visualPrompt", "Prompt wizualny", "generate_character_field", "character", "Wygeneruj tylko prompt wizualny postaci, bez generowania obrazu."),
-  relationDescription: field("relationDescription", "Opis relacji", "generate_character_relation_field", "relation", "Wygeneruj tylko opis relacji miedzy dwiema postaciami."),
-  relationHistory: field("relationHistory", "Historia relacji", "generate_character_relation_field", "relation", "Wygeneruj tylko historie relacji."),
+  relationDescription: field("relationDescription", "Opis relacji", "generate_character_relation_field", "relation", "Wygeneruj tylko opis relacji między dwiema postaciami."),
+  relationHistory: field("relationHistory", "Historia relacji", "generate_character_relation_field", "relation", "Wygeneruj tylko historię relacji."),
   relationConflict: field("relationConflict", "Konflikt relacji", "generate_character_relation_field", "relation", "Wygeneruj tylko konflikt ukryty lub jawny w relacji."),
-  relationOpinion: field("relationOpinion", "Opinia", "generate_character_relation_field", "relation", "Wygeneruj tylko opinie postaci A o postaci B."),
-  relationSecret: field("relationSecret", "Sekret relacji", "generate_character_relation_field", "relation", "Wygeneruj tylko sekret zwiazany z relacja."),
-  relationChangeOverTime: field("relationChangeOverTime", "Zmiana w czasie", "generate_character_relation_field", "relation", "Wygeneruj tylko zmiane relacji w czasie historii."),
-  memoryTitle: field("memoryTitle", "Tytul wspomnienia", "generate_character_memory_field", "memory", "Wygeneruj tylko tytul wspomnienia."),
-  memorySummary: field("memorySummary", "Opis wspomnienia", "generate_character_memory_field", "memory", "Wygeneruj tylko zwiezly opis wspomnienia."),
-  memoryDetails: field("memoryDetails", "Szczegoly wspomnienia", "generate_character_memory_field", "memory", "Wygeneruj tylko szczegoly wspomnienia przydatne podczas pisania scen."),
-  memorySubject: field("memorySubject", "Temat wspomnienia", "generate_character_memory_field", "memory", "Wygeneruj tylko temat, osobe, miejsce lub wydarzenie, ktorego dotyczy wspomnienie."),
-  memoryEmotion: field("memoryEmotion", "Emocja", "generate_character_memory_field", "memory", "Wygeneruj tylko dominujaca emocje wspomnienia."),
-  memoryLinkDescription: field("memoryLinkDescription", "Opis polaczenia", "generate_character_memory_field", "memoryLink", "Wygeneruj tylko opis polaczenia miedzy dwoma wspomnieniami."),
-  characterImage: field("characterImage", "Obraz postaci", "generate_character_image", "image", "Wygeneruj obraz reprezentujacy postac na podstawie profilu i kontekstu powiesci.")
+  relationOpinion: field("relationOpinion", "Opinia", "generate_character_relation_field", "relation", "Wygeneruj tylko opinię postaci A o postaci B."),
+  relationSecret: field("relationSecret", "Sekret relacji", "generate_character_relation_field", "relation", "Wygeneruj tylko sekret związany z relacją."),
+  relationChangeOverTime: field("relationChangeOverTime", "Zmiana w czasie", "generate_character_relation_field", "relation", "Wygeneruj tylko zmianę relacji w czasie historii."),
+  memoryTitle: field("memoryTitle", "Tytuł wspomnienia", "generate_character_memory_field", "memory", "Wygeneruj tylko tytuł wspomnienia."),
+  memorySummary: field("memorySummary", "Opis wspomnienia", "generate_character_memory_field", "memory", "Wygeneruj tylko zwięzły opis wspomnienia."),
+  memoryDetails: field("memoryDetails", "Szczegóły wspomnienia", "generate_character_memory_field", "memory", "Wygeneruj tylko szczegóły wspomnienia przydatne podczas pisania scen."),
+  memorySubject: field("memorySubject", "Temat wspomnienia", "generate_character_memory_field", "memory", "Wygeneruj tylko temat, osobę, miejsce lub wydarzenie, którego dotyczy wspomnienie."),
+  memoryEmotion: field("memoryEmotion", "Emocja", "generate_character_memory_field", "memory", "Wygeneruj tylko dominującą emocję wspomnienia."),
+  memoryLinkDescription: field("memoryLinkDescription", "Opis połączenia", "generate_character_memory_field", "memoryLink", "Wygeneruj tylko opis połączenia między dwoma wspomnieniami."),
+  characterImage: field("characterImage", "Obraz postaci", "generate_character_image", "image", "Wygeneruj obraz reprezentujący postać na podstawie profilu i kontekstu powieści.")
 };
 
 const defaultContext: Record<CharacterFieldKey, CharacterContextKey[]> = Object.fromEntries(
@@ -185,17 +185,17 @@ const contextLabels: Record<CharacterContextKey, string> = {
   ...Object.fromEntries(
     Object.values(characterFieldConfigs).map((config) => [config.key, config.label])
   ) as Record<CharacterFieldKey, string>,
-  bookCore: "Rdzen ksiazki",
+  bookCore: "Rdzeń książki",
   styleGuide: "Style guide",
   allCharacters: "Wszystkie postacie",
-  targetCharacter: "Docelowa postac",
+  targetCharacter: "Docelowa postać",
   targetRelations: "Relacje postaci",
   targetMemories: "Wspomnienia postaci",
   allMemories: "Wszystkie wspomnienia",
-  memoryLinks: "Polaczenia wspomnien",
+  memoryLinks: "Połączenia wspomnień",
   targetRelation: "Docelowa relacja",
   targetMemory: "Docelowe wspomnienie",
-  targetMemoryLink: "Docelowe polaczenie wspomnien"
+  targetMemoryLink: "Docelowe połączenie wspomnień"
 };
 
 export function buildCharacterPromptPackage(
@@ -283,25 +283,25 @@ Return only compact JSON after generation:
   const config = characterFieldConfigs[promptPackage.context.targetField];
   const scopeRule =
     promptPackage.context.targetField === "characterProfile"
-      ? "- Wygeneruj komplet pol tekstowych profilu postaci. Nie generuj obrazu, pliku ani assetu."
+      ? "- Wygeneruj komplet pól tekstowych profilu postaci. Nie generuj obrazu, pliku ani assetu."
       : promptPackage.context.targetField === "characterRelation"
-        ? "- Wygeneruj komplet pol tekstowych jednej relacji. Nie tworz ani nie zapisuj postaci."
+        ? "- Wygeneruj komplet pól tekstowych jednej relacji. Nie twórz ani nie zapisuj postaci."
       : promptPackage.context.targetField === "characterMemory"
-        ? "- Wygeneruj komplet pol tekstowych jednego wspomnienia. Nie tworz ani nie zapisuj postaci."
+        ? "- Wygeneruj komplet pól tekstowych jednego wspomnienia. Nie twórz ani nie zapisuj postaci."
       : `- Wygeneruj tylko docelowe pole "${config.label}".`;
   return `# Role
-Jestes asystentem pisarskim pracujacym wewnatrz StoryForge2.
+Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
 
 # Task
 ${promptPackage.userInstruction}
 
 # Hard Rules
-- Pisz po polsku, chyba ze projekt ma inny jezyk.
-- Dla locale "pl" uzywaj poprawnych polskich znakow.
-- Nie zapisuj danych. Zwroc tylko propozycje jako JSON.
+- Pisz po polsku, chyba że projekt ma inny język.
+- Dla locale "pl" używaj poprawnych polskich znaków.
+- Nie zapisuj danych. Zwróć tylko propozycję jako JSON.
 ${scopeRule}
-- Nie aktualizuj innych pol, postaci, relacji, wspomnien ani obrazow.
-- Odpowiedz wylacznie poprawnym JSON bez trailing commas.
+- Nie aktualizuj innych pól, postaci, relacji, wspomnień ani obrazów.
+- Odpowiedz wyłącznie poprawnym JSON bez trailing commas.
 
 ${renderAuthorPriority(promptPackage.context.contextControl)}
 
@@ -315,11 +315,11 @@ ${renderWorkspaceContext(promptPackage)}
 Docelowe pole: ${promptPackage.context.targetField} (${config.label}).
 Docelowy element: ${promptPackage.context.targetEntityLabel ?? "(brak)"}
 Migawka docelowego elementu: ${JSON.stringify(promptPackage.context.targetEntitySnapshot ?? null)}
-Obecna wartosc pola: ${emptyFallback(promptPackage.context.targetFieldCurrentValue)}
+Obecna wartość pola: ${emptyFallback(promptPackage.context.targetFieldCurrentValue)}
 Tryb: ${promptPackage.context.generationMode}.
 
 # Output Contract
-Zwroc JSON:
+Zwróć JSON:
 ${JSON.stringify(promptPackage.outputContract.schema, null, 2)}
 `;
 }
@@ -416,11 +416,11 @@ function renderBookContext(
   contextControl?: PromptContextControl
 ): string {
   if (!isIncluded("bookCore", contextControl)) {
-    return "(pominieto przez autora)";
+    return "(pominięto przez autora)";
   }
 
   return [
-    `Tytul roboczy: ${emptyFallback(book.workingTitle)}`,
+    `Tytuł roboczy: ${emptyFallback(book.workingTitle)}`,
     `Premisa: ${emptyFallback(book.premise)}`,
     `Rozszerzona premisa: ${emptyFallback(book.expandedPremise)}`,
     `Gatunek: ${emptyFallback([book.genre, book.subgenre].filter(Boolean).join(", "))}`,
@@ -437,7 +437,7 @@ function renderWorkspaceContext(promptPackage: CharacterPromptPackage): string {
       ? `Postacie: ${JSON.stringify(workspace.characters.map(compactCharacter))}`
       : "",
     isIncluded("targetCharacter", contextControl)
-      ? `Docelowa postac: ${JSON.stringify(compactCharacter(targetCharacter))}`
+      ? `Docelowa postać: ${JSON.stringify(compactCharacter(targetCharacter))}`
       : "",
     isIncluded("targetRelations", contextControl)
       ? `Relacje postaci: ${JSON.stringify(workspace.relations.filter((relation) => relation.fromCharacterId === targetCharacter?.id || relation.toCharacterId === targetCharacter?.id).map(compactRelation))}`
@@ -449,7 +449,7 @@ function renderWorkspaceContext(promptPackage: CharacterPromptPackage): string {
       ? `Wszystkie wspomnienia: ${JSON.stringify(workspace.memories.map(compactMemory))}`
       : "",
     isIncluded("memoryLinks", contextControl)
-      ? `Polaczenia wspomnien: ${JSON.stringify(workspace.memoryLinks)}`
+      ? `Połączenia wspomnień: ${JSON.stringify(workspace.memoryLinks)}`
       : "",
     renderManualFieldContext(promptPackage)
   ].filter(Boolean).join("\n") || "(brak wybranego kontekstu postaci)";
@@ -502,12 +502,12 @@ function characterEntityLabel(
   if ("fromCharacterId" in entity) {
     const from = workspace.characters.find((item) => item.id === entity.fromCharacterId);
     const to = workspace.characters.find((item) => item.id === entity.toCharacterId);
-    return `${from?.name ?? "Postac"} -> ${to?.name ?? "Postac"}`;
+    return `${from?.name ?? "Postać"} -> ${to?.name ?? "Postać"}`;
   }
   if ("characterId" in entity) {
     return entity.title;
   }
-  return entity.description || "Polaczenie wspomnien";
+  return entity.description || "Połączenie wspomnień";
 }
 
 function currentCharacterFieldValue(

@@ -17,6 +17,7 @@ import {
   browserDeletePlotThread,
   browserGetBookPlan,
   browserGetCharacterWorkspace,
+  browserGetWorldWorkspace,
   browserGetProject,
   browserListProjects,
   browserMoveBeatToChapter,
@@ -28,11 +29,17 @@ import {
   browserUpsertCharacterMemory,
   browserUpsertCharacterMemoryLink,
   browserUpsertCharacterRelation,
+  browserSetWorldElementRelations,
+  browserSetWorldRuleRelations,
+  browserUpsertWorldElement,
+  browserUpsertWorldRule,
   browserUpsertAct,
   browserUpsertBeat,
   browserUpsertChapter,
   browserUpsertPlotThread,
   browserUpdateBookConcept,
+  browserDeleteWorldElement,
+  browserDeleteWorldRule,
   browserGenerateBookCover,
   browserGenerateNewProjectTitle,
   isTauriRuntime
@@ -68,6 +75,8 @@ import type {
   ReorderPlanItemsInput,
   RunCodexPromptRequest,
   SaveStoryStructureInput,
+  SetWorldElementRelationsInput,
+  SetWorldRuleRelationsInput,
   StoryStructure,
   UpsertActInput,
   UpsertBeatInput,
@@ -77,7 +86,12 @@ import type {
   UpsertCharacterMemoryInput,
   UpsertCharacterMemoryLinkInput,
   UpsertCharacterRelationInput,
-  UpsertPlotThreadInput
+  UpsertPlotThreadInput,
+  UpsertWorldElementInput,
+  UpsertWorldRuleInput,
+  WorldElement,
+  WorldRule,
+  WorldWorkspace
 } from "./types";
 
 export function createProject(input: CreateProjectInput): Promise<ProjectDetails> {
@@ -118,6 +132,14 @@ export function getCharacterWorkspace(projectId: string): Promise<CharacterWorks
   }
 
   return invoke("get_character_workspace", { projectId });
+}
+
+export function getWorldWorkspace(projectId: string): Promise<WorldWorkspace> {
+  if (!isTauriRuntime()) {
+    return browserGetWorldWorkspace(projectId);
+  }
+
+  return invoke("get_world_workspace", { projectId });
 }
 
 export function saveStoryStructure(
@@ -282,6 +304,58 @@ export function deleteCharacterMemoryLink(id: string): Promise<void> {
   }
 
   return invoke("delete_character_memory_link", { id });
+}
+
+export function upsertWorldElement(input: UpsertWorldElementInput): Promise<WorldElement> {
+  if (!isTauriRuntime()) {
+    return browserUpsertWorldElement(input);
+  }
+
+  return invoke("upsert_world_element", { input });
+}
+
+export function deleteWorldElement(id: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserDeleteWorldElement(id);
+  }
+
+  return invoke("delete_world_element", { id });
+}
+
+export function upsertWorldRule(input: UpsertWorldRuleInput): Promise<WorldRule> {
+  if (!isTauriRuntime()) {
+    return browserUpsertWorldRule(input);
+  }
+
+  return invoke("upsert_world_rule", { input });
+}
+
+export function deleteWorldRule(id: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserDeleteWorldRule(id);
+  }
+
+  return invoke("delete_world_rule", { id });
+}
+
+export function setWorldElementRelations(
+  input: SetWorldElementRelationsInput
+): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserSetWorldElementRelations(input);
+  }
+
+  return invoke("set_world_element_relations", { input });
+}
+
+export function setWorldRuleRelations(
+  input: SetWorldRuleRelationsInput
+): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserSetWorldRuleRelations(input);
+  }
+
+  return invoke("set_world_rule_relations", { input });
 }
 
 export function reorderPlanItems(input: ReorderPlanItemsInput): Promise<void> {

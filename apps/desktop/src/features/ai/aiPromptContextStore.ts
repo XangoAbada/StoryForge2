@@ -16,6 +16,11 @@ import {
   characterPromptContextSources,
   type CharacterFieldKey
 } from "./characterPromptPackage";
+import {
+  worldFieldConfigs,
+  worldPromptContextSources,
+  type WorldFieldKey
+} from "./worldPromptPackage";
 
 export type AiPromptContextTarget = {
   targetId: string;
@@ -277,6 +282,37 @@ export function createCharacterPromptContextTarget(
     projectId,
     title: config.label,
     subtitle: "Pole postaci",
+    sources,
+    defaultSources: sources,
+    submitLabel: options.submitLabel,
+    submitDisabled: options.submitDisabled,
+    submitDisabledReason: options.submitDisabledReason,
+    onSubmit: options.onSubmit
+  };
+}
+
+export function worldPromptContextTargetId(
+  projectId: string,
+  field: WorldFieldKey,
+  targetEntityId?: string
+): string {
+  return `project:${projectId}:world:${field}:${targetEntityId ?? "global"}`;
+}
+
+export function createWorldPromptContextTarget(
+  projectId: string,
+  field: WorldFieldKey,
+  targetEntityId: string | undefined,
+  options: PromptContextTargetOptions = {}
+): AiPromptContextTarget {
+  const config = worldFieldConfigs[field];
+  const sources = worldPromptContextSources(field);
+
+  return {
+    targetId: worldPromptContextTargetId(projectId, field, targetEntityId),
+    projectId,
+    title: config.label,
+    subtitle: "Pole świata",
     sources,
     defaultSources: sources,
     submitLabel: options.submitLabel,

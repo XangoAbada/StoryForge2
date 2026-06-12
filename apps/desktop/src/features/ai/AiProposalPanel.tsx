@@ -21,13 +21,17 @@ import {
   upsertCharacterRelation,
   upsertChapterThreadRelation,
   upsertPlotThread,
+  upsertWorldElement,
+  upsertWorldRule,
   updateBookConcept
 } from "../../shared/api/commands";
 import type {
   BookConceptInput,
   CoverGenerationProgressEvent,
   UpsertCharacterMemoryInput,
-  UpsertCharacterRelationInput
+  UpsertCharacterRelationInput,
+  UpsertWorldElementInput,
+  UpsertWorldRuleInput
 } from "../../shared/api/types";
 import { parseConceptFieldSuggestion } from "./conceptFieldSuggestion";
 import { useCodexSettingsStore } from "./codexSettingsStore";
@@ -45,6 +49,11 @@ import {
   CharacterFieldKey
 } from "./characterPromptPackage";
 import { applyCharacterDraftField } from "./characterDraftFieldTargets";
+import {
+  worldFieldConfigs,
+  WorldFieldKey
+} from "./worldPromptPackage";
+import { applyWorldDraftField } from "./worldDraftFieldTargets";
 import {
   ActiveAiProposal,
   BOOK_COVER_FIELD,
@@ -173,7 +182,7 @@ export function AiProposalPanel({
 
           if (!targetEntityId || targetEntityId.startsWith("draft-beat:")) {
             throw new Error(
-              "Nie ma juz otwartego formularza beatu dla tej propozycji AI."
+              "Nie ma już otwartego formularza beatu dla tej propozycji AI."
             );
           }
         }
@@ -230,7 +239,43 @@ export function AiProposalPanel({
           );
         }
 
-        throw new Error("Nie ma juz otwartego formularza dla tej propozycji postaci.");
+        throw new Error("Nie ma już otwartego formularza dla tej propozycji postaci.");
+      }
+
+      if (proposal.scope === "world") {
+        const packageContext =
+          "context" in proposal.promptPackageJson
+            ? proposal.promptPackageJson.context
+            : {};
+        const scopedPackageContext =
+          packageContext && typeof packageContext === "object"
+            ? (packageContext as Record<string, unknown>)
+            : {};
+        const targetEntityId =
+          typeof scopedPackageContext.targetEntityId === "string"
+            ? scopedPackageContext.targetEntityId
+            : "";
+        const value = proposal.editableValue.trim();
+        if (
+          targetEntityId &&
+          applyWorldDraftField(targetEntityId, proposal.field as WorldFieldKey, value)
+        ) {
+          return null;
+        }
+
+        if (proposal.field === "worldElement") {
+          return upsertWorldElement(worldElementInputFromProposal(proposal, scopedPackageContext));
+        }
+
+        if (proposal.field === "worldRule") {
+          return upsertWorldRule(worldRuleInputFromProposal(proposal, scopedPackageContext));
+        }
+
+        if (proposal.field === "worldRuleAnalysis") {
+          return null;
+        }
+
+        throw new Error("Nie ma już otwartego formularza dla tej propozycji świata.");
       }
 
       if (isPremiseDevelopment(proposal.parsed)) {
@@ -259,6 +304,7 @@ export function AiProposalPanel({
       if (proposal.scope !== "newProject") {
         await queryClient.invalidateQueries({ queryKey: ["book-plan", proposal.bookId] });
         await queryClient.invalidateQueries({ queryKey: ["character-workspace", projectId] });
+        await queryClient.invalidateQueries({ queryKey: ["world-workspace", projectId] });
         await queryClient.invalidateQueries({ queryKey: ["project", projectId] });
         await queryClient.invalidateQueries({ queryKey: ["projects"] });
       }
@@ -356,15 +402,18 @@ function ProposalQueueItem({
   const characterImageProposal = isCharacterImageProposal(proposal);
   const planProposal = proposal.scope === "bookPlan";
   const characterProposal = proposal.scope === "characters";
+  const worldProposal = proposal.scope === "world";
   const label = coverProposal
     ? "Okładka"
     : planProposal
       ? planFieldConfigs[proposal.field as PlanFieldKey]?.label ?? "Plan"
-      : characterImageProposal
-        ? "Obraz postaci"
+        : characterImageProposal
+          ? "Obraz postaci"
         : characterProposal
-          ? characterFieldConfigs[proposal.field as CharacterFieldKey]?.label ?? "Postac"
-          : conceptFieldConfigs[proposal.field as ConceptFieldKey].label;
+          ? characterFieldConfigs[proposal.field as CharacterFieldKey]?.label ?? "Postać"
+          : worldProposal
+            ? worldFieldConfigs[proposal.field as WorldFieldKey]?.label ?? "Świat"
+            : conceptFieldConfigs[proposal.field as ConceptFieldKey].label;
   const running = proposal.status === "running";
   const queued = proposal.status === "queued";
   const success = proposal.status === "success";
@@ -376,6 +425,7 @@ function ProposalQueueItem({
   const proposalRows =
     !coverProposal &&
     !characterProposal &&
+    !worldProposal &&
     !planProposal &&
     (longConceptFields.includes(proposal.field as ConceptFieldKey) || structured)
       ? 8
@@ -387,6 +437,8 @@ function ProposalQueueItem({
     : planProposal
       ? proposal.editableValue.trim().length > 0
       : characterProposal
+        ? proposal.editableValue.trim().length > 0
+      : worldProposal
         ? proposal.editableValue.trim().length > 0
       : structured
         ? hasSelectedEditableField(proposal)
@@ -405,7 +457,9 @@ function ProposalQueueItem({
                   ? "Plan"
                   : characterProposal
                     ? "Postacie"
-                  : "Pole"}
+                    : worldProposal
+                      ? "Świat"
+                      : "Pole"}
           </p>
           <h3>{label}</h3>
         </div>
@@ -682,7 +736,7 @@ function useAiQueueRunner() {
 
         if (isCharacterImageProposal(snapshot)) {
           updateProposalProgress(proposalId, {
-            progressMessage: "Przygotowuje prompt obrazu postaci..."
+            progressMessage: "Przygotowuję prompt obrazu postaci..."
           });
 
           if (!snapshot.coverPrompt || !snapshot.coverNegativePrompt) {
@@ -721,7 +775,7 @@ function useAiQueueRunner() {
 
           if (result.aiRun.status !== "success") {
             throw new QueueRunError(
-              result.aiRun.errorMessage || "Nie udalo sie utworzyc obrazu postaci.",
+              result.aiRun.errorMessage || "Nie udało się utworzyć obrazu postaci.",
               result.aiRun.rawOutput ?? ""
             );
           }
@@ -774,7 +828,7 @@ function useAiQueueRunner() {
 
         const parsed = parseProposalResult(
           result.rawOutput,
-          snapshot.field as ConceptFieldKey | PlanFieldKey | CharacterFieldKey,
+          snapshot.field as ConceptFieldKey | PlanFieldKey | CharacterFieldKey | WorldFieldKey,
           snapshot.action
         );
         finishProposal(proposalId, {
@@ -864,7 +918,7 @@ function useCoverGenerationProgressListener() {
 
 export function parseProposalResult(
   rawOutput: string,
-  expectedField: ConceptFieldKey | PlanFieldKey | CharacterFieldKey,
+  expectedField: ConceptFieldKey | PlanFieldKey | CharacterFieldKey | WorldFieldKey,
   action: string
 ): ParsedAiProposal {
   if (isPlanAction(action)) {
@@ -873,6 +927,10 @@ export function parseProposalResult(
 
   if (isCharacterAction(action)) {
     return parseCharacterSuggestion(rawOutput, expectedField as CharacterFieldKey);
+  }
+
+  if (isWorldAction(action)) {
+    return parseWorldSuggestion(rawOutput, expectedField as WorldFieldKey);
   }
 
   if (action === "expand_premise") {
@@ -894,7 +952,7 @@ function parseCharacterSuggestion(
   if (expectedField === "characterProfile" && record.kind === "character_profile") {
     return {
       kind: "book_plan_suggestion",
-      summary: typeof record.summary === "string" ? record.summary : "Nowa postac",
+      summary: typeof record.summary === "string" ? record.summary : "Nowa postać",
       textValue: JSON.stringify(parsed, null, 2),
       value: parsed,
       warnings: Array.isArray(record.warnings)
@@ -928,10 +986,10 @@ function parseCharacterSuggestion(
   }
 
   if (record.kind !== "character_field_suggestion") {
-    throw new Error("AI zwrocilo nieprawidlowy typ propozycji postaci.");
+    throw new Error("AI zwróciło nieprawidłowy typ propozycji postaci.");
   }
   if (record.field !== expectedField) {
-    throw new Error("AI zwrocilo propozycje dla innego pola postaci.");
+    throw new Error("AI zwróciło propozycję dla innego pola postaci.");
   }
   const rawValue = record.value;
   const textValue = Array.isArray(rawValue)
@@ -944,6 +1002,54 @@ function parseCharacterSuggestion(
     kind: "book_plan_suggestion",
     summary: typeof record.summary === "string" ? record.summary : "Propozycja postaci",
     textValue,
+    value: parsed,
+    warnings: Array.isArray(record.warnings)
+      ? record.warnings.filter((item): item is string => typeof item === "string")
+      : []
+  };
+}
+
+function parseWorldSuggestion(
+  rawOutput: string,
+  expectedField: WorldFieldKey
+): ParsedAiProposal {
+  const parsed = JSON.parse(rawOutput) as unknown;
+  const record =
+    parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+
+  if (
+    (expectedField === "worldElement" && record.kind === "world_element") ||
+    (expectedField === "worldRule" && record.kind === "world_rule") ||
+    (expectedField === "worldRuleAnalysis" && record.kind === "world_rule_analysis")
+  ) {
+    return {
+      kind: "book_plan_suggestion",
+      summary: typeof record.summary === "string"
+        ? record.summary
+        : typeof record.ruleName === "string"
+          ? record.ruleName
+          : "Propozycja świata",
+      textValue: JSON.stringify(parsed, null, 2),
+      value: parsed,
+      warnings: Array.isArray(record.warnings)
+        ? record.warnings.filter((item): item is string => typeof item === "string")
+        : []
+    };
+  }
+
+  if (record.kind !== "world_field_suggestion") {
+    throw new Error("AI zwróciło nieprawidłowy typ propozycji świata.");
+  }
+  if (record.field !== expectedField) {
+    throw new Error("AI zwróciło propozycję dla innego pola świata.");
+  }
+
+  return {
+    kind: "book_plan_suggestion",
+    summary: typeof record.summary === "string" ? record.summary : "Propozycja świata",
+    textValue: typeof record.value === "string" ? record.value : String(record.value ?? ""),
     value: parsed,
     warnings: Array.isArray(record.warnings)
       ? record.warnings.filter((item): item is string => typeof item === "string")
@@ -1009,6 +1115,62 @@ function characterMemoryInputFromProposal(
     emotion: stringRecordValue(memory.emotion, stringRecordValue(snapshot.emotion)),
     importance: boundedNumberRecordValue(memory.importance, boundedNumberRecordValue(snapshot.importance, 50)),
     status: stringRecordValue(snapshot.status, "draft")
+  };
+}
+
+function worldElementInputFromProposal(
+  proposal: ActiveAiProposal,
+  packageContext: Record<string, unknown>
+): UpsertWorldElementInput {
+  const snapshot = recordValue(packageContext.targetEntitySnapshot);
+  const parsed = recordValue(JSON.parse(proposal.editableValue || proposal.rawOutput));
+  const projectId = stringRecordValue(snapshot.projectId, proposal.projectId);
+
+  if (!projectId) {
+    throw new Error("Brak projektu dla zapisu elementu świata AI.");
+  }
+
+  return {
+    id: optionalStringRecordValue(snapshot.id, "new-world-element"),
+    projectId,
+    elementType: stringRecordValue(parsed.type, stringRecordValue(snapshot.elementType, "location")),
+    name: stringRecordValue(parsed.name, stringRecordValue(snapshot.name, "Nowy element świata")),
+    summary: stringRecordValue(parsed.summary, stringRecordValue(snapshot.summary)),
+    details: stringRecordValue(parsed.details, stringRecordValue(snapshot.details)),
+    storyPurpose: stringRecordValue(parsed.storyPurpose, stringRecordValue(snapshot.storyPurpose)),
+    constraints: stringRecordValue(parsed.constraints, stringRecordValue(snapshot.constraints)),
+    visualPrompt: stringRecordValue(parsed.visualPrompt, stringRecordValue(snapshot.visualPrompt)),
+    imageAssetId: stringRecordValue(snapshot.imageAssetId) || null,
+    status: stringRecordValue(snapshot.status, "draft"),
+    orderIndex: boundedNumberRecordValue(snapshot.orderIndex, 0)
+  };
+}
+
+function worldRuleInputFromProposal(
+  proposal: ActiveAiProposal,
+  packageContext: Record<string, unknown>
+): UpsertWorldRuleInput {
+  const snapshot = recordValue(packageContext.targetEntitySnapshot);
+  const parsed = recordValue(JSON.parse(proposal.editableValue || proposal.rawOutput));
+  const projectId = stringRecordValue(snapshot.projectId, proposal.projectId);
+
+  if (!projectId) {
+    throw new Error("Brak projektu dla zapisu reguły świata AI.");
+  }
+
+  return {
+    id: optionalStringRecordValue(snapshot.id, "new-world-rule"),
+    projectId,
+    name: stringRecordValue(parsed.name, stringRecordValue(snapshot.name, "Nowa reguła świata")),
+    description: stringRecordValue(parsed.description, stringRecordValue(snapshot.description)),
+    scope: stringRecordValue(parsed.scope, stringRecordValue(snapshot.scope)),
+    cost: stringRecordValue(parsed.cost, stringRecordValue(snapshot.cost)),
+    limitation: stringRecordValue(parsed.limitation, stringRecordValue(snapshot.limitation)),
+    exceptions: stringRecordValue(parsed.exceptions, stringRecordValue(snapshot.exceptions)),
+    violationConsequences: stringRecordValue(parsed.violationConsequences, stringRecordValue(snapshot.violationConsequences)),
+    sceneExamples: stringRecordValue(parsed.sceneExamples, stringRecordValue(snapshot.sceneExamples)),
+    status: stringRecordValue(snapshot.status, "draft"),
+    orderIndex: boundedNumberRecordValue(snapshot.orderIndex, 0)
   };
 }
 
@@ -1153,6 +1315,14 @@ function isCharacterAction(action: string): boolean {
     "generate_character_field",
     "generate_character_relation_field",
     "generate_character_memory_field"
+  ].includes(action);
+}
+
+function isWorldAction(action: string): boolean {
+  return [
+    "generate_world_element_field",
+    "generate_world_rule_field",
+    "generate_world_rule_analysis"
   ].includes(action);
 }
 

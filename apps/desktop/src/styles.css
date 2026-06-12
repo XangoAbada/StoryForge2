@@ -25,6 +25,380 @@
   --shadow: 0 18px 45px rgba(24, 35, 31, 0.08);
 }
 
+.world-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+}
+
+.world-header,
+.world-editor-heading,
+.world-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.world-header h2,
+.world-editor-heading h3,
+.world-section-heading h3 {
+  margin: 0;
+}
+
+.world-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.world-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+}
+
+.world-list-panel,
+.world-editor-panel,
+.world-rule-editor,
+.world-link-block,
+.world-relation-shell {
+  background: rgba(255, 253, 248, 0.88);
+  border: 1px solid rgba(36, 70, 62, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 16px 42px rgba(38, 60, 53, 0.08);
+}
+
+.world-list-panel {
+  padding: 14px;
+  min-height: 0;
+}
+
+.world-toolbar {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.world-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(36, 70, 62, 0.16);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fffdf8;
+}
+
+.world-search input {
+  border: 0;
+  background: transparent;
+  min-width: 0;
+}
+
+.world-card-list {
+  display: grid;
+  gap: 10px;
+  max-height: calc(100vh - 260px);
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.world-card,
+.world-rule-card {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(36, 70, 62, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 8px;
+  padding: 12px;
+  color: inherit;
+}
+
+.world-card:hover,
+.world-card.active,
+.world-rule-card:hover,
+.world-rule-card.active {
+  border-color: rgba(63, 143, 107, 0.52);
+  background: rgba(239, 247, 240, 0.92);
+}
+
+.world-card-icon,
+.world-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #24463e;
+  color: #fffdf8;
+}
+
+.world-card-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.world-card-body strong,
+.world-rule-card strong {
+  color: #203a33;
+}
+
+.world-card-body small {
+  color: #64736d;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.world-card-body span,
+.world-rule-card span {
+  color: #5e6d66;
+  line-height: 1.35;
+}
+
+.world-editor-panel {
+  padding: 18px;
+  min-width: 0;
+}
+
+.world-editor-heading {
+  margin-bottom: 16px;
+}
+
+.world-editor-heading > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.world-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(36, 70, 62, 0.12);
+  margin-bottom: 18px;
+  overflow-x: auto;
+}
+
+.world-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #6b776f;
+  padding: 11px 14px;
+  white-space: nowrap;
+}
+
+.world-tab.active {
+  color: #24463e;
+  border-bottom-color: #3f8f6b;
+}
+
+.world-editor-form,
+.world-rule-editor {
+  display: grid;
+  gap: 16px;
+}
+
+.world-rule-editor {
+  padding: 16px;
+}
+
+.world-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.world-field.wide,
+.world-field-grid .world-field:nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+
+.field-ai-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.world-links-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.world-link-block {
+  padding: 14px;
+}
+
+.world-link-block header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.world-link-block h3,
+.world-section-heading h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.98rem;
+}
+
+.world-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 34px;
+}
+
+.world-relation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  border: 1px solid rgba(63, 143, 107, 0.26);
+  background: rgba(239, 247, 240, 0.92);
+  border-radius: 999px;
+  padding: 5px 7px 5px 10px;
+  color: #24463e;
+  font-size: 0.82rem;
+}
+
+.world-relation-chip button,
+.world-relation-add-button {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(36, 70, 62, 0.1);
+  color: #24463e;
+}
+
+.world-relation-add-button:hover,
+.world-relation-chip button:hover {
+  background: rgba(63, 143, 107, 0.18);
+}
+
+.world-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-top: 1px solid rgba(36, 70, 62, 0.1);
+  padding-top: 14px;
+}
+
+.world-panel-empty,
+.world-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  color: #76827c;
+  padding: 22px;
+  text-align: center;
+}
+
+.world-relation-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.world-relation-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(18, 30, 27, 0.42);
+}
+
+.world-relation-shell {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 100%);
+  max-height: min(620px, 86vh);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.world-relation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid rgba(36, 70, 62, 0.12);
+  padding: 16px;
+}
+
+.world-relation-header h3 {
+  margin: 0;
+}
+
+.world-relation-list {
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.world-relation-option {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  border: 1px solid rgba(36, 70, 62, 0.12);
+  border-radius: 8px;
+  background: #fffdf8;
+  padding: 11px;
+}
+
+.world-relation-option.selected,
+.world-relation-option:hover {
+  border-color: rgba(63, 143, 107, 0.55);
+  background: rgba(239, 247, 240, 0.94);
+}
+
+.world-relation-option span {
+  color: #65736e;
+}
+
+@media (max-width: 980px) {
+  .world-layout,
+  .world-links-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .world-card-list {
+    max-height: none;
+  }
+
+  .world-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .world-header,
+  .world-editor-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .plan-page {
   display: flex;
   flex-direction: column;

@@ -35,12 +35,11 @@ import storyforgeLogo from "../assets/storyforge-logo-full.png";
 
 type ProjectShellProps = {
   projectId: string;
-  activeSection: "concept" | "plan" | "characters" | "ai" | "aiLog";
+  activeSection: "concept" | "plan" | "characters" | "world" | "ai" | "aiLog";
   children: ReactNode;
 };
 
 const disabledSections = [
-  { label: "Świat", icon: Boxes },
   { label: "Rozdziały", icon: FileText },
   { label: "Edytor", icon: PenLine },
   { label: "Ciągłość", icon: Brain }
@@ -111,6 +110,8 @@ export function ProjectShell({
         ? "Faza 3: Plan powieści"
         : activeSection === "characters"
           ? "Faza 4: Postacie i relacje"
+          : activeSection === "world"
+            ? "Faza 5: Świat i reguły"
           : activeSection === "aiLog"
           ? "Log AI"
           : "Ustawienia AI";
@@ -134,7 +135,7 @@ export function ProjectShell({
       {
         value: "gpt-5.5",
         label: "GPT-5.5",
-        title: "Fallback, gdy katalog modeli jest niedostepny"
+        title: "Fallback, gdy katalog modeli jest niedostępny"
       }
     ];
     const seen = new Set<string>();
@@ -237,6 +238,15 @@ export function ProjectShell({
           >
             <Users size={18} />
             Postacie
+          </Link>
+
+          <Link
+            to="/projects/$projectId/world"
+            params={{ projectId }}
+            className={activeSection === "world" ? "nav-item active" : "nav-item"}
+          >
+            <Boxes size={18} />
+            Świat
           </Link>
 
           {disabledSections.map(({ label, icon: Icon }) => (

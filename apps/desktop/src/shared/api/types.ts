@@ -238,6 +238,82 @@ export type CharacterWorkspace = {
   visualAssets: VisualAsset[];
 };
 
+export type WorldElement = {
+  id: string;
+  projectId: string;
+  elementType: string;
+  name: string;
+  summary: string;
+  details: string;
+  storyPurpose: string;
+  constraints: string;
+  visualPrompt: string;
+  imageAssetId: string | null;
+  status: string;
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorldRule = {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string;
+  scope: string;
+  cost: string;
+  limitation: string;
+  exceptions: string;
+  violationConsequences: string;
+  sceneExamples: string;
+  status: string;
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorldElementCharacter = {
+  elementId: string;
+  characterId: string;
+};
+
+export type WorldElementThread = {
+  elementId: string;
+  threadId: string;
+};
+
+export type WorldElementChapter = {
+  elementId: string;
+  chapterId: string;
+};
+
+export type WorldElementRule = {
+  elementId: string;
+  ruleId: string;
+};
+
+export type WorldRuleThread = {
+  ruleId: string;
+  threadId: string;
+};
+
+export type WorldRuleChapter = {
+  ruleId: string;
+  chapterId: string;
+};
+
+export type WorldWorkspace = {
+  elements: WorldElement[];
+  rules: WorldRule[];
+  elementCharacters: WorldElementCharacter[];
+  elementThreads: WorldElementThread[];
+  elementChapters: WorldElementChapter[];
+  elementRules: WorldElementRule[];
+  ruleThreads: WorldRuleThread[];
+  ruleChapters: WorldRuleChapter[];
+  visualAssets: VisualAsset[];
+};
+
 export type UpsertCharacterInput = {
   id?: string;
   projectId: string;
@@ -300,6 +376,53 @@ export type UpsertCharacterMemoryLinkInput = {
   linkType: string;
   description: string;
   strength: number;
+};
+
+export type UpsertWorldElementInput = {
+  id?: string;
+  projectId: string;
+  elementType: string;
+  name: string;
+  summary: string;
+  details: string;
+  storyPurpose: string;
+  constraints: string;
+  visualPrompt: string;
+  imageAssetId?: string | null;
+  status: string;
+  orderIndex: number;
+};
+
+export type UpsertWorldRuleInput = {
+  id?: string;
+  projectId: string;
+  name: string;
+  description: string;
+  scope: string;
+  cost: string;
+  limitation: string;
+  exceptions: string;
+  violationConsequences: string;
+  sceneExamples: string;
+  status: string;
+  orderIndex: number;
+};
+
+export type SetWorldElementRelationsInput = {
+  projectId: string;
+  elementId: string;
+  characterIds: string[];
+  threadIds: string[];
+  chapterIds: string[];
+  ruleIds: string[];
+};
+
+export type SetWorldRuleRelationsInput = {
+  projectId: string;
+  ruleId: string;
+  elementIds: string[];
+  threadIds: string[];
+  chapterIds: string[];
 };
 
 export type SaveStoryStructureInput = {
@@ -446,7 +569,10 @@ export type AIAction =
   | "generate_character_field"
   | "generate_character_relation_field"
   | "generate_character_memory_field"
-  | "generate_character_image";
+  | "generate_character_image"
+  | "generate_world_element_field"
+  | "generate_world_rule_field"
+  | "generate_world_rule_analysis";
 
 export type ReasoningEffort = "low" | "medium" | "high" | "xhigh";
 

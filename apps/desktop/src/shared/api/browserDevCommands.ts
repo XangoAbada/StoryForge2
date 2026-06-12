@@ -30,6 +30,8 @@ import type {
   ReorderPlanItemsInput,
   RunCodexPromptRequest,
   SaveStoryStructureInput,
+  SetWorldElementRelationsInput,
+  SetWorldRuleRelationsInput,
   StoryStructure,
   UpsertActInput,
   UpsertBeatInput,
@@ -40,7 +42,12 @@ import type {
   UpsertCharacterMemoryLinkInput,
   UpsertCharacterRelationInput,
   UpsertPlotThreadInput,
-  VisualAsset
+  UpsertWorldElementInput,
+  UpsertWorldRuleInput,
+  VisualAsset,
+  WorldElement,
+  WorldRule,
+  WorldWorkspace
 } from "./types";
 
 const STORAGE_KEY = "storyforge2.browserPreview.projects";
@@ -50,13 +57,15 @@ type BrowserPreviewState = {
   aiRuns: AiLogEntry[];
   plans: Record<string, BookPlan>;
   characterWorkspaces: Record<string, CharacterWorkspace>;
+  worldWorkspaces: Record<string, WorldWorkspace>;
 };
 
 let memoryState: BrowserPreviewState = {
   projects: [],
   aiRuns: [],
   plans: {},
-  characterWorkspaces: {}
+  characterWorkspaces: {},
+  worldWorkspaces: {}
 };
 
 export function isTauriRuntime(): boolean {
@@ -168,6 +177,13 @@ export async function browserGetCharacterWorkspace(
 ): Promise<CharacterWorkspace> {
   const state = readState();
   return normalizeCharacterWorkspace(state.characterWorkspaces[projectId]);
+}
+
+export async function browserGetWorldWorkspace(
+  projectId: string
+): Promise<WorldWorkspace> {
+  const state = readState();
+  return normalizeWorldWorkspace(state.worldWorkspaces[projectId]);
 }
 
 export async function browserSaveStoryStructure(
@@ -644,6 +660,145 @@ export async function browserDeleteCharacterMemoryLink(id: string): Promise<void
   writeState(state);
 }
 
+export async function browserUpsertWorldElement(
+  input: UpsertWorldElementInput
+): Promise<WorldElement> {
+  const state = readState();
+  const workspace = ensureWorldWorkspace(state, input.projectId);
+  const now = new Date().toISOString();
+  const existing = input.id
+    ? workspace.elements.find((item) => item.id === input.id)
+    : undefined;
+  const element: WorldElement = {
+    id: existing?.id ?? input.id ?? createId(),
+    projectId: input.projectId,
+    elementType: input.elementType || "location",
+    name: input.name,
+    summary: input.summary,
+    details: input.details,
+    storyPurpose: input.storyPurpose,
+    constraints: input.constraints,
+    visualPrompt: input.visualPrompt,
+    imageAssetId: input.imageAssetId ?? existing?.imageAssetId ?? null,
+    status: input.status || "draft",
+    orderIndex: input.orderIndex,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now
+  };
+
+  workspace.elements = upsertById(workspace.elements, element);
+  touchProject(state, input.projectId, now);
+  writeState(state);
+  return element;
+}
+
+export async function browserDeleteWorldElement(id: string): Promise<void> {
+  const state = readState();
+  const now = new Date().toISOString();
+  for (const [projectId, workspace] of Object.entries(state.worldWorkspaces)) {
+    workspace.elements = workspace.elements.filter((item) => item.id !== id);
+    workspace.elementCharacters = workspace.elementCharacters.filter((item) => item.elementId !== id);
+    workspace.elementThreads = workspace.elementThreads.filter((item) => item.elementId !== id);
+    workspace.elementChapters = workspace.elementChapters.filter((item) => item.elementId !== id);
+    workspace.elementRules = workspace.elementRules.filter((item) => item.elementId !== id);
+    touchProject(state, projectId, now);
+  }
+  writeState(state);
+}
+
+export async function browserUpsertWorldRule(
+  input: UpsertWorldRuleInput
+): Promise<WorldRule> {
+  const state = readState();
+  const workspace = ensureWorldWorkspace(state, input.projectId);
+  const now = new Date().toISOString();
+  const existing = input.id
+    ? workspace.rules.find((item) => item.id === input.id)
+    : undefined;
+  const rule: WorldRule = {
+    id: existing?.id ?? input.id ?? createId(),
+    projectId: input.projectId,
+    name: input.name,
+    description: input.description,
+    scope: input.scope,
+    cost: input.cost,
+    limitation: input.limitation,
+    exceptions: input.exceptions,
+    violationConsequences: input.violationConsequences,
+    sceneExamples: input.sceneExamples,
+    status: input.status || "draft",
+    orderIndex: input.orderIndex,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now
+  };
+
+  workspace.rules = upsertById(workspace.rules, rule);
+  touchProject(state, input.projectId, now);
+  writeState(state);
+  return rule;
+}
+
+export async function browserDeleteWorldRule(id: string): Promise<void> {
+  const state = readState();
+  const now = new Date().toISOString();
+  for (const [projectId, workspace] of Object.entries(state.worldWorkspaces)) {
+    workspace.rules = workspace.rules.filter((item) => item.id !== id);
+    workspace.elementRules = workspace.elementRules.filter((item) => item.ruleId !== id);
+    workspace.ruleThreads = workspace.ruleThreads.filter((item) => item.ruleId !== id);
+    workspace.ruleChapters = workspace.ruleChapters.filter((item) => item.ruleId !== id);
+    touchProject(state, projectId, now);
+  }
+  writeState(state);
+}
+
+export async function browserSetWorldElementRelations(
+  input: SetWorldElementRelationsInput
+): Promise<void> {
+  const state = readState();
+  const workspace = ensureWorldWorkspace(state, input.projectId);
+  const elementId = input.elementId;
+  workspace.elementCharacters = [
+    ...workspace.elementCharacters.filter((item) => item.elementId !== elementId),
+    ...uniqueIds(input.characterIds).map((characterId) => ({ elementId, characterId }))
+  ];
+  workspace.elementThreads = [
+    ...workspace.elementThreads.filter((item) => item.elementId !== elementId),
+    ...uniqueIds(input.threadIds).map((threadId) => ({ elementId, threadId }))
+  ];
+  workspace.elementChapters = [
+    ...workspace.elementChapters.filter((item) => item.elementId !== elementId),
+    ...uniqueIds(input.chapterIds).map((chapterId) => ({ elementId, chapterId }))
+  ];
+  workspace.elementRules = [
+    ...workspace.elementRules.filter((item) => item.elementId !== elementId),
+    ...uniqueIds(input.ruleIds).map((ruleId) => ({ elementId, ruleId }))
+  ];
+  touchProject(state, input.projectId, new Date().toISOString());
+  writeState(state);
+}
+
+export async function browserSetWorldRuleRelations(
+  input: SetWorldRuleRelationsInput
+): Promise<void> {
+  const state = readState();
+  const workspace = ensureWorldWorkspace(state, input.projectId);
+  const ruleId = input.ruleId;
+  workspace.elementRules = [
+    ...workspace.elementRules.filter((item) => item.ruleId !== ruleId),
+    ...uniqueIds(input.elementIds).map((elementId) => ({ elementId, ruleId }))
+  ];
+  workspace.ruleThreads = [
+    ...workspace.ruleThreads.filter((item) => item.ruleId !== ruleId),
+    ...uniqueIds(input.threadIds).map((threadId) => ({ ruleId, threadId }))
+  ];
+  workspace.ruleChapters = [
+    ...workspace.ruleChapters.filter((item) => item.ruleId !== ruleId),
+    ...uniqueIds(input.chapterIds).map((chapterId) => ({ ruleId, chapterId }))
+  ];
+  touchProject(state, input.projectId, new Date().toISOString());
+  writeState(state);
+}
+
 export async function browserReorderPlanItems(
   input: ReorderPlanItemsInput
 ): Promise<void> {
@@ -1035,7 +1190,7 @@ function readState(): BrowserPreviewState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return { projects: [], aiRuns: [], plans: {}, characterWorkspaces: {} };
+      return { projects: [], aiRuns: [], plans: {}, characterWorkspaces: {}, worldWorkspaces: {} };
     }
 
     const parsed = JSON.parse(raw) as BrowserPreviewState;
@@ -1050,9 +1205,10 @@ function readState(): BrowserPreviewState {
               }))
             : [],
           plans: normalizePlans(parsed.plans),
-          characterWorkspaces: normalizeCharacterWorkspaces(parsed.characterWorkspaces)
+          characterWorkspaces: normalizeCharacterWorkspaces(parsed.characterWorkspaces),
+          worldWorkspaces: normalizeWorldWorkspaces(parsed.worldWorkspaces)
         }
-      : { projects: [], aiRuns: [], plans: {}, characterWorkspaces: {} };
+      : { projects: [], aiRuns: [], plans: {}, characterWorkspaces: {}, worldWorkspaces: {} };
   } catch {
     return memoryState;
   }
@@ -1115,6 +1271,21 @@ function normalizeCharacterWorkspaces(
   );
 }
 
+function normalizeWorldWorkspaces(
+  workspaces: BrowserPreviewState["worldWorkspaces"] | undefined
+): Record<string, WorldWorkspace> {
+  if (!workspaces || typeof workspaces !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(workspaces).map(([projectId, workspace]) => [
+      projectId,
+      normalizeWorldWorkspace(workspace)
+    ])
+  );
+}
+
 function normalizePlan(plan: Partial<BookPlan> | undefined): BookPlan {
   return {
     structure: plan?.structure ?? null,
@@ -1144,12 +1315,37 @@ function normalizeCharacterWorkspace(
   };
 }
 
+function normalizeWorldWorkspace(
+  workspace: Partial<WorldWorkspace> | undefined
+): WorldWorkspace {
+  return {
+    elements: Array.isArray(workspace?.elements) ? workspace.elements : [],
+    rules: Array.isArray(workspace?.rules) ? workspace.rules : [],
+    elementCharacters: Array.isArray(workspace?.elementCharacters) ? workspace.elementCharacters : [],
+    elementThreads: Array.isArray(workspace?.elementThreads) ? workspace.elementThreads : [],
+    elementChapters: Array.isArray(workspace?.elementChapters) ? workspace.elementChapters : [],
+    elementRules: Array.isArray(workspace?.elementRules) ? workspace.elementRules : [],
+    ruleThreads: Array.isArray(workspace?.ruleThreads) ? workspace.ruleThreads : [],
+    ruleChapters: Array.isArray(workspace?.ruleChapters) ? workspace.ruleChapters : [],
+    visualAssets: Array.isArray(workspace?.visualAssets) ? workspace.visualAssets : []
+  };
+}
+
 function ensureCharacterWorkspace(
   state: BrowserPreviewState,
   projectId: string
 ): CharacterWorkspace {
   const workspace = normalizeCharacterWorkspace(state.characterWorkspaces[projectId]);
   state.characterWorkspaces[projectId] = workspace;
+  return workspace;
+}
+
+function ensureWorldWorkspace(
+  state: BrowserPreviewState,
+  projectId: string
+): WorldWorkspace {
+  const workspace = normalizeWorldWorkspace(state.worldWorkspaces[projectId]);
+  state.worldWorkspaces[projectId] = workspace;
   return workspace;
 }
 
