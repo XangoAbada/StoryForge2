@@ -1,0 +1,799 @@
+import {
+  BookOpen,
+  CheckCircle2,
+  Circle,
+  Clock3,
+  Hash,
+  LayoutList,
+  Link2,
+  Loader2,
+  Pencil,
+  Plus,
+  Route,
+  Save,
+  Sparkles,
+  Target,
+  Trash2,
+  X
+} from "lucide-react";
+import { type FormEvent, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import type { Beat, BookPlan, Chapter, UpsertChapterInput } from "../../shared/api/types";
+import {
+  planFieldConfigs,
+  type PlanFieldKey,
+  planPromptContextSource
+} from "../ai/planPromptPackage";
+import { useAiPromptContextStore } from "../ai/aiPromptContextStore";
+import { pendingProposalStatus, useProposalStore } from "../ai/proposalStore";
+
+export type ChapterModalState =
+  | { mode: "create"; actId?: string | null }
+  | { mode: "edit"; chapterId: string };
+
+type ChapterRelationKind = "threads" | "beats";
+type ChapterPromptEntity = Chapter;
+
+export function ChapterEditModal({
+  state,
+  bookId,
+  plan,
+  saving,
+  onClose,
+  onSave,
+  onDelete,
+  onGenerate,
+  onActivatePrompt
+}: {
+  state: ChapterModalState | null;
+  bookId: string;
+  plan: BookPlan;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (input: UpsertChapterInput) => void;
+  onDelete?: (chapterId: string) => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
+  onActivatePrompt: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
+}) {
+  const chapter =
+    state?.mode === "edit"
+      ? plan.chapters.find((candidate) => candidate.id === state.chapterId)
+      : undefined;
+
+  useEffect(() => {
+    if (!state) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [state, onClose]);
+
+  if (!state) {
+    return null;
+  }
+
+  const modalTitle =
+    state.mode === "edit" && chapter
+      ? `Rozdział ${dynamicChapterNumber(plan, chapter.id)}: ${chapter.workingTitle}`
+      : "Nowy rozdział";
+  const modal = (
+    <div
+      className="chapter-edit-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="chapter-edit-title"
+    >
+      <button
+        type="button"
+        className="chapter-edit-backdrop"
+        onClick={onClose}
+        aria-label="Zamknij edycję rozdziału"
+      />
+      <div className="chapter-edit-shell">
+        <header className="chapter-edit-header">
+          <div>
+            <p className="eyebrow">Edycja rozdziału</p>
+            <h3 id="chapter-edit-title">{modalTitle}</h3>
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Zamknij edycję rozdziału"
+            title="Zamknij edycję rozdziału"
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <div className="chapter-edit-body">
+          <ChapterForm
+            bookId={bookId}
+            chapter={chapter}
+            plan={plan}
+            saving={saving}
+            orderIndex={plan.chapters.length}
+            initialActId={state.mode === "create" ? state.actId : undefined}
+            onCancel={onClose}
+            onSave={onSave}
+            onDelete={chapter && onDelete ? () => onDelete(chapter.id) : undefined}
+            onGenerate={(field) => onGenerate(field, chapter)}
+            onActivatePrompt={(field) => onActivatePrompt(field, chapter)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  return typeof document === "undefined" ? modal : createPortal(modal, document.body);
+}
+
+function ChapterForm({
+  bookId,
+  chapter,
+  plan,
+  orderIndex = 0,
+  initialActId,
+  saving,
+  onSave,
+  onCancel,
+  onDelete,
+  onSelect,
+  onGenerate,
+  onActivatePrompt
+}: {
+  bookId: string;
+  chapter?: Chapter;
+  plan: BookPlan;
+  orderIndex?: number;
+  initialActId?: string | null;
+  saving: boolean;
+  onSave: (input: UpsertChapterInput) => void;
+  onCancel: () => void;
+  onDelete?: () => void;
+  onSelect?: () => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
+  onActivatePrompt: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
+}) {
+  const chapterThreadIds = chapter ? chapterThreadIdsForChapter(plan, chapter.id) : [];
+  const chapterBeatIds = chapter ? chapterBeatIdsForChapter(plan, chapter.id) : [];
+  const defaultActId = defaultChapterActId(initialActId, plan);
+  const dynamicNumber = chapter
+    ? dynamicChapterNumber(plan, chapter.id)
+    : orderedChaptersForPlan(plan).length + 1;
+  const [workingTitle, setWorkingTitle] = useState(
+    chapter?.workingTitle ?? `Rozdział ${orderIndex + 1}`
+  );
+  const [summary, setSummary] = useState(chapter?.summary ?? "");
+  const [purpose, setPurpose] = useState(chapter?.purpose ?? "");
+  const [conflict, setConflict] = useState(chapter?.conflict ?? "");
+  const [turningPoint, setTurningPoint] = useState(chapter?.turningPoint ?? "");
+  const [targetWordCount, setTargetWordCount] = useState(
+    chapter?.targetWordCount?.toString() ?? ""
+  );
+  const [actId, setActId] = useState(chapter?.actId ?? defaultActId);
+  const [threadIds, setThreadIds] = useState(chapterThreadIds);
+  const [beatIds, setBeatIds] = useState(chapterBeatIds);
+  const [relationPicker, setRelationPicker] = useState<ChapterRelationKind | null>(null);
+
+  useEffect(() => {
+    setWorkingTitle(chapter?.workingTitle ?? `Rozdział ${orderIndex + 1}`);
+    setSummary(chapter?.summary ?? "");
+    setPurpose(chapter?.purpose ?? "");
+    setConflict(chapter?.conflict ?? "");
+    setTurningPoint(chapter?.turningPoint ?? "");
+    setTargetWordCount(chapter?.targetWordCount?.toString() ?? "");
+    setActId(chapter?.actId ?? defaultChapterActId(initialActId, plan));
+    setThreadIds(chapterThreadIds);
+    setBeatIds(chapterBeatIds);
+    setRelationPicker(null);
+  }, [
+    chapter?.workingTitle,
+    chapter?.summary,
+    chapter?.purpose,
+    chapter?.conflict,
+    chapter?.turningPoint,
+    chapter?.targetWordCount,
+    chapter?.actId,
+    plan,
+    initialActId,
+    chapterThreadIds.join("|"),
+    chapterBeatIds.join("|"),
+    orderIndex
+  ]);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSave({
+      id: chapter?.id,
+      bookId,
+      actId: actId || null,
+      number: dynamicNumber,
+      workingTitle,
+      summary,
+      purpose,
+      conflict,
+      turningPoint,
+      targetWordCount: parseOptionalPositiveInt(targetWordCount),
+      orderIndex: chapter?.orderIndex ?? orderIndex,
+      threadIds,
+      beatIds
+    });
+  }
+
+  const selectedAct = plan.acts.find((act) => act.id === actId);
+  const selectedThreads = plan.threads.filter((thread) => threadIds.includes(thread.id));
+  const selectedBeats = plan.beats.filter((beat) => beatIds.includes(beat.id));
+  const targetWords = parseOptionalPositiveInt(targetWordCount);
+  const completionItems = [
+    { label: "Tytuł roboczy", complete: Boolean(workingTitle.trim()) },
+    { label: "Akt", complete: Boolean(actId) },
+    { label: "Streszczenie", complete: Boolean(summary.trim()) },
+    { label: "Cel", complete: Boolean(purpose.trim()) },
+    { label: "Konflikt", complete: Boolean(conflict.trim()) },
+    { label: "Punkt zwrotny", complete: Boolean(turningPoint.trim()) },
+    { label: "Beaty", complete: beatIds.length > 0 },
+    { label: "Wątki", complete: threadIds.length > 0 }
+  ];
+  const completedItems = completionItems.filter((item) => item.complete).length;
+  const completionPercent = Math.round((completedItems / completionItems.length) * 100);
+  const visualStatus =
+    completionPercent >= 88
+      ? "Gotowy do pisania"
+      : completionPercent >= 50
+        ? "W trakcie"
+        : "Szkic";
+  const openChapterLabel = chapter ? `Otwórz rozdział ${chapter.workingTitle}` : "";
+
+  return (
+    <form className="chapter-edit-form" onSubmit={submit}>
+      <div className="chapter-edit-metrics" aria-label="Najważniejsze informacje o rozdziale">
+        <span className="chapter-edit-metric">
+          <BookOpen size={16} />
+          <span>Akt:</span>
+          <strong>{selectedAct?.name ?? "Bez aktu"}</strong>
+        </span>
+        <span className="chapter-edit-metric">
+          <Hash size={16} />
+          <span>Numer:</span>
+          <strong>{dynamicNumber}</strong>
+        </span>
+        <span className="chapter-edit-metric">
+          <Target size={16} />
+          <span>Cel słów:</span>
+          <strong>{targetWords ? targetWords.toLocaleString("pl-PL") : "Brak"}</strong>
+        </span>
+        <span
+          className={
+            completionPercent >= 88
+              ? "chapter-status-pill ready"
+              : completionPercent >= 50
+                ? "chapter-status-pill active"
+                : "chapter-status-pill"
+          }
+        >
+          <Circle size={10} />
+          {visualStatus}
+        </span>
+      </div>
+
+      <div className="chapter-edit-content-grid">
+        <main className="chapter-edit-main">
+          <section className="chapter-edit-section">
+            <div className="chapter-section-heading">
+              <LayoutList size={17} />
+              <h4>Treść rozdziału</h4>
+            </div>
+            <div className="chapter-field-stack">
+              <PlanInlineField
+                label="Tytuł roboczy"
+                value={workingTitle}
+                rows={1}
+                field="chapterSummary"
+                entity={chapter}
+                onChange={setWorkingTitle}
+                onGenerate={onGenerate}
+                onActivatePrompt={onActivatePrompt}
+              />
+              <PlanInlineField
+                label="Streszczenie"
+                value={summary}
+                rows={4}
+                field="chapterSummary"
+                entity={chapter}
+                onChange={setSummary}
+                onGenerate={onGenerate}
+                onActivatePrompt={onActivatePrompt}
+              />
+              <PlanInlineField
+                label="Cel"
+                value={purpose}
+                rows={3}
+                field="chapterPurpose"
+                entity={chapter}
+                onChange={setPurpose}
+                onGenerate={onGenerate}
+                onActivatePrompt={onActivatePrompt}
+              />
+              <PlanInlineField
+                label="Konflikt"
+                value={conflict}
+                rows={3}
+                field="chapterConflict"
+                entity={chapter}
+                onChange={setConflict}
+                onGenerate={onGenerate}
+                onActivatePrompt={onActivatePrompt}
+              />
+              <PlanInlineField
+                label="Punkt zwrotny"
+                value={turningPoint}
+                rows={3}
+                field="chapterTurningPoint"
+                entity={chapter}
+                onChange={setTurningPoint}
+                onGenerate={onGenerate}
+                onActivatePrompt={onActivatePrompt}
+              />
+            </div>
+          </section>
+
+          <section className="chapter-edit-section">
+            <div className="chapter-section-heading">
+              <Target size={17} />
+              <h4>Ustawienia rozdziału</h4>
+            </div>
+            <div className="scene-settings-grid">
+              <label className="field-label">
+                Akt
+                <select value={actId} onChange={(event) => setActId(event.target.value)}>
+                  <option value="">Bez aktu</option>
+                  {plan.acts.map((act) => (
+                    <option key={act.id} value={act.id}>{act.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field-label">
+                Cel słów
+                <input
+                  type="number"
+                  min={0}
+                  value={targetWordCount}
+                  onChange={(event) => setTargetWordCount(event.target.value)}
+                />
+              </label>
+            </div>
+          </section>
+        </main>
+
+        <aside className="chapter-edit-sidebar" aria-label="Powiązania rozdziału">
+          <section className="chapter-side-section">
+            <div className="chapter-side-heading">
+              <Link2 size={16} />
+              <h4>Powiązane wątki</h4>
+              <ChapterRelationActions
+                field="chapterThreadSuggestions"
+                chapter={chapter}
+                onGenerate={() => onGenerate("chapterThreadSuggestions", chapter)}
+                onActivatePrompt={() => onActivatePrompt("chapterThreadSuggestions", chapter)}
+                onOpenPicker={() => setRelationPicker("threads")}
+              />
+            </div>
+            <div className="chapter-side-chip-list">
+              {selectedThreads.length > 0 ? (
+                selectedThreads.map((thread) => (
+                  <span className="chapter-side-chip thread" key={thread.id} title={thread.description || "Brak opisu wątku."}>
+                    {thread.name}
+                    <button
+                      type="button"
+                      className="chapter-side-chip-remove"
+                      onClick={() => setThreadIds((currentIds) => currentIds.filter((threadId) => threadId !== thread.id))}
+                      aria-label={`Odepnij wątek ${thread.name}`}
+                      title={`Odepnij wątek ${thread.name}`}
+                    >
+                      -
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <span className="chapter-side-empty">Brak powiązanych wątków</span>
+              )}
+            </div>
+          </section>
+          <section className="chapter-side-section">
+            <div className="chapter-side-heading">
+              <Route size={16} />
+              <h4>Powiązane beaty</h4>
+              <ChapterRelationActions
+                field="chapterBeatSuggestions"
+                chapter={chapter}
+                onGenerate={() => onGenerate("chapterBeatSuggestions", chapter)}
+                onActivatePrompt={() => onActivatePrompt("chapterBeatSuggestions", chapter)}
+                onOpenPicker={() => setRelationPicker("beats")}
+              />
+            </div>
+            <div className="chapter-side-chip-list">
+              {selectedBeats.length > 0 ? (
+                selectedBeats.map((beat) => (
+                  <span className="chapter-side-chip beat" key={beat.id} title={beatPreviewText(beat)}>
+                    {beat.name}
+                    <button
+                      type="button"
+                      className="chapter-side-chip-remove"
+                      onClick={() => setBeatIds((currentIds) => currentIds.filter((beatId) => beatId !== beat.id))}
+                      aria-label={`Odepnij beat ${beat.name}`}
+                      title={`Odepnij beat ${beat.name}`}
+                    >
+                      -
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <span className="chapter-side-empty">Brak powiązanych beatów</span>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      {relationPicker ? (
+        <ChapterRelationPickerModal
+          kind={relationPicker}
+          plan={plan}
+          selectedIds={relationPicker === "threads" ? threadIds : beatIds}
+          onClose={() => setRelationPicker(null)}
+          onAdd={(ids) => {
+            if (relationPicker === "threads") {
+              setThreadIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
+            } else {
+              setBeatIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
+            }
+            setRelationPicker(null);
+          }}
+        />
+      ) : null}
+
+      <footer className="chapter-edit-footer">
+        <div className="chapter-footer-status">
+          <CheckCircle2 size={16} />
+          <span>{completedItems} / {completionItems.length} elementów planu uzupełnionych</span>
+        </div>
+        <div className="chapter-footer-actions">
+          {onDelete ? (
+            <button type="button" className="ghost-button chapter-delete-button" onClick={onDelete}>
+              <Trash2 size={16} />
+              Usuń
+            </button>
+          ) : null}
+          <button type="button" className="ghost-button" onClick={onCancel}>
+            Anuluj
+          </button>
+          <button type="submit" className="primary-button" disabled={saving}>
+            <Save size={16} />
+            {saving ? "Zapisuję" : "Zapisz zmiany"}
+          </button>
+          {onSelect && openChapterLabel ? (
+            <button type="button" className="icon-button" onClick={onSelect} aria-label={openChapterLabel} title={openChapterLabel}>
+              <Pencil size={16} />
+            </button>
+          ) : null}
+        </div>
+      </footer>
+    </form>
+  );
+}
+
+function PlanInlineField({
+  label,
+  value,
+  rows,
+  field,
+  entity,
+  onChange,
+  onGenerate,
+  onActivatePrompt
+}: {
+  label: string;
+  value: string;
+  rows: number;
+  field: PlanFieldKey;
+  entity?: ChapterPromptEntity;
+  onChange: (value: string) => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
+  onActivatePrompt: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
+}) {
+  const activate = () => onActivatePrompt(field, entity);
+  return (
+    <label className="field-label plan-inline-field">
+      <span className="plan-inline-label-row">
+        {label}
+        <PlanAiActions
+          field={field}
+          targetEntity={entity}
+          onGenerate={() => onGenerate(field, entity)}
+        />
+      </span>
+      {rows === 1 ? (
+        <input value={value} onChange={(event) => onChange(event.target.value)} onFocus={activate} onClick={activate} />
+      ) : (
+        <textarea value={value} onChange={(event) => onChange(event.target.value)} onFocus={activate} onClick={activate} rows={rows} />
+      )}
+    </label>
+  );
+}
+
+function PlanAiActions({
+  field,
+  targetEntity,
+  onGenerate
+}: {
+  field: PlanFieldKey;
+  targetEntity?: ChapterPromptEntity;
+  onGenerate: () => void;
+}) {
+  const activeTargetId = useAiPromptContextStore((state) => state.activeTargetId);
+  const activeTarget = useAiPromptContextStore((state) =>
+    activeTargetId ? state.targets[activeTargetId] : null
+  );
+  const addContextSourceToActiveTarget = useAiPromptContextStore(
+    (state) => state.addContextSourceToActiveTarget
+  );
+  const proposals = useProposalStore((state) => state.proposals);
+  const targetEntityId = targetEntity?.id;
+  const loading = pendingProposalStatus(proposals, {
+    field,
+    scope: "bookPlan",
+    targetEntityId
+  });
+  const running = loading === "running";
+  const queued = loading === "queued";
+  const promptContextSource = planPromptContextSource(field, targetEntity);
+  const fieldAlreadyInContext = Boolean(
+    activeTarget?.sources.some(
+      (source) => source.key === field || source.key === promptContextSource.key
+    )
+  );
+
+  return (
+    <span className="ai-field-actions plan-ai-actions">
+      <button
+        type="button"
+        className="icon-button ai-field-button"
+        onClick={onGenerate}
+        disabled={queued || running || (targetEntity === undefined && isEntityField(field))}
+        title={`Generuj ${planFieldConfigs[field].label} z AI`}
+        aria-label={`Generuj ${planFieldConfigs[field].label} z AI`}
+      >
+        {running ? <Loader2 size={15} className="spin-icon" /> : queued ? <Clock3 size={15} /> : <Sparkles size={15} />}
+        <span>{running ? "Generuje" : queued ? "W kolejce" : "AI"}</span>
+      </button>
+      <button
+        type="button"
+        className="icon-button ai-context-add-button"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={(event) => {
+          event.stopPropagation();
+          addContextSourceToActiveTarget(promptContextSource);
+        }}
+        disabled={!activeTarget || fieldAlreadyInContext}
+        title="Dodaj pole planu do aktywnego kontekstu promptu."
+        aria-label={`Dodaj ${planFieldConfigs[field].label} do kontekstu promptu`}
+      >
+        <Plus size={14} />
+      </button>
+    </span>
+  );
+}
+
+function ChapterRelationActions({
+  field,
+  chapter,
+  onGenerate,
+  onOpenPicker
+}: {
+  field: PlanFieldKey;
+  chapter?: Chapter;
+  onGenerate: () => void;
+  onActivatePrompt: () => void;
+  onOpenPicker: () => void;
+}) {
+  const proposals = useProposalStore((state) => state.proposals);
+  const loading = pendingProposalStatus(proposals, {
+    field,
+    scope: "bookPlan",
+    targetEntityId: chapter?.id
+  });
+  const running = loading === "running";
+  const queued = loading === "queued";
+  const label = planFieldConfigs[field].label;
+
+  return (
+    <span className="chapter-relation-actions">
+      <button
+        type="button"
+        className="icon-button ai-field-button chapter-relation-ai-button"
+        onClick={onGenerate}
+        disabled={running || queued || !chapter}
+        title={`Zaproponuj ${label.toLowerCase()} z AI`}
+        aria-label={`Zaproponuj ${label.toLowerCase()} z AI`}
+      >
+        {running ? <Loader2 size={15} className="spin-icon" /> : queued ? <Clock3 size={15} /> : <Sparkles size={15} />}
+        <span>{running ? "Generuje" : queued ? "W kolejce" : "AI"}</span>
+      </button>
+      <button
+        type="button"
+        className="icon-button chapter-relation-add-button"
+        onClick={onOpenPicker}
+        title={`Dodaj ${label.toLowerCase()}`}
+        aria-label={`Dodaj ${label.toLowerCase()}`}
+      >
+        <Plus size={15} />
+      </button>
+    </span>
+  );
+}
+
+function ChapterRelationPickerModal({
+  kind,
+  plan,
+  selectedIds,
+  onClose,
+  onAdd
+}: {
+  kind: ChapterRelationKind;
+  plan: BookPlan;
+  selectedIds: string[];
+  onClose: () => void;
+  onAdd: (ids: string[]) => void;
+}) {
+  const [checkedIds, setCheckedIds] = useState<string[]>([]);
+  const selectedSet = new Set(selectedIds);
+  const items =
+    kind === "threads"
+      ? plan.threads.filter((thread) => !selectedSet.has(thread.id))
+      : plan.beats.filter((beat) => !selectedSet.has(beat.id));
+  const title = kind === "threads" ? "Dodaj wątki" : "Dodaj beaty";
+  const emptyText =
+    kind === "threads"
+      ? "Wszystkie wątki są już przypisane do tego rozdziału."
+      : "Wszystkie beaty są już przypisane do tego rozdziału.";
+
+  function toggle(id: string) {
+    setCheckedIds((currentIds) =>
+      currentIds.includes(id)
+        ? currentIds.filter((currentId) => currentId !== id)
+        : [...currentIds, id]
+    );
+  }
+
+  return (
+    <div className="chapter-relation-modal" role="dialog" aria-modal="true">
+      <button type="button" className="chapter-relation-backdrop" onClick={onClose} aria-label="Zamknij wybór powiązań" />
+      <section className="chapter-relation-shell" aria-label={title}>
+        <header className="chapter-relation-header">
+          <div>
+            <p className="eyebrow">Powiązania rozdziału</p>
+            <h4>{title}</h4>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Zamknij wybór powiązań" title="Zamknij">
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="chapter-relation-list">
+          {items.length === 0 ? (
+            <p className="chapter-relation-empty">{emptyText}</p>
+          ) : (
+            items.map((item) => {
+              const checked = checkedIds.includes(item.id);
+              const description = kind === "threads" ? item.description : beatPreviewText(item as Beat);
+              return (
+                <button
+                  type="button"
+                  className={checked ? "chapter-relation-option selected" : "chapter-relation-option"}
+                  key={item.id}
+                  onClick={() => toggle(item.id)}
+                  title={description}
+                  aria-pressed={checked}
+                >
+                  <span className={kind === "threads" ? "relation-dot thread" : "relation-dot beat"} />
+                  <span>
+                    <strong>{item.name}</strong>
+                    <em>{description || "Brak opisu."}</em>
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <footer className="chapter-relation-footer">
+          <button type="button" className="ghost-button" onClick={onClose}>
+            Anuluj
+          </button>
+          <button type="button" className="primary-button" disabled={checkedIds.length === 0} onClick={() => onAdd(checkedIds)}>
+            <Plus size={16} />
+            Dodaj wybrane
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function orderedChaptersForPlan(plan: BookPlan): Chapter[] {
+  return [...plan.chapters].sort((left, right) => left.orderIndex - right.orderIndex || left.number - right.number);
+}
+
+function dynamicChapterNumber(plan: BookPlan, chapterId: string): number {
+  return new Map(orderedChaptersForPlan(plan).map((chapter, index) => [chapter.id, index + 1])).get(chapterId) ?? 1;
+}
+
+function chapterThreadIdsForChapter(plan: BookPlan, chapterId: string): string[] {
+  return plan.chapterThreads
+    .filter((relation) => relation.chapterId === chapterId)
+    .map((relation) => relation.threadId);
+}
+
+function chapterBeatIdsForChapter(plan: BookPlan, chapterId: string): string[] {
+  return plan.chapterBeats
+    .filter((relation) => relation.chapterId === chapterId)
+    .map((relation) => relation.beatId);
+}
+
+function defaultChapterActId(initialActId: string | null | undefined, plan: BookPlan): string {
+  if (initialActId !== undefined) {
+    return initialActId ?? "";
+  }
+
+  return plan.acts[0]?.id ?? "";
+}
+
+function beatPreviewText(beat: Beat): string {
+  return [beat.description, beat.role ? `Rola: ${beat.role}` : ""]
+    .filter(Boolean)
+    .join("\n") || "Brak opisu beatu.";
+}
+
+function uniqueOrderedIds(ids: string[]): string[] {
+  return [...new Set(ids)];
+}
+
+function parseOptionalPositiveInt(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number(trimmed.replace(/\s+/g, ""));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function isEntityField(field: PlanFieldKey): boolean {
+  return [
+    "actPurpose",
+    "actSummary",
+    "beatName",
+    "beatRole",
+    "beatDescription",
+    "threadDescription",
+    "chapterSummary",
+    "chapterPurpose",
+    "chapterConflict",
+    "chapterTurningPoint",
+    "sceneDraft",
+    "sceneTitle",
+    "sceneSummary",
+    "sceneGoal",
+    "sceneConflict",
+    "sceneOutcome",
+    "threadChapterDescription",
+    "chapterThreadSuggestions",
+    "chapterBeatSuggestions"
+  ].includes(field);
+}
