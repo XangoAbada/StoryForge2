@@ -893,6 +893,7 @@ export type ExportBookInput = {
   chapterIds: string[];
   contentMode: ExportContentMode;
   style: ExportStyleSettings;
+  outputDirectory?: string | null;
 };
 
 export type ExportBookResult = {

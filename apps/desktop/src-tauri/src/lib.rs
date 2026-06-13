@@ -1070,6 +1070,7 @@ pub struct ExportBookInput {
     pub chapter_ids: Vec<String>,
     pub content_mode: String,
     pub style: ExportStyleSettings,
+    pub output_directory: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -4580,6 +4581,18 @@ pub async fn export_book_in_pool(
         .join("exports")
         .join(&input.project_id)
         .join(&input.book_id);
+    let export_dir = match input.output_directory.as_deref().map(str::trim) {
+        Some(directory) if !directory.is_empty() => {
+            let path = PathBuf::from(directory);
+            if path.exists() && !path.is_dir() {
+                return Err(AppError::Process(
+                    "Wybrana lokalizacja eksportu nie jest folderem.".into(),
+                ));
+            }
+            path
+        }
+        _ => export_dir,
+    };
     tokio::fs::create_dir_all(&export_dir).await?;
     let base_name = export_file_stem(&details.book);
     let format = input.format.to_lowercase();
@@ -5822,6 +5835,20 @@ async fn export_book(
     export_book_in_pool(&app, &state.db, input)
         .await
         .map_err(command_error)
+}
+
+#[tauri::command]
+async fn choose_export_directory() -> Result<Option<String>, String> {
+    let selected = tokio::task::spawn_blocking(|| {
+        rfd::FileDialog::new()
+            .set_title("Wybierz folder eksportu")
+            .pick_folder()
+            .map(|path| path.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(|error| format!("Nie udało się otworzyć wyboru folderu: {error}"))?;
+
+    Ok(selected)
 }
 
 #[tauri::command]
@@ -7282,6 +7309,7 @@ pub fn run() {
             generate_character_image,
             accept_generated_character_image,
             export_book,
+            choose_export_directory,
             reveal_export_file,
             list_export_presets,
             save_export_preset,

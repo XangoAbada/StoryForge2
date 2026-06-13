@@ -21,6 +21,7 @@ import {
   browserGenerateCharacterImage,
   browserGenerateExportArtwork,
   browserAcceptGeneratedExportArtwork,
+  browserChooseExportDirectory,
   browserExportBook,
   browserRevealExportFile,
   browserListExportPresets,
@@ -613,6 +614,14 @@ export function exportBook(input: ExportBookInput): Promise<ExportBookResult> {
   }
 
   return invoke("export_book", { input });
+}
+
+export function chooseExportDirectory(): Promise<string | null> {
+  if (!isTauriRuntime()) {
+    return browserChooseExportDirectory();
+  }
+
+  return invoke("choose_export_directory");
 }
 
 export function revealExportFile(filePath: string): Promise<void> {

@@ -16,6 +16,7 @@ import {
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  chooseExportDirectory,
   exportBook,
   getBookPlan,
   getProject,
@@ -77,6 +78,7 @@ export function ExportPage({ projectId }: ExportPageProps) {
   const [contentMode, setContentMode] = useState<ExportContentMode>("manuscript");
   const [selectedChapterIds, setSelectedChapterIds] = useState<string[]>([]);
   const [style, setStyle] = useState<ExportStyleSettings>(defaultExportStyle);
+  const [outputDirectory, setOutputDirectory] = useState("");
   const [presetName, setPresetName] = useState("Domyślny eksport");
   const [statusText, setStatusText] = useState("");
   const [exportedFiles, setExportedFiles] = useState<ExportedFile[]>([]);
@@ -132,6 +134,21 @@ export function ExportPage({ projectId }: ExportPageProps) {
     scope: "export"
   });
 
+  const chooseDirectoryMutation = useMutation({
+    mutationFn: chooseExportDirectory,
+    onSuccess: (selectedDirectory) => {
+      if (selectedDirectory) {
+        setOutputDirectory(selectedDirectory);
+        setStatusText(`Folder eksportu: ${selectedDirectory}`);
+        return;
+      }
+      setStatusText("Nie wybrano folderu eksportu.");
+    },
+    onError: (error) => {
+      setStatusText(error instanceof Error ? error.message : String(error));
+    }
+  });
+
   const exportMutation = useMutation({
     mutationFn: () => {
       if (!book) {
@@ -143,7 +160,8 @@ export function ExportPage({ projectId }: ExportPageProps) {
         format,
         chapterIds: activeChapterIds,
         contentMode,
-        style
+        style,
+        outputDirectory: outputDirectory.trim() || null
       });
     },
     onMutate: () => {
@@ -188,7 +206,7 @@ export function ExportPage({ projectId }: ExportPageProps) {
         projectId,
         bookId: book.id,
         name: presetName,
-        settingsJson: JSON.stringify({ format, contentMode, selectedChapterIds, style })
+        settingsJson: JSON.stringify({ format, contentMode, selectedChapterIds, style, outputDirectory })
       });
     },
     onSuccess: async () => {
@@ -239,6 +257,7 @@ export function ExportPage({ projectId }: ExportPageProps) {
         contentMode?: ExportContentMode;
         selectedChapterIds?: string[];
         style?: ExportStyleSettings;
+        outputDirectory?: string;
       };
       if (parsed.format) setFormat(parsed.format);
       if (parsed.contentMode) setContentMode(parsed.contentMode);
@@ -246,6 +265,9 @@ export function ExportPage({ projectId }: ExportPageProps) {
         setSelectedChapterIds(parsed.selectedChapterIds);
       }
       if (parsed.style) setStyle(parsed.style);
+      if (typeof parsed.outputDirectory === "string") {
+        setOutputDirectory(parsed.outputDirectory);
+      }
       setStatusText("Wczytano preset.");
     } catch {
       setStatusText("Nie udało się wczytać presetu.");
@@ -404,6 +426,46 @@ export function ExportPage({ projectId }: ExportPageProps) {
             </div>
             {format !== "docx" ? (
               <p className="muted-text">Numeracja stron jest dostępna tylko dla DOCX.</p>
+            ) : null}
+          </section>
+
+          <section className="export-panel">
+            <div className="section-title-row">
+              <FolderOpen size={18} />
+              <h3>Folder zapisu</h3>
+            </div>
+            <label className="field-label">
+              Lokalizacja eksportu
+              <div className="folder-field-row">
+                <input
+                  value={outputDirectory}
+                  readOnly
+                  placeholder="Domyślny folder aplikacji"
+                  title={outputDirectory || "Domyślny folder aplikacji"}
+                />
+                <button
+                  type="button"
+                  onClick={() => chooseDirectoryMutation.mutate()}
+                  disabled={chooseDirectoryMutation.isPending}
+                  title="Wybierz folder zapisu eksportu"
+                  aria-label="Wybierz folder zapisu eksportu"
+                >
+                  {chooseDirectoryMutation.isPending ? (
+                    <Loader2 size={16} className="spin-icon" />
+                  ) : (
+                    <FolderOpen size={16} />
+                  )}
+                </button>
+              </div>
+            </label>
+            {outputDirectory ? (
+              <button
+                type="button"
+                className="secondary-action compact"
+                onClick={() => setOutputDirectory("")}
+              >
+                Użyj folderu domyślnego
+              </button>
             ) : null}
           </section>
 

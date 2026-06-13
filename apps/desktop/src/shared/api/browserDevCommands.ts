@@ -1498,15 +1498,23 @@ export async function browserExportBook(input: ExportBookInput): Promise<ExportB
   }
 
   const extension = input.format === "markdown" ? "md" : input.format;
+  const outputPrefix = input.outputDirectory?.trim()
+    ? `browser-preview://${input.outputDirectory.trim().replace(/\\/g, "/")}/`
+    : "browser-preview://";
+  const fileStem = slugify(details.book.workingTitle || details.project.name);
   return {
-    filePath: `browser-preview://${slugify(details.book.workingTitle || details.project.name)}.${extension}`,
+    filePath: `${outputPrefix}${fileStem}.${extension}`,
     format: input.format,
-    fallbackFilePath: input.format === "mobi" ? `browser-preview://${slugify(details.book.workingTitle || details.project.name)}.epub` : null,
+    fallbackFilePath: input.format === "mobi" ? `${outputPrefix}${fileStem}.epub` : null,
     warning:
       input.format === "mobi"
         ? "Podgląd przeglądarkowy symuluje MOBI. W aplikacji desktopowej MOBI powstaje przez konwersję z EPUB."
         : null
   };
+}
+
+export async function browserChooseExportDirectory(): Promise<string | null> {
+  return window.prompt("Folder eksportu", "")?.trim() || null;
 }
 
 export async function browserRevealExportFile(_filePath: string): Promise<void> {

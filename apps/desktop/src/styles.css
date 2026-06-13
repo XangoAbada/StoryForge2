@@ -5289,7 +5289,15 @@ a:focus-visible {
   align-items: stretch;
 }
 
+.folder-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 6px;
+  align-items: stretch;
+}
+
 .ai-field-row button,
+.folder-field-row button,
 .separator-editor-heading button {
   display: inline-flex;
   align-items: center;
@@ -5307,6 +5315,7 @@ a:focus-visible {
 }
 
 .ai-field-row button:hover:not(:disabled),
+.folder-field-row button:hover:not(:disabled),
 .separator-editor-heading button:hover:not(:disabled) {
   border-color: #9fc9b8;
   background: #f7fbf8;
@@ -5314,6 +5323,7 @@ a:focus-visible {
 }
 
 .ai-field-row button:disabled,
+.folder-field-row button:disabled,
 .separator-editor-heading button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
