@@ -1,9 +1,12 @@
 import {
+  AlertCircle,
   Bot,
   CheckCircle2,
   Download,
+  ExternalLink,
   FileArchive,
   FileText,
+  FolderOpen,
   Image,
   Loader2,
   Palette,
@@ -18,11 +21,13 @@ import {
   getProject,
   getWorldWorkspace,
   listExportPresets,
+  revealExportFile,
   saveExportPreset
 } from "../../shared/api/commands";
 import type {
   Book,
   BookPlan,
+  ExportBookResult,
   ExportContentMode,
   ExportFormat,
   ExportSeparatorSettings,
@@ -47,6 +52,11 @@ type ExportPageProps = {
   projectId: string;
 };
 
+type ExportedFile = ExportBookResult & {
+  id: string;
+  createdAt: string;
+};
+
 const exportFormats: Array<{ value: ExportFormat; label: string; hint: string }> = [
   { value: "markdown", label: "Markdown", hint: ".md do dalszej pracy" },
   { value: "txt", label: "TXT", hint: "czysty tekst" },
@@ -69,6 +79,7 @@ export function ExportPage({ projectId }: ExportPageProps) {
   const [style, setStyle] = useState<ExportStyleSettings>(defaultExportStyle);
   const [presetName, setPresetName] = useState("Domyślny eksport");
   const [statusText, setStatusText] = useState("");
+  const [exportedFiles, setExportedFiles] = useState<ExportedFile[]>([]);
 
   const projectQuery = useQuery({
     queryKey: ["project", projectId],
@@ -135,12 +146,33 @@ export function ExportPage({ projectId }: ExportPageProps) {
         style
       });
     },
+    onMutate: () => {
+      setStatusText("Tworzę plik eksportu...");
+    },
     onSuccess: (result) => {
+      setExportedFiles((current) => [
+        {
+          ...result,
+          id: `${Date.now()}:${result.filePath}`,
+          createdAt: new Date().toISOString()
+        },
+        ...current
+      ]);
       setStatusText(
         result.warning
           ? `${result.warning} Plik: ${result.filePath}`
           : `Zapisano eksport: ${result.filePath}`
       );
+    },
+    onError: (error) => {
+      setStatusText(error instanceof Error ? error.message : String(error));
+    }
+  });
+
+  const revealMutation = useMutation({
+    mutationFn: revealExportFile,
+    onSuccess: () => {
+      setStatusText("Otworzono lokalizację pliku eksportu.");
     },
     onError: (error) => {
       setStatusText(error instanceof Error ? error.message : String(error));
@@ -273,6 +305,23 @@ export function ExportPage({ projectId }: ExportPageProps) {
     setStatusText("Dodano grafikę eksportu do kolejki AI.");
   }
 
+  function showExportFile(filePath: string) {
+    if (filePath.startsWith("browser-preview://")) {
+      setStatusText("W trybie podglądu przeglądarkowego plik nie istnieje na dysku.");
+      return;
+    }
+    revealMutation.mutate(filePath);
+  }
+
+  const exportState = exportMutation.isPending
+    ? "running"
+    : exportMutation.isError
+      ? "error"
+      : exportedFiles.length
+        ? "success"
+        : "idle";
+  const lastExportedFile = exportedFiles[0] ?? null;
+
   return (
     <section className="export-workbench">
       <div className="export-toolbar">
@@ -287,9 +336,51 @@ export function ExportPage({ projectId }: ExportPageProps) {
           disabled={exportMutation.isPending || !book}
         >
           {exportMutation.isPending ? <Loader2 size={17} className="spin-icon" /> : <Download size={17} />}
-          Eksportuj
+          {exportMutation.isPending ? "Eksportuję..." : "Eksportuj"}
         </button>
       </div>
+
+      <section className={`export-job-status ${exportState}`} aria-live="polite">
+        <div className="export-job-icon">
+          {exportState === "running" ? (
+            <Loader2 size={18} className="spin-icon" />
+          ) : exportState === "error" ? (
+            <AlertCircle size={18} />
+          ) : exportState === "success" ? (
+            <CheckCircle2 size={18} />
+          ) : (
+            <Download size={18} />
+          )}
+        </div>
+        <div className="export-job-copy">
+          <strong>
+            {exportState === "running"
+              ? "Trwa generowanie eksportu"
+              : exportState === "error"
+                ? "Eksport nie powiódł się"
+                : exportState === "success"
+                  ? "Ostatni eksport gotowy"
+                  : "Eksport gotowy do uruchomienia"}
+          </strong>
+          <span>
+            {exportState === "running"
+              ? `Tworzę plik ${formatLabel(format)} dla ${selectedChapterCount} rozdz.`
+              : statusText || "Wybierz format, zakres i kliknij Eksportuj."}
+          </span>
+          {exportState === "running" ? <span className="export-progress-bar" /> : null}
+        </div>
+        {lastExportedFile ? (
+          <button
+            type="button"
+            className="secondary-action compact"
+            onClick={() => showExportFile(lastExportedFile.filePath)}
+            disabled={revealMutation.isPending}
+          >
+            <FolderOpen size={16} />
+            Pokaż plik
+          </button>
+        ) : null}
+      </section>
 
       <div className="export-layout">
         <aside className="export-controls" aria-label="Ustawienia eksportu">
@@ -441,7 +532,45 @@ export function ExportPage({ projectId }: ExportPageProps) {
         </main>
       </div>
 
-      {statusText ? <p className="export-status">{statusText}</p> : null}
+      <section className="export-panel export-files-panel">
+        <div className="section-title-row">
+          <FolderOpen size={18} />
+          <h3>Utworzone pliki</h3>
+        </div>
+        {exportedFiles.length ? (
+          <div className="export-file-list">
+            {exportedFiles.map((file) => (
+              <article className="export-file-card" key={file.id}>
+                <div className="export-file-main">
+                  <span className="export-file-format">{formatLabel(file.format)}</span>
+                  <div>
+                    <strong>{fileNameFromPath(file.filePath)}</strong>
+                    <small>{new Date(file.createdAt).toLocaleString()}</small>
+                  </div>
+                </div>
+                <code>{file.filePath}</code>
+                {file.warning ? <p className="warning-text">{file.warning}</p> : null}
+                {file.fallbackFilePath && file.fallbackFilePath !== file.filePath ? (
+                  <small className="muted-text">Plik zapasowy: {file.fallbackFilePath}</small>
+                ) : null}
+                <button
+                  type="button"
+                  className="secondary-action compact"
+                  onClick={() => showExportFile(file.filePath)}
+                  disabled={revealMutation.isPending}
+                >
+                  <ExternalLink size={15} />
+                  Pokaż w folderze
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="muted-text">
+            Po eksporcie pojawią się tutaj utworzone pliki z szybką akcją otwarcia lokalizacji.
+          </p>
+        )}
+      </section>
     </section>
   );
 }
@@ -612,6 +741,15 @@ function PreviewBlock({ block, chapterStyle, sceneStyle }: PreviewBlockProps) {
       <strong>{block.text}</strong>
     </div>
   );
+}
+
+function formatLabel(format: ExportFormat): string {
+  return exportFormats.find((item) => item.value === format)?.label ?? format.toUpperCase();
+}
+
+function fileNameFromPath(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, "/");
+  return normalized.split("/").filter(Boolean).pop() ?? filePath;
 }
 
 function emptyPlan(bookId: string): BookPlan {

@@ -1509,6 +1509,10 @@ export async function browserExportBook(input: ExportBookInput): Promise<ExportB
   };
 }
 
+export async function browserRevealExportFile(_filePath: string): Promise<void> {
+  return Promise.resolve();
+}
+
 export async function browserListExportPresets(
   projectId: string,
   bookId: string

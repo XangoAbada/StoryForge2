@@ -22,6 +22,7 @@ import {
   browserGenerateExportArtwork,
   browserAcceptGeneratedExportArtwork,
   browserExportBook,
+  browserRevealExportFile,
   browserListExportPresets,
   browserSaveExportPreset,
   browserDeleteAct,
@@ -612,6 +613,14 @@ export function exportBook(input: ExportBookInput): Promise<ExportBookResult> {
   }
 
   return invoke("export_book", { input });
+}
+
+export function revealExportFile(filePath: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserRevealExportFile(filePath);
+  }
+
+  return invoke("reveal_export_file", { filePath });
 }
 
 export function listExportPresets(

@@ -6,7 +6,7 @@ use sqlx::{FromRow, Sqlite, SqlitePool, Transaction};
 use std::env;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::process::{Command as StdCommand, Stdio};
 use std::time::{Duration, Instant, SystemTime};
 use tauri::{AppHandle, Emitter, Manager, State};
 use thiserror::Error;
@@ -5315,6 +5315,31 @@ fn validate_export_artwork_related_type(related_type: &str) -> Result<(), AppErr
     }
 }
 
+fn reveal_file_in_system(path: &Path) -> Result<(), AppError> {
+    #[cfg(target_os = "windows")]
+    {
+        let mut select_arg = OsString::from("/select,");
+        select_arg.push(path.as_os_str());
+        StdCommand::new("explorer.exe").arg(select_arg).spawn()?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        StdCommand::new("open").arg("-R").arg(path).spawn()?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let parent = path
+            .parent()
+            .ok_or_else(|| AppError::Process("Nie znaleziono katalogu pliku eksportu.".into()))?;
+        StdCommand::new("xdg-open").arg(parent).spawn()?;
+        return Ok(());
+    }
+}
+
 #[tauri::command]
 async fn create_project(
     state: State<'_, AppState>,
@@ -5797,6 +5822,21 @@ async fn export_book(
     export_book_in_pool(&app, &state.db, input)
         .await
         .map_err(command_error)
+}
+
+#[tauri::command]
+async fn reveal_export_file(file_path: String) -> Result<(), String> {
+    let path = PathBuf::from(file_path);
+    let canonical = path
+        .canonicalize()
+        .map_err(AppError::from)
+        .map_err(command_error)?;
+
+    if !canonical.is_file() {
+        return Err("Nie znaleziono pliku eksportu.".into());
+    }
+
+    reveal_file_in_system(&canonical).map_err(command_error)
 }
 
 #[tauri::command]
@@ -7242,6 +7282,7 @@ pub fn run() {
             generate_character_image,
             accept_generated_character_image,
             export_book,
+            reveal_export_file,
             list_export_presets,
             save_export_preset,
             generate_export_artwork,
