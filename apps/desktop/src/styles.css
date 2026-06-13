@@ -5369,6 +5369,12 @@ a:focus-visible {
   color: var(--red);
 }
 
+.status-pill.warning {
+  border-color: #d9b77d;
+  background: #fff4d8;
+  color: #7a4b08;
+}
+
 .choice-field {
   display: grid;
   gap: 8px;

@@ -1,9 +1,10 @@
-import { FileJson, History, Loader2 } from "lucide-react";
+import { Check, FileJson, History, Loader2 } from "lucide-react";
 import { ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { listAiRuns } from "../../shared/api/commands";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listAiRuns, markAiProposalAccepted } from "../../shared/api/commands";
 import type { AiLogEntry } from "../../shared/api/types";
 import { formatLocalDateTime } from "../../shared/date";
+import { applyAiProposal } from "./AiProposalPanel";
 import { conceptFieldConfigs, ConceptFieldKey } from "./promptPackage";
 import { planFieldConfigs, PlanFieldKey } from "./planPromptPackage";
 import { characterFieldConfigs, CharacterFieldKey } from "./characterPromptPackage";
@@ -11,16 +12,40 @@ import { worldFieldConfigs, WorldFieldKey } from "./worldPromptPackage";
 import { sceneEditorFieldLabel, SceneEditorFieldKey } from "./sceneEditorPromptPackage";
 import { SCENE_STORY_BIBLE_AUDIT_FIELD } from "./sceneStoryBibleAuditPromptPackage";
 import { extractJsonCandidate } from "./titleSuggestions";
+import { useProposalStore, type ActiveAiProposal } from "./proposalStore";
 
 type AiLogPageProps = {
   projectId: string;
 };
 
 export function AiLogPage({ projectId }: AiLogPageProps) {
+  const queryClient = useQueryClient();
   const logQuery = useQuery({
     queryKey: ["ai-runs", projectId],
     queryFn: () => listAiRuns(projectId),
     retry: 0
+  });
+  const clearProposal = useProposalStore((state) => state.clearProposal);
+  const applyMutation = useMutation({
+    mutationFn: async (proposal: ActiveAiProposal) => {
+      await applyAiProposal(proposal);
+      await markAiProposalAccepted(proposal.id);
+    },
+    onSuccess: async (_payload, proposal) => {
+      clearProposal(proposal.id);
+      await queryClient.invalidateQueries({ queryKey: ["ai-runs", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["ai-proposals", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["book-plan"] });
+      await queryClient.invalidateQueries({ queryKey: ["character-workspace", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["world-workspace", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.refetchQueries({ queryKey: ["book-plan"], type: "all" });
+      await queryClient.refetchQueries({ queryKey: ["character-workspace", projectId], type: "all" });
+      await queryClient.refetchQueries({ queryKey: ["world-workspace", projectId], type: "all" });
+      await queryClient.refetchQueries({ queryKey: ["project", projectId], type: "all" });
+      await queryClient.refetchQueries({ queryKey: ["projects"], type: "all" });
+    }
   });
 
   return (
@@ -57,15 +82,40 @@ export function AiLogPage({ projectId }: AiLogPageProps) {
 
       <div className="ai-log-list">
         {logQuery.data?.map((entry) => (
-          <AiLogEntryDetails entry={entry} key={entry.id} />
+          <AiLogEntryDetails
+            entry={entry}
+            key={entry.id}
+            applying={applyMutation.isPending && applyMutation.variables?.aiRunId === entry.id}
+            applyErrorMessage={
+              applyMutation.isError && applyMutation.variables?.aiRunId === entry.id
+                ? applyErrorMessage(applyMutation.error)
+                : ""
+            }
+            onApply={(proposal) => applyMutation.mutate(proposal)}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function AiLogEntryDetails({ entry }: { entry: AiLogEntry }) {
+function AiLogEntryDetails({
+  entry,
+  applying,
+  applyErrorMessage,
+  onApply
+}: {
+  entry: AiLogEntry;
+  applying: boolean;
+  applyErrorMessage: string;
+  onApply: (proposal: ActiveAiProposal) => void;
+}) {
   const summary = requestSummary(entry);
+  const proposal = proposalFromLogEntry(entry);
+  const canApply =
+    entry.status === "success" &&
+    entry.decisionStatus !== "accepted" &&
+    Boolean(proposal);
 
   return (
     <details className="ai-log-entry">
@@ -74,8 +124,8 @@ function AiLogEntryDetails({ entry }: { entry: AiLogEntry }) {
           <strong>{summary.title}</strong>
           <small>{formatLocalDateTime(entry.createdAt)}</small>
         </span>
-        <span className={entry.status === "success" ? "status-pill ready" : "status-pill muted"}>
-          {entry.status}
+        <span className={generationStatusClassName(entry.status)}>
+          {generationStatusLabel(entry.status)}
         </span>
       </summary>
 
@@ -99,6 +149,10 @@ function AiLogEntryDetails({ entry }: { entry: AiLogEntry }) {
                 <dd>{summary.mode === "expand" ? "Rozwijanie" : "Generowanie"}</dd>
               </div>
             ) : null}
+            <div>
+              <dt>Status decyzji</dt>
+              <dd>{decisionStatusLabel(entry.decisionStatus)}</dd>
+            </div>
             <div>
               <dt>Provider</dt>
               <dd>{entry.providerId}</dd>
@@ -124,6 +178,26 @@ function AiLogEntryDetails({ entry }: { entry: AiLogEntry }) {
             <p className="warning-text">{entry.errorMessage}</p>
           ) : null}
           <ReadableResponse rawOutput={entry.rawOutput} />
+          {canApply && proposal ? (
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={applying}
+              onClick={(event) => {
+                event.stopPropagation();
+                onApply(proposal);
+              }}
+            >
+              {applying ? <Loader2 size={15} className="spin-icon" /> : <Check size={15} />}
+              {applying ? "Zapisuję" : "Zastosuj i zaakceptuj"}
+            </button>
+          ) : null}
+          {applyErrorMessage ? (
+            <p className="warning-text">{applyErrorMessage}</p>
+          ) : null}
+          {entry.status === "terminated" ? (
+            <p className="muted-text">Generacja została przerwana przez zamknięcie aplikacji.</p>
+          ) : null}
         </section>
       </div>
     </details>
@@ -150,6 +224,76 @@ function ReadableResponse({ rawOutput }: { rawOutput?: string | null }) {
       ))}
     </dl>
   );
+}
+
+function applyErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return message || "Nie udało się zastosować propozycji z logu AI.";
+}
+
+function proposalFromLogEntry(entry: AiLogEntry): ActiveAiProposal | null {
+  if (!entry.proposalSnapshot || typeof entry.proposalSnapshot !== "object") {
+    return null;
+  }
+
+  const proposal = entry.proposalSnapshot as ActiveAiProposal;
+  if (
+    !proposal.id ||
+    !proposal.projectId ||
+    !proposal.bookId ||
+    !proposal.field ||
+    !proposal.action ||
+    !proposal.promptPackageId ||
+    !proposal.promptPackageJson ||
+    !proposal.prompt
+  ) {
+    return null;
+  }
+
+  return {
+    ...proposal,
+    aiRunId: entry.id,
+    rawOutput: proposal.rawOutput || entry.rawOutput || "",
+    status: "success"
+  };
+}
+
+function generationStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    queued: "W kolejce",
+    running: "W toku",
+    success: "Zakończona",
+    error: "Błąd",
+    timeout: "Timeout",
+    cancelled: "Anulowana",
+    terminated: "Przerwana"
+  };
+
+  return labels[status] ?? status;
+}
+
+function generationStatusClassName(status: string): string {
+  if (status === "success") {
+    return "status-pill ready";
+  }
+
+  if (status === "error" || status === "timeout" || status === "terminated") {
+    return "status-pill warning";
+  }
+
+  return "status-pill muted";
+}
+
+function decisionStatusLabel(status?: string | null): string {
+  if (status === "accepted") {
+    return "Zaakceptowane";
+  }
+
+  if (status === "rejected") {
+    return "Odrzucone";
+  }
+
+  return "Niezaakceptowane";
 }
 
 function requestSummary(entry: AiLogEntry): {

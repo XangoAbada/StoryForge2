@@ -207,11 +207,11 @@ export function WorldPage({ projectId }: WorldPageProps) {
 
   useEffect(() => {
     setElementDraft(selectedElement ? elementToInput(selectedElement) : emptyElementInput(projectId, world.elements.length));
-  }, [projectId, selectedElement?.id, world.elements.length]);
+  }, [projectId, selectedElement?.id, selectedElement?.updatedAt, world.elements.length]);
 
   useEffect(() => {
     setRuleDraft(selectedRule ? ruleToInput(selectedRule) : emptyRuleInput(projectId, world.rules.length));
-  }, [projectId, selectedRule?.id, world.rules.length]);
+  }, [projectId, selectedRule?.id, selectedRule?.updatedAt, world.rules.length]);
 
   useEffect(() => {
     const targetId = selectedElement?.id ?? newWorldElementDraftId;

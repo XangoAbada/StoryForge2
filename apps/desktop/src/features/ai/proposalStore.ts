@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { AIAction } from "../../shared/api/types";
+import { upsertAiProposalSnapshot } from "../../shared/api/commands";
+import type { AIAction, AiProposalRecord } from "../../shared/api/types";
 import type { NormalizedConceptFieldSuggestion } from "./conceptFieldSuggestion";
 import type { NormalizedPremiseDevelopment } from "./premiseDevelopment";
 import type { CoverPromptPackage } from "./coverPromptPackage";
@@ -157,6 +158,7 @@ type ProposalState = {
   setEditableValue: (id: string, value: string) => void;
   setEditableField: (id: string, field: ConceptFieldKey, value: string) => void;
   toggleSelectedField: (id: string, field: ConceptFieldKey) => void;
+  hydratePersistentProposals: (records: AiProposalRecord[]) => void;
   clearProposal: (id: string) => void;
   clearAllProposals: () => void;
 };
@@ -185,6 +187,7 @@ export const useProposalStore = create<ProposalState>((set) => ({
     };
 
     set((state) => syncActive({ proposals: [...state.proposals, proposal] }));
+    persistProposalSnapshot(proposal);
     return proposal.id;
   },
   startProposal: (snapshot) => {
@@ -203,74 +206,88 @@ export const useProposalStore = create<ProposalState>((set) => ({
     };
 
     set((state) => syncActive({ proposals: [...state.proposals, proposal] }));
+    persistProposalSnapshot(proposal);
   },
-  startQueuedProposal: (id) =>
+  startQueuedProposal: (id) => {
+    let updated: ActiveAiProposal | undefined;
     set((state) =>
       syncActive({
         proposals: state.proposals.map((proposal) =>
           proposal.id === id
-            ? {
+            ? (updated = {
                 ...proposal,
                 status: "running",
                 errorMessage: "",
                 updatedAt: new Date().toISOString()
-              }
+              })
             : proposal
         )
       })
-    ),
-  finishProposal: (id, result) =>
+    );
+    persistProposalSnapshot(updated);
+  },
+  finishProposal: (id, result) => {
+    let updated: ActiveAiProposal | undefined;
     set((state) =>
       syncActive({
         proposals: state.proposals.map((proposal) =>
           proposal.id === id
-            ? {
+            ? (updated = {
                 ...proposal,
                 ...result,
                 status: "success",
                 errorMessage: "",
                 updatedAt: new Date().toISOString()
-              }
+              })
             : proposal
         )
       })
-    ),
-  failProposal: (id, errorMessage, rawOutput = "") =>
+    );
+    persistProposalSnapshot(updated);
+  },
+  failProposal: (id, errorMessage, rawOutput = "") => {
+    let updated: ActiveAiProposal | undefined;
     set((state) =>
       syncActive({
         proposals: state.proposals.map((proposal) =>
           proposal.id === id
-            ? {
+            ? (updated = {
                 ...proposal,
                 status: "error",
                 rawOutput,
                 errorMessage,
                 updatedAt: new Date().toISOString()
-              }
+              })
             : proposal
         )
       })
-    ),
-  updateProposalProgress: (id, progress) =>
+    );
+    persistProposalSnapshot(updated);
+  },
+  updateProposalProgress: (id, progress) => {
+    let updated: ActiveAiProposal | undefined;
     set((state) =>
       syncActive({
         proposals: state.proposals.map((proposal) =>
           proposal.id === id
-            ? {
+            ? (updated = {
                 ...proposal,
                 ...progress,
                 updatedAt: new Date().toISOString()
-              }
+              })
             : proposal
         )
       })
-    ),
-  retryProposal: (id) =>
+    );
+    persistProposalSnapshot(updated);
+  },
+  retryProposal: (id) => {
+    let updated: ActiveAiProposal | undefined;
     set((state) =>
       syncActive({
         proposals: state.proposals.map((proposal) =>
           proposal.id === id
-            ? {
+            ? (updated = {
                 ...proposal,
                 status: "queued",
                 aiRunId: undefined,
@@ -289,51 +306,80 @@ export const useProposalStore = create<ProposalState>((set) => ({
                 progress: undefined,
                 partialImageDataUrl: undefined,
                 updatedAt: new Date().toISOString()
-              }
+              })
             : proposal
         )
       })
-    ),
-  setEditableValue: (id, editableValue) =>
-    set((state) =>
-      syncActive({
-        proposals: state.proposals.map((proposal) =>
-          proposal.id === id ? { ...proposal, editableValue } : proposal
-        )
-      })
-    ),
-  setEditableField: (id, field, value) =>
+    );
+    persistProposalSnapshot(updated);
+  },
+  setEditableValue: (id, editableValue) => {
+    let updated: ActiveAiProposal | undefined;
     set((state) =>
       syncActive({
         proposals: state.proposals.map((proposal) =>
           proposal.id === id
-            ? {
+            ? (updated = {
+                ...proposal,
+                editableValue,
+                updatedAt: new Date().toISOString()
+              })
+            : proposal
+        )
+      })
+    );
+    persistProposalSnapshot(updated);
+  },
+  setEditableField: (id, field, value) => {
+    let updated: ActiveAiProposal | undefined;
+    set((state) =>
+      syncActive({
+        proposals: state.proposals.map((proposal) =>
+          proposal.id === id
+            ? (updated = {
                 ...proposal,
                 editableFields: {
                   ...proposal.editableFields,
                   [field]: value
-                }
-              }
+                },
+                updatedAt: new Date().toISOString()
+              })
             : proposal
         )
       })
-    ),
-  toggleSelectedField: (id, field) =>
+    );
+    persistProposalSnapshot(updated);
+  },
+  toggleSelectedField: (id, field) => {
+    let updated: ActiveAiProposal | undefined;
     set((state) =>
       syncActive({
         proposals: state.proposals.map((proposal) =>
           proposal.id === id
-            ? {
+            ? (updated = {
                 ...proposal,
                 selectedFields: {
                   ...proposal.selectedFields,
                   [field]: !proposal.selectedFields[field]
-                }
-              }
+                },
+                updatedAt: new Date().toISOString()
+              })
             : proposal
         )
       })
-    ),
+    );
+    persistProposalSnapshot(updated);
+  },
+  hydratePersistentProposals: (records) =>
+    set((state) => {
+      const existingIds = new Set(state.proposals.map((proposal) => proposal.id));
+      const hydrated = records
+        .map((record) => activeProposalFromRecord(record))
+        .filter((proposal): proposal is ActiveAiProposal => Boolean(proposal))
+        .filter((proposal) => !existingIds.has(proposal.id));
+
+      return syncActive({ proposals: [...state.proposals, ...hydrated] });
+    }),
   clearProposal: (id) =>
     set((state) =>
       syncActive({
@@ -451,4 +497,52 @@ function createProposalId(action: AIAction): string {
   return `${action}:${Date.now().toString(36)}:${Math.random()
     .toString(36)
     .slice(2)}`;
+}
+
+function persistProposalSnapshot(proposal: ActiveAiProposal | undefined): void {
+  if (!proposal) {
+    return;
+  }
+
+  void upsertAiProposalSnapshot({
+    id: proposal.id,
+    aiRunId: proposal.aiRunId ?? null,
+    projectId: proposal.projectId,
+    proposalType: proposal.scope ?? "bookConcept",
+    payloadJson: proposal,
+    status: proposal.status
+  }).catch(() => undefined);
+}
+
+function activeProposalFromRecord(record: AiProposalRecord): ActiveAiProposal | null {
+  if (
+    record.status === "running" ||
+    record.status === "terminated" ||
+    record.decisionStatus !== "pending" ||
+    !record.payloadJson ||
+    typeof record.payloadJson !== "object"
+  ) {
+    return null;
+  }
+
+  const proposal = record.payloadJson as ActiveAiProposal;
+  if (
+    !proposal.id ||
+    !proposal.projectId ||
+    !proposal.bookId ||
+    !proposal.field ||
+    !proposal.action ||
+    !proposal.promptPackageId ||
+    !proposal.promptPackageJson ||
+    !proposal.prompt
+  ) {
+    return null;
+  }
+
+  return {
+    ...proposal,
+    status: record.status as AiProposalStatus,
+    aiRunId: record.aiRunId ?? proposal.aiRunId,
+    updatedAt: record.updatedAt || proposal.updatedAt
+  };
 }

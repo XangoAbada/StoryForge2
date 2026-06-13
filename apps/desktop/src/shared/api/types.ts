@@ -769,6 +769,34 @@ export type AiLogEntry = {
   errorMessage?: string | null;
   createdAt: string;
   completedAt?: string | null;
+  decisionStatus?: AiProposalDecisionStatus | null;
+  proposalSnapshot?: unknown;
+};
+
+export type AiProposalDecisionStatus = "pending" | "accepted" | "rejected";
+
+export type AiProposalRecord = {
+  id: string;
+  aiRunId?: string | null;
+  projectId: string;
+  proposalType: string;
+  payloadJson: unknown;
+  status: string;
+  decisionStatus: AiProposalDecisionStatus;
+  appliedAt?: string | null;
+  acceptedAt?: string | null;
+  rejectedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UpsertAiProposalSnapshotInput = {
+  id: string;
+  aiRunId?: string | null;
+  projectId: string;
+  proposalType: string;
+  payloadJson: unknown;
+  status: string;
 };
 
 export type GenerateBookCoverInput = {

@@ -8,6 +8,10 @@ import {
   browserListCodexModels,
   browserListPlanVersions,
   browserListAiRuns,
+  browserListAiProposals,
+  browserMarkAiProposalAccepted,
+  browserMarkAiProposalRejected,
+  browserUpsertAiProposalSnapshot,
   browserCreateProject,
   browserDeleteCharacter,
   browserDeleteCharacterMemory,
@@ -57,6 +61,7 @@ import type {
   AcceptGeneratedCharacterImageInput,
   AiRunResult,
   AiLogEntry,
+  AiProposalRecord,
   Act,
   Beat,
   Book,
@@ -103,6 +108,7 @@ import type {
   UpsertCharacterRelationInput,
   UpsertPlotThreadInput,
   UpsertSceneInput,
+  UpsertAiProposalSnapshotInput,
   UpsertWorldElementInput,
   UpsertWorldRuleInput,
   WorldElement,
@@ -456,6 +462,40 @@ export function listAiRuns(projectId: string): Promise<AiLogEntry[]> {
   }
 
   return invoke("list_ai_runs", { projectId });
+}
+
+export function listAiProposals(projectId: string): Promise<AiProposalRecord[]> {
+  if (!isTauriRuntime()) {
+    return browserListAiProposals(projectId);
+  }
+
+  return invoke("list_ai_proposals", { projectId });
+}
+
+export function upsertAiProposalSnapshot(
+  input: UpsertAiProposalSnapshotInput
+): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserUpsertAiProposalSnapshot(input);
+  }
+
+  return invoke("upsert_ai_proposal_snapshot", { input });
+}
+
+export function markAiProposalAccepted(id: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserMarkAiProposalAccepted(id);
+  }
+
+  return invoke("mark_ai_proposal_accepted", { id });
+}
+
+export function markAiProposalRejected(id: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserMarkAiProposalRejected(id);
+  }
+
+  return invoke("mark_ai_proposal_rejected", { id });
 }
 
 export function updateBookConcept(

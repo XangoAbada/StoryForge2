@@ -233,7 +233,7 @@ export function CharactersPage({ projectId }: CharactersPageProps) {
     }
 
     setDraft(emptyCharacterInput(projectId, workspace.characters.length));
-  }, [projectId, selectedCharacter?.id, workspace.characters.length]);
+  }, [projectId, selectedCharacter?.id, selectedCharacter?.updatedAt, workspace.characters.length]);
 
   useEffect(() => {
     const targetId = selectedCharacter?.id ?? "new-character";

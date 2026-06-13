@@ -15,6 +15,9 @@ import {
   getProject,
   getWorldWorkspace,
   getBookPlan,
+  listAiProposals,
+  markAiProposalAccepted,
+  markAiProposalRejected,
   moveBeatToChapter,
   runCodexPrompt,
   saveStoryStructure,
@@ -114,6 +117,257 @@ type AiProposalPanelProps = {
   onAcceptValue?: (value: string) => void | Promise<void>;
 };
 
+export async function applyAiProposal(
+  proposal: ActiveAiProposal,
+  options: {
+    asNewPlanVersion?: boolean;
+    onAcceptValue?: (value: string) => void | Promise<void>;
+  } = {}
+): Promise<unknown> {
+  if (proposal.status !== "success") {
+    return null;
+  }
+
+  if (proposal.scope === "newProject") {
+    const value = proposal.editableValue.trim();
+    if (!options.onAcceptValue) {
+      throw new Error("Brak obsługi akceptacji propozycji nowego projektu.");
+    }
+
+    await options.onAcceptValue(value);
+    return null;
+  }
+
+  if (isBookCoverProposal(proposal)) {
+    const imagePath = (proposal.coverImagePath || proposal.editableValue).trim();
+    if (!imagePath || !proposal.coverPrompt || !proposal.coverGeneratedAt) {
+      throw new Error("Brak kompletnej propozycji okładki do akceptacji.");
+    }
+
+    return acceptGeneratedBookCover({
+      bookId: proposal.bookId,
+      imagePath,
+      coverPrompt: proposal.coverPrompt,
+      coverNegativePrompt: proposal.coverNegativePrompt ?? "",
+      generatedAt: proposal.coverGeneratedAt
+    });
+  }
+
+  if (isCharacterImageProposal(proposal)) {
+    const imagePath = (
+      proposal.characterImagePath ||
+      proposal.coverImagePath ||
+      proposal.editableValue
+    ).trim();
+    const packageContext =
+      "context" in proposal.promptPackageJson
+        ? proposal.promptPackageJson.context
+        : {};
+    const scopedPackageContext =
+      packageContext && typeof packageContext === "object"
+        ? (packageContext as Record<string, unknown>)
+        : {};
+    const characterId =
+      typeof scopedPackageContext.targetEntityId === "string"
+        ? scopedPackageContext.targetEntityId
+        : "";
+    if (!imagePath || !characterId || !proposal.coverPrompt || !proposal.characterGeneratedAt) {
+      throw new Error("Brak kompletnej propozycji obrazu postaci do akceptacji.");
+    }
+
+    return acceptGeneratedCharacterImage({
+      projectId: proposal.projectId,
+      characterId,
+      imagePath,
+      imagePrompt: proposal.coverPrompt,
+      negativePrompt: proposal.coverNegativePrompt ?? "",
+      generatedAt: proposal.characterGeneratedAt
+    });
+  }
+
+  if (proposal.scope === "bookPlan") {
+    let plan = await getBookPlan(proposal.bookId);
+    const payload = planPayloadFromEditableValue(proposal);
+    const packageContext =
+      "context" in proposal.promptPackageJson
+        ? proposal.promptPackageJson.context
+        : {};
+    const scopedPackageContext =
+      packageContext && typeof packageContext === "object"
+        ? (packageContext as Record<string, unknown>)
+        : {};
+    const planField = proposal.field as PlanFieldKey;
+    if (options.asNewPlanVersion && isLargePlanField(planField)) {
+      const version = await createPlanVersionFromActive({
+        bookId: proposal.bookId,
+        name: `Wariant AI: ${planFieldConfigs[planField]?.label ?? "Plan"}`,
+        description: "Utworzono z akceptowanej propozycji AI."
+      });
+      await setActivePlanVersion({
+        bookId: proposal.bookId,
+        planVersionId: version.id
+      });
+      plan = await getBookPlan(proposal.bookId);
+    }
+
+    if (isDraftPlanField(planField) && isDraftAcceptance(scopedPackageContext)) {
+      const targetEntityId =
+        typeof scopedPackageContext.targetEntityId === "string"
+          ? scopedPackageContext.targetEntityId
+          : "";
+      const value = planPayloadTextValue(payload);
+      if (targetEntityId && applyPlanDraftField(targetEntityId, planField, value)) {
+        return null;
+      }
+
+      if (isSceneDraftField(planField)) {
+        throw new Error("Nie ma już otwartego formularza sceny dla tej propozycji AI.");
+      }
+
+      if (
+        !targetEntityId ||
+        targetEntityId.startsWith("draft-beat:") ||
+        targetEntityId.startsWith("draft-scene:")
+      ) {
+        throw new Error("Nie ma już otwartego formularza beatu dla tej propozycji AI.");
+      }
+    }
+
+    await applyPlanProposalPayload(payload, planField, packageContext, {
+      bookId: proposal.bookId,
+      plan,
+      saveStructure: saveStoryStructure,
+      saveAct: upsertAct,
+      saveBeat: upsertBeat,
+      moveBeatToChapter,
+      saveThread: upsertPlotThread,
+      saveChapter: upsertChapter,
+      saveChapterThreadRelation: upsertChapterThreadRelation,
+      saveScene: upsertScene,
+      setSceneRelations
+    });
+    return null;
+  }
+
+  if (proposal.scope === "characters") {
+    const packageContext =
+      "context" in proposal.promptPackageJson
+        ? proposal.promptPackageJson.context
+        : {};
+    const scopedPackageContext =
+      packageContext && typeof packageContext === "object"
+        ? (packageContext as Record<string, unknown>)
+        : {};
+    const targetEntityId =
+      typeof scopedPackageContext.targetEntityId === "string"
+        ? scopedPackageContext.targetEntityId
+        : "";
+    const characterField = characterFieldFromProposal(proposal);
+    const value = proposal.editableValue.trim();
+    if (
+      targetEntityId &&
+      applyCharacterDraftField(targetEntityId, characterField, value)
+    ) {
+      return null;
+    }
+
+    if (characterField === "characterRelation") {
+      return upsertCharacterRelation(characterRelationInputFromProposal(proposal, scopedPackageContext));
+    }
+
+    if (characterField === "characterProfile") {
+      return upsertCharacter(characterProfileInputFromProposal(proposal, scopedPackageContext));
+    }
+
+    if (characterField === "characterMemory") {
+      return upsertCharacterMemory(characterMemoryInputFromProposal(proposal, scopedPackageContext));
+    }
+
+    if (targetEntityId && isCanonicalCharacterField(characterField)) {
+      return upsertCharacter(
+        await characterFieldInputFromProposal(proposal, targetEntityId, characterField)
+      );
+    }
+
+    throw new Error("Nie ma już otwartego formularza dla tej propozycji postaci.");
+  }
+
+  if (proposal.scope === "world") {
+    const packageContext =
+      "context" in proposal.promptPackageJson
+        ? proposal.promptPackageJson.context
+        : {};
+    const scopedPackageContext =
+      packageContext && typeof packageContext === "object"
+        ? (packageContext as Record<string, unknown>)
+        : {};
+    const targetEntityId =
+      typeof scopedPackageContext.targetEntityId === "string"
+        ? scopedPackageContext.targetEntityId
+        : "";
+    const value = proposal.editableValue.trim();
+    if (
+      targetEntityId &&
+      applyWorldDraftField(targetEntityId, proposal.field as WorldFieldKey, value)
+    ) {
+      return null;
+    }
+
+    if (proposal.field === "worldElement") {
+      return upsertWorldElement(worldElementInputFromProposal(proposal, scopedPackageContext));
+    }
+
+    if (proposal.field === "worldRule") {
+      return upsertWorldRule(worldRuleInputFromProposal(proposal, scopedPackageContext));
+    }
+
+    if (proposal.field === "worldRuleAnalysis") {
+      return null;
+    }
+
+    throw new Error("Nie ma już otwartego formularza dla tej propozycji świata.");
+  }
+
+  if (proposal.scope === "sceneEditor") {
+    const packageContext =
+      "context" in proposal.promptPackageJson
+        ? proposal.promptPackageJson.context
+        : {};
+    const scopedPackageContext =
+      packageContext && typeof packageContext === "object"
+        ? (packageContext as Record<string, unknown>)
+        : {};
+    const targetEntityId =
+      typeof scopedPackageContext.targetEntityId === "string"
+        ? scopedPackageContext.targetEntityId
+        : "";
+    const value = proposal.editableValue.trim();
+    const insertMode = sceneEditorInsertMode(scopedPackageContext.insertMode);
+
+    if (!targetEntityId) {
+      throw new Error("Brak aktywnej sceny dla propozycji edytora.");
+    }
+
+    const applied = await applySceneEditorProposal(targetEntityId, value, insertMode);
+    if (!applied) {
+      throw new Error("Nie ma już otwartego edytora sceny dla tej propozycji AI.");
+    }
+
+    return null;
+  }
+
+  if (isPremiseDevelopment(proposal.parsed)) {
+    const input = proposalInputFromFields(proposal.editableFields, proposal.selectedFields);
+    return updateBookConcept(proposal.bookId, input);
+  }
+
+  const value = proposal.editableValue.trim();
+  return updateBookConcept(
+    proposal.bookId,
+    proposalInputFromValue(value, { field: proposal.field as ConceptFieldKey })
+  );
+}
+
 export function AiProposalPanel({
   projectId,
   onAcceptValue
@@ -131,6 +385,7 @@ export function AiProposalPanel({
   const setEditableField = useProposalStore((state) => state.setEditableField);
   const toggleSelectedField = useProposalStore((state) => state.toggleSelectedField);
   const enqueueProposal = useProposalStore((state) => state.enqueueProposal);
+  const hydratePersistentProposals = useProposalStore((state) => state.hydratePersistentProposals);
   const clearProposal = useProposalStore((state) => state.clearProposal);
   const retryProposal = useProposalStore((state) => state.retryProposal);
   const addAuditPrompt = useSceneDiscoveryStore((state) => state.addAuditPrompt);
@@ -147,6 +402,17 @@ export function AiProposalPanel({
     () => pendingAuditPrompts.filter((prompt) => prompt.projectId === projectId),
     [pendingAuditPrompts, projectId]
   );
+  const persistentProposalQuery = useQuery({
+    queryKey: ["ai-proposals", projectId],
+    queryFn: () => listAiProposals(projectId),
+    retry: 0
+  });
+
+  useEffect(() => {
+    if (persistentProposalQuery.data) {
+      hydratePersistentProposals(persistentProposalQuery.data);
+    }
+  }, [hydratePersistentProposals, persistentProposalQuery.data]);
 
   const acceptMutation = useMutation({
     mutationFn: async ({ proposalId, asNewPlanVersion = false }: { proposalId: string; asNewPlanVersion?: boolean }) => {
@@ -299,29 +565,36 @@ export function AiProposalPanel({
           typeof scopedPackageContext.targetEntityId === "string"
             ? scopedPackageContext.targetEntityId
             : "";
+        const characterField = characterFieldFromProposal(proposal);
         const value = proposal.editableValue.trim();
         if (
           targetEntityId &&
-          applyCharacterDraftField(targetEntityId, proposal.field as CharacterFieldKey, value)
+          applyCharacterDraftField(targetEntityId, characterField, value)
         ) {
           return null;
         }
 
-        if (proposal.field === "characterRelation") {
+        if (characterField === "characterRelation") {
           return upsertCharacterRelation(
             characterRelationInputFromProposal(proposal, scopedPackageContext)
           );
         }
 
-        if (proposal.field === "characterProfile") {
+        if (characterField === "characterProfile") {
           return upsertCharacter(
             characterProfileInputFromProposal(proposal, scopedPackageContext)
           );
         }
 
-        if (proposal.field === "characterMemory") {
+        if (characterField === "characterMemory") {
           return upsertCharacterMemory(
             characterMemoryInputFromProposal(proposal, scopedPackageContext)
+          );
+        }
+
+        if (targetEntityId && isCanonicalCharacterField(characterField)) {
+          return upsertCharacter(
+            await characterFieldInputFromProposal(proposal, targetEntityId, characterField)
           );
         }
 
@@ -415,8 +688,11 @@ export function AiProposalPanel({
         return;
       }
 
+      await markAiProposalAccepted(proposalId);
       clearProposal(proposalId);
       closePromptContextForProposal(proposal);
+      await queryClient.invalidateQueries({ queryKey: ["ai-runs", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["ai-proposals", projectId] });
       if (proposal.scope !== "newProject") {
         await queryClient.invalidateQueries({ queryKey: ["book-plan", proposal.bookId] });
         await queryClient.invalidateQueries({ queryKey: ["character-workspace", projectId] });
@@ -472,7 +748,13 @@ export function AiProposalPanel({
             retrying={proposal.status === "queued"}
             onAccept={() => acceptMutation.mutate({ proposalId: proposal.id })}
             onAcceptAsPlanVersion={() => acceptMutation.mutate({ proposalId: proposal.id, asNewPlanVersion: true })}
-            onClear={() => clearProposal(proposal.id)}
+            onClear={() => {
+              void markAiProposalRejected(proposal.id).finally(() => {
+                clearProposal(proposal.id);
+                void queryClient.invalidateQueries({ queryKey: ["ai-runs", projectId] });
+                void queryClient.invalidateQueries({ queryKey: ["ai-proposals", projectId] });
+              });
+            }}
             onRetry={() => retryProposal(proposal.id)}
             onPreview={(src, alt) => setPreviewImage({ src, alt })}
             onEditableValueChange={(value) => setEditableValue(proposal.id, value)}
@@ -1650,6 +1932,167 @@ export function characterProfileInputFromProposal(
     status: stringRecordValue(snapshot.status, "draft"),
     orderIndex: boundedNumberRecordValue(snapshot.orderIndex, 0)
   };
+}
+
+async function characterFieldInputFromProposal(
+  proposal: ActiveAiProposal,
+  characterId: string,
+  field: CharacterFieldKey
+): Promise<UpsertCharacterInput> {
+  const workspace = await getCharacterWorkspace(proposal.projectId);
+  const character = workspace.characters.find((item) => item.id === characterId);
+  if (!character) {
+    throw new Error("Nie znaleziono postaci dla tej propozycji AI.");
+  }
+
+  const input: UpsertCharacterInput = {
+    id: character.id,
+    projectId: character.projectId,
+    characterType: character.characterType,
+    name: character.name,
+    aliasesJson: character.aliasesJson,
+    role: character.role,
+    shortDescription: character.shortDescription,
+    externalGoal: character.externalGoal,
+    internalNeed: character.internalNeed,
+    wound: character.wound,
+    falseBelief: character.falseBelief,
+    secret: character.secret,
+    strengthsJson: character.strengthsJson,
+    weaknessesJson: character.weaknessesJson,
+    voiceNotes: character.voiceNotes,
+    arcSummary: character.arcSummary,
+    knowledgeNotes: character.knowledgeNotes,
+    visualPrompt: character.visualPrompt,
+    imageAssetId: character.imageAssetId || null,
+    status: character.status,
+    orderIndex: character.orderIndex
+  };
+  const value = proposal.editableValue.trim();
+
+  if (field === "aliasesJson" || field === "strengthsJson" || field === "weaknessesJson") {
+    input[field] = normalizeJsonArrayString(value);
+    return input;
+  }
+
+  switch (field) {
+    case "characterType":
+      input.characterType = value;
+      break;
+    case "name":
+      input.name = value;
+      break;
+    case "role":
+      input.role = value;
+      break;
+    case "shortDescription":
+      input.shortDescription = value;
+      break;
+    case "externalGoal":
+      input.externalGoal = value;
+      break;
+    case "internalNeed":
+      input.internalNeed = value;
+      break;
+    case "wound":
+      input.wound = value;
+      break;
+    case "falseBelief":
+      input.falseBelief = value;
+      break;
+    case "secret":
+      input.secret = value;
+      break;
+    case "voiceNotes":
+      input.voiceNotes = value;
+      break;
+    case "arcSummary":
+      input.arcSummary = value;
+      break;
+    case "knowledgeNotes":
+      input.knowledgeNotes = value;
+      break;
+    case "visualPrompt":
+      input.visualPrompt = value;
+      break;
+  }
+  return input;
+}
+
+function characterFieldFromProposal(proposal: ActiveAiProposal): CharacterFieldKey {
+  if (typeof proposal.field === "string" && proposal.field in characterFieldConfigs) {
+    return proposal.field as CharacterFieldKey;
+  }
+
+  const context =
+    "context" in proposal.promptPackageJson
+      ? proposal.promptPackageJson.context
+      : {};
+  if (
+    context &&
+    typeof context === "object" &&
+    "targetField" in context &&
+    typeof context.targetField === "string" &&
+    context.targetField in characterFieldConfigs
+  ) {
+    return context.targetField as CharacterFieldKey;
+  }
+
+  return proposal.field as CharacterFieldKey;
+}
+
+function isCanonicalCharacterField(
+  field: CharacterFieldKey
+): field is keyof Pick<
+  UpsertCharacterInput,
+  | "characterType"
+  | "name"
+  | "aliasesJson"
+  | "role"
+  | "shortDescription"
+  | "externalGoal"
+  | "internalNeed"
+  | "wound"
+  | "falseBelief"
+  | "secret"
+  | "strengthsJson"
+  | "weaknessesJson"
+  | "voiceNotes"
+  | "arcSummary"
+  | "knowledgeNotes"
+  | "visualPrompt"
+> {
+  return [
+    "characterType",
+    "name",
+    "aliasesJson",
+    "role",
+    "shortDescription",
+    "externalGoal",
+    "internalNeed",
+    "wound",
+    "falseBelief",
+    "secret",
+    "strengthsJson",
+    "weaknessesJson",
+    "voiceNotes",
+    "arcSummary",
+    "knowledgeNotes",
+    "visualPrompt"
+  ].includes(field);
+}
+
+function normalizeJsonArrayString(value: string): string {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (Array.isArray(parsed)) {
+      return JSON.stringify(parsed.filter((item): item is string => typeof item === "string"));
+    }
+  } catch {
+    // Fall through to single-value array normalization.
+  }
+
+  return value ? JSON.stringify([value]) : "[]";
 }
 
 export function characterRelationInputFromProposal(

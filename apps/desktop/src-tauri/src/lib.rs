@@ -266,6 +266,8 @@ pub struct AiLogEntry {
     pub error_message: Option<String>,
     pub created_at: String,
     pub completed_at: Option<String>,
+    pub decision_status: Option<String>,
+    pub proposal_snapshot: Option<Value>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -283,6 +285,52 @@ struct AiLogEntryRow {
     error_message: Option<String>,
     created_at: String,
     completed_at: Option<String>,
+    decision_status: Option<String>,
+    proposal_snapshot_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiProposalRecord {
+    pub id: String,
+    pub ai_run_id: Option<String>,
+    pub project_id: String,
+    pub proposal_type: String,
+    pub payload_json: Value,
+    pub status: String,
+    pub decision_status: String,
+    pub applied_at: Option<String>,
+    pub accepted_at: Option<String>,
+    pub rejected_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct AiProposalRow {
+    id: String,
+    ai_run_id: Option<String>,
+    project_id: String,
+    proposal_type: String,
+    payload_json: String,
+    status: String,
+    decision_status: String,
+    applied_at: Option<String>,
+    accepted_at: Option<String>,
+    rejected_at: Option<String>,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertAiProposalSnapshotInput {
+    pub id: String,
+    pub ai_run_id: Option<String>,
+    pub project_id: String,
+    pub proposal_type: String,
+    pub payload_json: Value,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1008,7 +1056,38 @@ async fn init_database_at(database_path: PathBuf) -> Result<SqlitePool, AppError
         .await?;
 
     sqlx::migrate!("./migrations").run(&pool).await?;
+    recover_interrupted_ai_work(&pool).await?;
     Ok(pool)
+}
+
+pub async fn recover_interrupted_ai_work(pool: &SqlitePool) -> Result<(), AppError> {
+    let now = Utc::now().to_rfc3339();
+    sqlx::query(
+        r#"
+        UPDATE ai_runs
+        SET status = 'terminated',
+            error_message = COALESCE(error_message, 'Generacja została przerwana przez zamknięcie aplikacji.'),
+            completed_at = COALESCE(completed_at, ?)
+        WHERE status = 'running'
+        "#,
+    )
+    .bind(&now)
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        UPDATE ai_proposals
+        SET status = 'terminated',
+            updated_at = ?
+        WHERE status = 'running'
+        "#,
+    )
+    .bind(&now)
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }
 
 pub async fn create_project_in_pool(
@@ -3614,22 +3693,25 @@ pub async fn list_ai_runs_in_pool(
     let rows = sqlx::query_as::<_, AiLogEntryRow>(
         r#"
         SELECT
-          id,
-          project_id,
-          provider_id,
-          model,
-          reasoning_effort,
-          action,
-          prompt_package_json,
-          prompt,
-          raw_output,
-          status,
-          error_message,
-          created_at,
-          completed_at
+          ai_runs.id,
+          ai_runs.project_id,
+          ai_runs.provider_id,
+          ai_runs.model,
+          ai_runs.reasoning_effort,
+          ai_runs.action,
+          ai_runs.prompt_package_json,
+          ai_runs.prompt,
+          ai_runs.raw_output,
+          ai_runs.status,
+          ai_runs.error_message,
+          ai_runs.created_at,
+          ai_runs.completed_at,
+          ai_proposals.decision_status,
+          ai_proposals.payload_json AS proposal_snapshot_json
         FROM ai_runs
-        WHERE project_id = ?
-        ORDER BY created_at DESC
+        LEFT JOIN ai_proposals ON ai_proposals.ai_run_id = ai_runs.id
+        WHERE ai_runs.project_id = ?
+        ORDER BY ai_runs.created_at DESC
         "#,
     )
     .bind(project_id)
@@ -3640,6 +3722,10 @@ pub async fn list_ai_runs_in_pool(
         .map(|row| {
             let prompt_package_json =
                 serde_json::from_str(&row.prompt_package_json).unwrap_or(Value::Null);
+            let proposal_snapshot = row
+                .proposal_snapshot_json
+                .as_deref()
+                .and_then(|value| serde_json::from_str(value).ok());
             Ok(AiLogEntry {
                 id: row.id,
                 project_id: row.project_id,
@@ -3654,9 +3740,141 @@ pub async fn list_ai_runs_in_pool(
                 error_message: row.error_message,
                 created_at: row.created_at,
                 completed_at: row.completed_at,
+                decision_status: row.decision_status,
+                proposal_snapshot,
             })
         })
         .collect()
+}
+
+pub async fn list_ai_proposals_in_pool(
+    pool: &SqlitePool,
+    project_id: &str,
+) -> Result<Vec<AiProposalRecord>, AppError> {
+    let rows = sqlx::query_as::<_, AiProposalRow>(
+        r#"
+        SELECT
+          id,
+          ai_run_id,
+          project_id,
+          proposal_type,
+          payload_json,
+          status,
+          decision_status,
+          applied_at,
+          accepted_at,
+          rejected_at,
+          created_at,
+          updated_at
+        FROM ai_proposals
+        WHERE project_id = ?
+          AND decision_status = 'pending'
+          AND status NOT IN ('running', 'terminated')
+        ORDER BY updated_at DESC
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    rows.into_iter().map(ai_proposal_record_from_row).collect()
+}
+
+pub async fn upsert_ai_proposal_snapshot_in_pool(
+    pool: &SqlitePool,
+    input: UpsertAiProposalSnapshotInput,
+) -> Result<(), AppError> {
+    let now = Utc::now().to_rfc3339();
+    let payload_json = serde_json::to_string(&input.payload_json)?;
+    sqlx::query(
+        r#"
+        INSERT INTO ai_proposals
+          (
+            id,
+            ai_run_id,
+            project_id,
+            proposal_type,
+            payload_json,
+            status,
+            decision_status,
+            created_at,
+            updated_at
+          )
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          ai_run_id = COALESCE(excluded.ai_run_id, ai_proposals.ai_run_id),
+          project_id = excluded.project_id,
+          proposal_type = excluded.proposal_type,
+          payload_json = excluded.payload_json,
+          status = excluded.status,
+          updated_at = excluded.updated_at
+        "#,
+    )
+    .bind(&input.id)
+    .bind(&input.ai_run_id)
+    .bind(&input.project_id)
+    .bind(&input.proposal_type)
+    .bind(&payload_json)
+    .bind(&input.status)
+    .bind(&now)
+    .bind(&now)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn mark_ai_proposal_decision_in_pool(
+    pool: &SqlitePool,
+    id: &str,
+    decision_status: &str,
+) -> Result<(), AppError> {
+    let now = Utc::now().to_rfc3339();
+    let (accepted_at, rejected_at, applied_at) = if decision_status == "accepted" {
+        (Some(now.as_str()), None, Some(now.as_str()))
+    } else {
+        (None, Some(now.as_str()), None)
+    };
+
+    sqlx::query(
+        r#"
+        UPDATE ai_proposals
+        SET decision_status = ?,
+            applied_at = COALESCE(?, applied_at),
+            accepted_at = COALESCE(?, accepted_at),
+            rejected_at = COALESCE(?, rejected_at),
+            updated_at = ?
+        WHERE id = ?
+        "#,
+    )
+    .bind(decision_status)
+    .bind(applied_at)
+    .bind(accepted_at)
+    .bind(rejected_at)
+    .bind(&now)
+    .bind(id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+fn ai_proposal_record_from_row(row: AiProposalRow) -> Result<AiProposalRecord, AppError> {
+    let payload_json = serde_json::from_str(&row.payload_json).unwrap_or(Value::Null);
+    Ok(AiProposalRecord {
+        id: row.id,
+        ai_run_id: row.ai_run_id,
+        project_id: row.project_id,
+        proposal_type: row.proposal_type,
+        payload_json,
+        status: row.status,
+        decision_status: row.decision_status,
+        applied_at: row.applied_at,
+        accepted_at: row.accepted_at,
+        rejected_at: row.rejected_at,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    })
 }
 
 pub async fn update_book_concept_in_pool(
@@ -4513,6 +4731,46 @@ async fn list_ai_runs(
     project_id: String,
 ) -> Result<Vec<AiLogEntry>, String> {
     list_ai_runs_in_pool(&state.db, &project_id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn list_ai_proposals(
+    state: State<'_, AppState>,
+    project_id: String,
+) -> Result<Vec<AiProposalRecord>, String> {
+    list_ai_proposals_in_pool(&state.db, &project_id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn upsert_ai_proposal_snapshot(
+    state: State<'_, AppState>,
+    input: UpsertAiProposalSnapshotInput,
+) -> Result<(), String> {
+    upsert_ai_proposal_snapshot_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn mark_ai_proposal_accepted(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    mark_ai_proposal_decision_in_pool(&state.db, &id, "accepted")
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn mark_ai_proposal_rejected(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    mark_ai_proposal_decision_in_pool(&state.db, &id, "rejected")
         .await
         .map_err(command_error)
 }
@@ -5835,6 +6093,10 @@ pub fn run() {
             set_world_element_relations,
             set_world_rule_relations,
             list_ai_runs,
+            list_ai_proposals,
+            upsert_ai_proposal_snapshot,
+            mark_ai_proposal_accepted,
+            mark_ai_proposal_rejected,
             update_book_concept,
             generate_book_cover,
             accept_generated_book_cover,
@@ -6004,6 +6266,134 @@ mod tests {
             logs[0].raw_output.as_deref(),
             Some(r#"{"kind":"concept_field_suggestion","value":"Premisa"}"#)
         );
+    }
+
+    #[tokio::test]
+    async fn recovery_marks_running_ai_work_as_terminated() {
+        let pool = test_pool().await;
+        let created = create_project_in_pool(
+            &pool,
+            CreateProjectInput {
+                name: "Projekt recovery".into(),
+                language: None,
+            },
+        )
+        .await
+        .unwrap();
+        let now = Utc::now().to_rfc3339();
+
+        sqlx::query(
+            r#"
+            INSERT INTO ai_runs
+              (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, status, created_at)
+            VALUES (?, ?, ?, '', '', ?, ?, ?, 'running', ?)
+            "#,
+        )
+        .bind("run-running")
+        .bind(&created.project.id)
+        .bind(PROVIDER_ID)
+        .bind("generate_premise")
+        .bind(r#"{"context":{"targetField":"premise"}}"#)
+        .bind("# Prompt")
+        .bind(&now)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(
+            r#"
+            INSERT INTO ai_proposals
+              (id, ai_run_id, project_id, proposal_type, payload_json, status, decision_status, created_at, updated_at)
+            VALUES (?, ?, ?, 'bookConcept', ?, 'running', 'pending', ?, ?)
+            "#,
+        )
+        .bind("proposal-running")
+        .bind("run-running")
+        .bind(&created.project.id)
+        .bind(r#"{"id":"proposal-running"}"#)
+        .bind(&now)
+        .bind(&now)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        recover_interrupted_ai_work(&pool).await.unwrap();
+
+        let logs = list_ai_runs_in_pool(&pool, &created.project.id)
+            .await
+            .unwrap();
+        let proposals = list_ai_proposals_in_pool(&pool, &created.project.id)
+            .await
+            .unwrap();
+
+        assert_eq!(logs[0].status, "terminated");
+        assert!(logs[0].error_message.is_some());
+        assert!(proposals.is_empty());
+    }
+
+    #[tokio::test]
+    async fn ai_proposal_decision_status_updates_log_entries() {
+        let pool = test_pool().await;
+        let created = create_project_in_pool(
+            &pool,
+            CreateProjectInput {
+                name: "Projekt decyzji AI".into(),
+                language: None,
+            },
+        )
+        .await
+        .unwrap();
+        let now = Utc::now().to_rfc3339();
+        sqlx::query(
+            r#"
+            INSERT INTO ai_runs
+              (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, raw_output, status, created_at, completed_at)
+            VALUES (?, ?, ?, '', '', ?, ?, ?, ?, 'success', ?, ?)
+            "#,
+        )
+        .bind("run-decision")
+        .bind(&created.project.id)
+        .bind(PROVIDER_ID)
+        .bind("generate_premise")
+        .bind(r#"{"context":{"targetField":"premise"}}"#)
+        .bind("# Prompt")
+        .bind(r#"{"value":"Premisa"}"#)
+        .bind(&now)
+        .bind(&now)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        upsert_ai_proposal_snapshot_in_pool(
+            &pool,
+            UpsertAiProposalSnapshotInput {
+                id: "proposal-decision".into(),
+                ai_run_id: Some("run-decision".into()),
+                project_id: created.project.id.clone(),
+                proposal_type: "bookConcept".into(),
+                payload_json: serde_json::json!({
+                    "id": "proposal-decision",
+                    "projectId": created.project.id
+                }),
+                status: "success".into(),
+            },
+        )
+        .await
+        .unwrap();
+        mark_ai_proposal_decision_in_pool(&pool, "proposal-decision", "accepted")
+            .await
+            .unwrap();
+
+        let logs = list_ai_runs_in_pool(&pool, &created.project.id)
+            .await
+            .unwrap();
+        let proposals = list_ai_proposals_in_pool(&pool, &created.project.id)
+            .await
+            .unwrap();
+
+        assert_eq!(logs[0].decision_status.as_deref(), Some("accepted"));
+        assert!(logs[0].proposal_snapshot.is_some());
+        assert!(proposals.is_empty());
     }
 
     #[tokio::test]

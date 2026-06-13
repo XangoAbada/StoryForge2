@@ -3,6 +3,7 @@ import type {
   AcceptGeneratedCharacterImageInput,
   Act,
   AiLogEntry,
+  AiProposalRecord,
   AiRunResult,
   Beat,
   Book,
@@ -52,6 +53,7 @@ import type {
   UpsertSceneInput,
   UpsertWorldElementInput,
   UpsertWorldRuleInput,
+  UpsertAiProposalSnapshotInput,
   VisualAsset,
   WorldElement,
   WorldRule,
@@ -63,6 +65,7 @@ const STORAGE_KEY = "storyforge2.browserPreview.projects";
 type BrowserPreviewState = {
   projects: ProjectDetails[];
   aiRuns: AiLogEntry[];
+  aiProposals: AiProposalRecord[];
   plans: Record<string, BookPlan>;
   characterWorkspaces: Record<string, CharacterWorkspace>;
   worldWorkspaces: Record<string, WorldWorkspace>;
@@ -71,6 +74,7 @@ type BrowserPreviewState = {
 let memoryState: BrowserPreviewState = {
   projects: [],
   aiRuns: [],
+  aiProposals: [],
   plans: {},
   characterWorkspaces: {},
   worldWorkspaces: {}
@@ -1015,9 +1019,65 @@ export async function browserReorderPlanItems(
 }
 
 export async function browserListAiRuns(projectId: string): Promise<AiLogEntry[]> {
-  return readState()
-    .aiRuns.filter((run) => run.projectId === projectId)
+  const state = readState();
+  return state.aiRuns
+    .filter((run) => run.projectId === projectId)
+    .map((run) => {
+      const proposal = state.aiProposals.find((item) => item.aiRunId === run.id);
+      return {
+        ...run,
+        decisionStatus: proposal?.decisionStatus ?? null,
+        proposalSnapshot: proposal?.payloadJson
+      };
+    })
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+export async function browserListAiProposals(projectId: string): Promise<AiProposalRecord[]> {
+  return readState()
+    .aiProposals.filter(
+      (proposal) =>
+        proposal.projectId === projectId &&
+        proposal.decisionStatus === "pending" &&
+        proposal.status !== "running" &&
+        proposal.status !== "terminated"
+    )
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+export async function browserUpsertAiProposalSnapshot(
+  input: UpsertAiProposalSnapshotInput
+): Promise<void> {
+  const state = readState();
+  const now = new Date().toISOString();
+  const existing = state.aiProposals.find((proposal) => proposal.id === input.id);
+  const next: AiProposalRecord = {
+    id: input.id,
+    aiRunId: input.aiRunId ?? existing?.aiRunId ?? null,
+    projectId: input.projectId,
+    proposalType: input.proposalType,
+    payloadJson: input.payloadJson,
+    status: input.status,
+    decisionStatus: existing?.decisionStatus ?? "pending",
+    appliedAt: existing?.appliedAt ?? null,
+    acceptedAt: existing?.acceptedAt ?? null,
+    rejectedAt: existing?.rejectedAt ?? null,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now
+  };
+
+  state.aiProposals = existing
+    ? state.aiProposals.map((proposal) => (proposal.id === input.id ? next : proposal))
+    : [next, ...state.aiProposals];
+  writeState(state);
+}
+
+export async function browserMarkAiProposalAccepted(id: string): Promise<void> {
+  markBrowserAiProposalDecision(id, "accepted");
+}
+
+export async function browserMarkAiProposalRejected(id: string): Promise<void> {
+  markBrowserAiProposalDecision(id, "rejected");
 }
 
 export async function browserUpdateBookConcept(
@@ -1383,12 +1443,12 @@ function readState(): BrowserPreviewState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return { projects: [], aiRuns: [], plans: {}, characterWorkspaces: {}, worldWorkspaces: {} };
+      return { projects: [], aiRuns: [], aiProposals: [], plans: {}, characterWorkspaces: {}, worldWorkspaces: {} };
     }
 
     const parsed = JSON.parse(raw) as BrowserPreviewState;
     return Array.isArray(parsed.projects)
-      ? {
+      ? recoverBrowserAiState({
           projects: parsed.projects,
           aiRuns: Array.isArray(parsed.aiRuns)
             ? parsed.aiRuns.map((run) => ({
@@ -1397,14 +1457,47 @@ function readState(): BrowserPreviewState {
                 reasoningEffort: run.reasoningEffort ?? ""
               }))
             : [],
+          aiProposals: Array.isArray(parsed.aiProposals) ? parsed.aiProposals : [],
           plans: normalizePlans(parsed.plans),
           characterWorkspaces: normalizeCharacterWorkspaces(parsed.characterWorkspaces),
           worldWorkspaces: normalizeWorldWorkspaces(parsed.worldWorkspaces)
-        }
-      : { projects: [], aiRuns: [], plans: {}, characterWorkspaces: {}, worldWorkspaces: {} };
+        })
+      : { projects: [], aiRuns: [], aiProposals: [], plans: {}, characterWorkspaces: {}, worldWorkspaces: {} };
   } catch {
     return memoryState;
   }
+}
+
+function recoverBrowserAiState(state: BrowserPreviewState): BrowserPreviewState {
+  let changed = false;
+  const aiRuns = state.aiRuns.map((run) => {
+    if (run.status === "running") {
+      changed = true;
+      return {
+        ...run,
+        status: "terminated",
+        errorMessage: run.errorMessage ?? "Generacja została przerwana przez zamknięcie aplikacji.",
+        completedAt: run.completedAt ?? new Date().toISOString()
+      };
+    }
+    return run;
+  });
+  const aiProposals = state.aiProposals.map((proposal) => {
+    if (proposal.status === "running") {
+      changed = true;
+      return {
+        ...proposal,
+        status: "terminated",
+        updatedAt: new Date().toISOString()
+      };
+    }
+    return proposal;
+  });
+  const recovered = { ...state, aiRuns, aiProposals };
+  if (changed) {
+    writeState(recovered);
+  }
+  return recovered;
 }
 
 function writeState(state: BrowserPreviewState): void {
@@ -1430,6 +1523,27 @@ function definedOnly(input: BookConceptInput): BookConceptInput {
 function appendAiRun(entry: AiLogEntry): void {
   const state = readState();
   state.aiRuns.unshift(entry);
+  writeState(state);
+}
+
+function markBrowserAiProposalDecision(
+  id: string,
+  decisionStatus: "accepted" | "rejected"
+): void {
+  const state = readState();
+  const now = new Date().toISOString();
+  state.aiProposals = state.aiProposals.map((proposal) =>
+    proposal.id === id
+      ? {
+          ...proposal,
+          decisionStatus,
+          appliedAt: decisionStatus === "accepted" ? now : proposal.appliedAt ?? null,
+          acceptedAt: decisionStatus === "accepted" ? now : proposal.acceptedAt ?? null,
+          rejectedAt: decisionStatus === "rejected" ? now : proposal.rejectedAt ?? null,
+          updatedAt: now
+        }
+      : proposal
+  );
   writeState(state);
 }
 
