@@ -7,7 +7,8 @@ import type {
   Chapter,
   ChapterThread,
   PlotThread,
-  Project
+  Project,
+  Scene
 } from "../../shared/api/types";
 import type { PromptContextControl, PromptContextSource } from "./promptPackage";
 
@@ -24,6 +25,9 @@ type PlanContextKey =
   | "targetChapter"
   | "chapterAct"
   | "neighborChapters"
+  | "targetScene"
+  | "sceneChapter"
+  | "neighborScenes"
   | "assignedBeats"
   | "assignedThreads"
   | "allBeats"
@@ -56,6 +60,12 @@ export type PlanFieldKey =
   | "chapterPurpose"
   | "chapterConflict"
   | "chapterTurningPoint"
+  | "sceneDraft"
+  | "sceneTitle"
+  | "sceneSummary"
+  | "sceneGoal"
+  | "sceneConflict"
+  | "sceneOutcome"
   | "threadChapterDescription"
   | "chapterThreadSuggestions"
   | "chapterBeatSuggestions"
@@ -65,7 +75,7 @@ export type PlanFieldConfig = {
   key: PlanFieldKey;
   label: string;
   action: AIAction;
-  targetKind: "structure" | "act" | "beat" | "thread" | "chapter" | "audit";
+  targetKind: "structure" | "act" | "beat" | "thread" | "chapter" | "scene" | "audit";
   userInstruction: string;
 };
 
@@ -111,6 +121,11 @@ export type PlanPromptPackage = {
       chapters: Chapter[];
       chapterThreads: BookPlan["chapterThreads"];
       chapterBeats: BookPlan["chapterBeats"];
+      scenes: Scene[];
+      sceneCharacters: BookPlan["sceneCharacters"];
+      sceneThreads: BookPlan["sceneThreads"];
+      sceneWorldElements: BookPlan["sceneWorldElements"];
+      sceneWorldRules: BookPlan["sceneWorldRules"];
     };
     generationMode: "generate" | "expand";
     targetFieldCurrentValue: string;
@@ -263,6 +278,54 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     userInstruction:
       "Wygeneruj tylko wartosc pola punktu zwrotnego wybranego rozdzialu. Nie zmieniaj innych pol ani encji."
   },
+  sceneDraft: {
+    key: "sceneDraft",
+    label: "Nowa scena",
+    action: "generate_scene_field",
+    targetKind: "scene",
+    userInstruction:
+      "Wygeneruj jedną kompletną propozycję nowej sceny dla wybranego rozdziału. Użyj kontekstu rozdziału, sąsiednich rozdziałów, beatów i wątków. Nie zmieniaj istniejących encji; zwróć tylko dane nowej sceny."
+  },
+  sceneTitle: {
+    key: "sceneTitle",
+    label: "Tytuł sceny",
+    action: "generate_scene_field",
+    targetKind: "scene",
+    userInstruction:
+      "Wygeneruj tylko wartość pola tytułu wybranej sceny. Nie zmieniaj streszczenia, celu, konfliktu, wyniku, relacji ani innych elementów planu."
+  },
+  sceneSummary: {
+    key: "sceneSummary",
+    label: "Streszczenie sceny",
+    action: "generate_scene_field",
+    targetKind: "scene",
+    userInstruction:
+      "Wygeneruj tylko wartość pola streszczenia wybranej sceny, korzystając z rozdziału, powiązanych wątków i postaci jako kontekstu. Nie zmieniaj innych pól ani encji."
+  },
+  sceneGoal: {
+    key: "sceneGoal",
+    label: "Cel sceny",
+    action: "generate_scene_field",
+    targetKind: "scene",
+    userInstruction:
+      "Wygeneruj tylko wartość pola celu wybranej sceny. Nie zmieniaj innych pól ani encji."
+  },
+  sceneConflict: {
+    key: "sceneConflict",
+    label: "Konflikt sceny",
+    action: "generate_scene_field",
+    targetKind: "scene",
+    userInstruction:
+      "Wygeneruj tylko wartość pola konfliktu wybranej sceny. Nie zmieniaj innych pól ani encji."
+  },
+  sceneOutcome: {
+    key: "sceneOutcome",
+    label: "Wynik sceny",
+    action: "generate_scene_field",
+    targetKind: "scene",
+    userInstruction:
+      "Wygeneruj tylko wartość pola wyniku wybranej sceny. Nie zmieniaj innych pól ani encji."
+  },
   threadChapterDescription: {
     key: "threadChapterDescription",
     label: "Opis watku w rozdziale",
@@ -315,6 +378,12 @@ const planContextSourceLabels: Record<PlanContextKey, string> = {
   chapterPurpose: "Cel rozdzialu",
   chapterConflict: "Konflikt rozdzialu",
   chapterTurningPoint: "Punkt zwrotny",
+  sceneDraft: "Nowa scena",
+  sceneTitle: "Tytuł sceny",
+  sceneSummary: "Streszczenie sceny",
+  sceneGoal: "Cel sceny",
+  sceneConflict: "Konflikt sceny",
+  sceneOutcome: "Wynik sceny",
   threadChapterDescription: "Opis watku w rozdziale",
   chapterThreadSuggestions: "Powiazane watki",
   chapterBeatSuggestions: "Powiazane beaty",
@@ -329,6 +398,9 @@ const planContextSourceLabels: Record<PlanContextKey, string> = {
   targetChapter: "Docelowy rozdzial",
   chapterAct: "Akt rozdzialu",
   neighborChapters: "Sasiednie rozdzialy",
+  targetScene: "Docelowa scena",
+  sceneChapter: "Rozdział sceny",
+  neighborScenes: "Sąsiednie sceny",
   assignedBeats: "Przypisane beaty",
   assignedThreads: "Przypisane watki",
   allBeats: "Wszystkie beaty",
@@ -362,6 +434,12 @@ const planPromptContextDefaultKeys: Record<PlanFieldKey, PlanContextKey[]> = {
   chapterPurpose: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   chapterConflict: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   chapterTurningPoint: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
+  sceneDraft: ["bookCore", "styleGuide", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
+  sceneTitle: ["bookCore", "styleGuide", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
+  sceneSummary: ["bookCore", "styleGuide", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
+  sceneGoal: ["bookCore", "targetScene", "sceneChapter", "assignedThreads", "assignedBeats"],
+  sceneConflict: ["bookCore", "targetScene", "sceneChapter", "assignedThreads", "assignedBeats"],
+  sceneOutcome: ["bookCore", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
   threadChapterDescription: ["targetThreadChapter", "targetThread", "targetChapter", "threadNeighborChapters", "assignedBeats"],
   chapterThreadSuggestions: ["bookCore", "targetChapter", "assignedThreads", "allThreads", "assignedBeats", "neighborChapters"],
   chapterBeatSuggestions: ["bookCore", "targetChapter", "assignedBeats", "allBeats", "assignedThreads", "neighborChapters"],
@@ -373,7 +451,7 @@ export function buildPlanPromptPackage(
   book: Book,
   plan: BookPlan,
   field: PlanFieldKey,
-  targetEntity?: Act | Beat | PlotThread | Chapter | ChapterThread,
+  targetEntity?: Act | Beat | PlotThread | Chapter | ChapterThread | Scene,
   contextControl?: PromptContextControl
 ): PlanPromptPackage {
   const config = planFieldConfigs[field];
@@ -403,7 +481,12 @@ export function buildPlanPromptPackage(
         threads: plan.threads,
         chapters: plan.chapters,
         chapterThreads: plan.chapterThreads,
-        chapterBeats: plan.chapterBeats
+        chapterBeats: plan.chapterBeats,
+        scenes: plan.scenes,
+        sceneCharacters: plan.sceneCharacters,
+        sceneThreads: plan.sceneThreads,
+        sceneWorldElements: plan.sceneWorldElements,
+        sceneWorldRules: plan.sceneWorldRules
       },
       generationMode,
       targetFieldCurrentValue,
@@ -495,7 +578,7 @@ export function planPromptContextSources(field: PlanFieldKey): PromptContextSour
 
 export function planPromptContextSource(
   field: PlanFieldKey,
-  targetEntity?: Act | Beat | PlotThread | Chapter | ChapterThread
+  targetEntity?: Act | Beat | PlotThread | Chapter | ChapterThread | Scene
 ): PromptContextSource {
   const entityId = targetEntity ? planTargetEntityId(targetEntity) : "global";
   return {
@@ -608,6 +691,15 @@ function renderPlanContext(
     isContextKeyIncluded("neighborChapters", contextControl)
       ? `Sasiednie rozdzialy: ${JSON.stringify(neighborChapters(plan, target.chapter).map(compactChapter))}`
       : "",
+    isContextKeyIncluded("targetScene", contextControl)
+      ? `Docelowa scena: ${JSON.stringify(target.scene ? compactScene(target.scene) : null)}`
+      : "",
+    isContextKeyIncluded("sceneChapter", contextControl)
+      ? `Rozdział sceny: ${JSON.stringify(target.scene ? compactChapter(chapterForScene(plan, target.scene)) : null)}`
+      : "",
+    isContextKeyIncluded("neighborScenes", contextControl)
+      ? `Sąsiednie sceny: ${JSON.stringify(neighborScenes(plan, target.scene).map(compactScene))}`
+      : "",
     isContextKeyIncluded("assignedBeats", contextControl)
       ? `Przypisane beaty: ${JSON.stringify(assignedBeatsForChapter(plan, target.chapter).map((beat) => compactBeat(plan, beat)))}`
       : "",
@@ -653,6 +745,7 @@ function renderPlanContext(
           },
           acts: plan.acts.map(compactAct),
           chapters: orderedChapters(plan).map(compactChapter),
+          scenes: orderedScenes(plan).map(compactScene),
           beats: plan.beats.map((beat) => compactBeat(plan, beat)),
           threads: plan.threads.map(compactThread),
           chapterThreads: plan.chapterThreads,
@@ -683,6 +776,7 @@ function targetEntityForPlanContext(
     chapterFromRelation ??
     plan.chapters.find((item) => item.id === targetEntityId) ??
     null;
+  const scene = plan.scenes.find((item) => item.id === targetEntityId) ?? null;
   const beat = plan.beats.find((item) => item.id === targetEntityId) ?? null;
   const thread =
     threadFromRelation ??
@@ -690,12 +784,14 @@ function targetEntityForPlanContext(
     null;
   const act =
     plan.acts.find((item) => item.id === targetEntityId) ??
-    (chapter ? actForChapter(plan, chapter) : null);
+    (chapter ? actForChapter(plan, chapter) : null) ??
+    (scene ? actForChapter(plan, chapterForScene(plan, scene)) : null);
 
   return {
     act,
     beat,
-    chapter: chapter ?? (beat ? chapterForBeat(plan, beat) : null),
+    chapter: chapter ?? (scene ? chapterForScene(plan, scene) : null) ?? (beat ? chapterForBeat(plan, beat) : null),
+    scene,
     thread,
     relation
   };
@@ -745,6 +841,25 @@ function compactChapter(chapter: Chapter | null | undefined) {
         turningPoint: chapter.turningPoint,
         targetWordCount: chapter.targetWordCount,
         orderIndex: chapter.orderIndex
+      }
+    : null;
+}
+
+function compactScene(scene: Scene | null | undefined) {
+  return scene
+    ? {
+        id: scene.id,
+        chapterId: scene.chapterId,
+        orderIndex: scene.orderIndex,
+        title: scene.title,
+        summary: scene.summary,
+        goal: scene.goal,
+        conflict: scene.conflict,
+        outcome: scene.outcome,
+        povCharacterId: scene.povCharacterId,
+        locationId: scene.locationId,
+        targetWordCount: scene.targetWordCount,
+        status: scene.status
       }
     : null;
 }
@@ -802,6 +917,18 @@ function orderedChapters(plan: PlanPromptPackage["context"]["plan"]): Chapter[] 
   });
 }
 
+function orderedScenes(plan: PlanPromptPackage["context"]["plan"]): Scene[] {
+  return [...plan.scenes].sort((left, right) => {
+    const leftChapter = left.chapterId ?? "";
+    const rightChapter = right.chapterId ?? "";
+    if (leftChapter !== rightChapter) {
+      return leftChapter.localeCompare(rightChapter, "pl-PL");
+    }
+
+    return left.orderIndex - right.orderIndex || left.title.localeCompare(right.title, "pl-PL");
+  });
+}
+
 function actForChapter(
   plan: PlanPromptPackage["context"]["plan"],
   chapter: Chapter | null | undefined
@@ -811,6 +938,38 @@ function actForChapter(
   }
 
   return plan.acts.find((act) => act.id === chapter.actId) ?? null;
+}
+
+function chapterForScene(
+  plan: PlanPromptPackage["context"]["plan"],
+  scene: Scene | null | undefined
+): Chapter | null {
+  if (!scene?.chapterId) {
+    return null;
+  }
+
+  return plan.chapters.find((chapter) => chapter.id === scene.chapterId) ?? null;
+}
+
+function neighborScenes(
+  plan: PlanPromptPackage["context"]["plan"],
+  scene: Scene | null | undefined
+): Scene[] {
+  if (!scene) {
+    return [];
+  }
+
+  const scenes = orderedScenes(plan).filter(
+    (item) => (item.chapterId ?? null) === (scene.chapterId ?? null)
+  );
+  const index = scenes.findIndex((item) => item.id === scene.id);
+  if (index < 0) {
+    return [];
+  }
+
+  return [scenes[index - 1], scenes[index + 1]].filter(
+    (item): item is Scene => Boolean(item)
+  );
 }
 
 function siblingActs(
@@ -1064,6 +1223,21 @@ function currentPlanContextFieldValue(
   if (field === "chapterTurningPoint") {
     return target.chapter?.turningPoint ?? "";
   }
+  if (field === "sceneTitle") {
+    return target.scene?.title ?? "";
+  }
+  if (field === "sceneSummary") {
+    return target.scene?.summary ?? "";
+  }
+  if (field === "sceneGoal") {
+    return target.scene?.goal ?? "";
+  }
+  if (field === "sceneConflict") {
+    return target.scene?.conflict ?? "";
+  }
+  if (field === "sceneOutcome") {
+    return target.scene?.outcome ?? "";
+  }
   if (field === "threadChapterDescription") {
     return target.relation?.description ?? "";
   }
@@ -1071,7 +1245,7 @@ function currentPlanContextFieldValue(
   return "";
 }
 
-function planTargetEntityId(entity: Act | Beat | PlotThread | Chapter | ChapterThread): string {
+function planTargetEntityId(entity: Act | Beat | PlotThread | Chapter | ChapterThread | Scene): string {
   if ("chapterId" in entity && "threadId" in entity) {
     return `${entity.threadId}:${entity.chapterId}`;
   }
@@ -1081,7 +1255,7 @@ function planTargetEntityId(entity: Act | Beat | PlotThread | Chapter | ChapterT
 
 function planTargetEntityLabel(
   plan: BookPlan,
-  entity: Act | Beat | PlotThread | Chapter | ChapterThread
+  entity: Act | Beat | PlotThread | Chapter | ChapterThread | Scene
 ): string {
   if ("chapterId" in entity && "threadId" in entity) {
     const thread = plan.threads.find((item) => item.id === entity.threadId);
@@ -1089,13 +1263,20 @@ function planTargetEntityLabel(
     return `${thread?.name ?? "Watek"} / ${chapter?.workingTitle ?? "Rozdzial"}`;
   }
 
-  return "workingTitle" in entity ? entity.workingTitle : entity.name;
+  if ("workingTitle" in entity) {
+    return entity.workingTitle;
+  }
+  if ("title" in entity) {
+    return entity.title || "Scena bez tytułu";
+  }
+
+  return entity.name;
 }
 
 function currentPlanFieldValue(
   plan: BookPlan,
   field: PlanFieldKey,
-  targetEntity?: Act | Beat | PlotThread | Chapter | ChapterThread
+  targetEntity?: Act | Beat | PlotThread | Chapter | ChapterThread | Scene
 ): string {
   if (field === "storyStructure") {
     return plan.structure?.structureType ?? "";
@@ -1121,7 +1302,7 @@ function currentPlanFieldValue(
   if (targetEntity && "role" in targetEntity && field === "beatDescription") {
     return targetEntity.description ?? "";
   }
-  if (targetEntity && "status" in targetEntity && field === "threadDescription") {
+  if (targetEntity && "description" in targetEntity && field === "threadDescription") {
     return targetEntity.description ?? "";
   }
   if (targetEntity && "summary" in targetEntity && field === "chapterSummary") {
@@ -1139,6 +1320,21 @@ function currentPlanFieldValue(
     field === "chapterTurningPoint"
   ) {
     return targetEntity.turningPoint ?? "";
+  }
+  if (targetEntity && "title" in targetEntity && field === "sceneTitle") {
+    return targetEntity.title ?? "";
+  }
+  if (targetEntity && "title" in targetEntity && field === "sceneSummary") {
+    return targetEntity.summary ?? "";
+  }
+  if (targetEntity && "title" in targetEntity && field === "sceneGoal") {
+    return targetEntity.goal ?? "";
+  }
+  if (targetEntity && "title" in targetEntity && field === "sceneConflict") {
+    return targetEntity.conflict ?? "";
+  }
+  if (targetEntity && "title" in targetEntity && field === "sceneOutcome") {
+    return targetEntity.outcome ?? "";
   }
   if (
     targetEntity &&
@@ -1170,6 +1366,12 @@ function currentPlanFieldValue(
       .map((beat) => ({ id: beat.id, name: beat.name }));
     return assignedBeats.length ? JSON.stringify(assignedBeats) : "";
   }
+  if (targetEntity && "workingTitle" in targetEntity && field === "sceneDraft") {
+    const chapterScenes = plan.scenes
+      .filter((scene) => scene.chapterId === targetEntity.id)
+      .map((scene) => ({ id: scene.id, title: scene.title, summary: scene.summary }));
+    return chapterScenes.length ? JSON.stringify(chapterScenes) : "";
+  }
 
   return "";
 }
@@ -1196,7 +1398,12 @@ function planSuggestionSchema(field: PlanFieldKey): unknown {
     field === "storyStructureDescription" ||
     field === "storyStructureNotes" ||
     field === "threadDescription" ||
-    field === "threadChapterDescription"
+    field === "threadChapterDescription" ||
+    field === "sceneTitle" ||
+    field === "sceneSummary" ||
+    field === "sceneGoal" ||
+    field === "sceneConflict" ||
+    field === "sceneOutcome"
   ) {
     return {
       ...base,
@@ -1265,6 +1472,26 @@ function planSuggestionSchema(field: PlanFieldKey): unknown {
           targetWordCount: 2500
         }
       ]
+    };
+  }
+
+  if (field === "sceneDraft") {
+    return {
+      ...base,
+      scene: {
+        title: "string",
+        summary: "string",
+        goal: "string",
+        conflict: "string",
+        outcome: "string",
+        targetWordCount: 1200
+      },
+      relationHints: {
+        characterNamesOrIds: ["existing character id or exact character name"],
+        threadNamesOrIds: ["existing thread id or exact thread name"],
+        elementNamesOrIds: ["existing world element id or exact world element name"],
+        ruleNamesOrIds: ["existing world rule id or exact world rule name"]
+      }
     };
   }
 

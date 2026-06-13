@@ -19,13 +19,38 @@ const beat: Beat = {
 };
 
 const plan: BookPlan = {
+  planVersion: {
+    id: "plan-version-1",
+    bookId: "book-1",
+    name: "Plan glowny",
+    description: "",
+    isActive: true,
+    createdAt: "2026-06-05T12:00:00Z",
+    updatedAt: "2026-06-05T12:00:00Z"
+  },
+  planVersions: [
+    {
+      id: "plan-version-1",
+      bookId: "book-1",
+      name: "Plan glowny",
+      description: "",
+      isActive: true,
+      createdAt: "2026-06-05T12:00:00Z",
+      updatedAt: "2026-06-05T12:00:00Z"
+    }
+  ],
   structure: null,
   acts: [],
   beats: [beat],
   threads: [],
   chapters: [],
   chapterThreads: [],
-  chapterBeats: []
+  chapterBeats: [],
+  scenes: [],
+  sceneCharacters: [],
+  sceneThreads: [],
+  sceneWorldElements: [],
+  sceneWorldRules: []
 };
 
 describe("applyPlanProposalPayload", () => {

@@ -18,18 +18,25 @@ import type {
   CharacterWorkspace,
   CodexCliStatus,
   CodexModelCatalog,
+  CreatePlanVersionInput,
+  DeletePlanVersionInput,
   CreateProjectInput,
   GenerateBookCoverInput,
   GenerateCharacterImageInput,
   GenerateNewProjectTitleRequest,
   MoveBeatToChapterInput,
+  PlanVersion,
   PlotThread,
   Project,
   ProjectDetails,
   ProjectSummary,
   ReorderPlanItemsInput,
+  ReorderScenesInput,
   RunCodexPromptRequest,
   SaveStoryStructureInput,
+  Scene,
+  SetActivePlanVersionInput,
+  SetSceneRelationsInput,
   SetWorldElementRelationsInput,
   SetWorldRuleRelationsInput,
   StoryStructure,
@@ -42,6 +49,7 @@ import type {
   UpsertCharacterMemoryLinkInput,
   UpsertCharacterRelationInput,
   UpsertPlotThreadInput,
+  UpsertSceneInput,
   UpsertWorldElementInput,
   UpsertWorldRuleInput,
   VisualAsset,
@@ -170,6 +178,92 @@ export async function browserGetProject(
 export async function browserGetBookPlan(bookId: string): Promise<BookPlan> {
   const state = readState();
   return normalizePlan(state.plans[bookId]);
+}
+
+export async function browserListPlanVersions(bookId: string): Promise<PlanVersion[]> {
+  const state = readState();
+  return ensurePlan(state, bookId).planVersions;
+}
+
+export async function browserCreatePlanVersionFromActive(
+  input: CreatePlanVersionInput
+): Promise<PlanVersion> {
+  const state = readState();
+  const plan = ensurePlan(state, input.bookId);
+  const now = new Date().toISOString();
+  const version: PlanVersion = {
+    id: createId(),
+    bookId: input.bookId,
+    name: input.name.trim() || "Nowy wariant planu",
+    description: input.description,
+    isActive: false,
+    createdAt: now,
+    updatedAt: now
+  };
+  plan.planVersions = [...plan.planVersions, version];
+  touchBook(state, input.bookId, now);
+  writeState(state);
+  return version;
+}
+
+export async function browserSetActivePlanVersion(
+  input: SetActivePlanVersionInput
+): Promise<void> {
+  const state = readState();
+  const plan = ensurePlan(state, input.bookId);
+  if (!plan.planVersions.some((version) => version.id === input.planVersionId)) {
+    throw new Error("Plan version not found in browser preview storage.");
+  }
+  plan.planVersions = plan.planVersions.map((version) => ({
+    ...version,
+    isActive: version.id === input.planVersionId
+  }));
+  plan.planVersion =
+    plan.planVersions.find((version) => version.id === input.planVersionId) ??
+    plan.planVersion;
+  touchBook(state, input.bookId, new Date().toISOString());
+  writeState(state);
+}
+
+export async function browserDeletePlanVersion(input: DeletePlanVersionInput): Promise<void> {
+  const state = readState();
+  const plan = ensurePlan(state, input.bookId);
+  const version = plan.planVersions.find((item) => item.id === input.planVersionId);
+  if (!version) {
+    throw new Error("Nie znaleziono wariantu planu.");
+  }
+  if (version.isActive) {
+    throw new Error("Nie można usunąć aktywnego wariantu planu.");
+  }
+  if (plan.planVersions.length <= 1) {
+    throw new Error("Nie można usunąć ostatniego wariantu planu.");
+  }
+
+  plan.planVersions = plan.planVersions.filter((item) => item.id !== input.planVersionId);
+  plan.acts = plan.acts.filter((item) => itemVersionId(item) !== input.planVersionId);
+  plan.beats = plan.beats.filter((item) => itemVersionId(item) !== input.planVersionId);
+  plan.threads = plan.threads.filter((item) => itemVersionId(item) !== input.planVersionId);
+  const deletedChapterIds = new Set(
+    plan.chapters
+      .filter((item) => itemVersionId(item) === input.planVersionId)
+      .map((item) => item.id)
+  );
+  const deletedSceneIds = new Set(
+    plan.scenes
+      .filter((item) => itemVersionId(item) === input.planVersionId)
+      .map((item) => item.id)
+  );
+  plan.chapters = plan.chapters.filter((item) => itemVersionId(item) !== input.planVersionId);
+  plan.scenes = plan.scenes.filter((item) => itemVersionId(item) !== input.planVersionId);
+  plan.chapterThreads = plan.chapterThreads.filter((item) => !deletedChapterIds.has(item.chapterId));
+  plan.chapterBeats = plan.chapterBeats.filter((item) => !deletedChapterIds.has(item.chapterId));
+  plan.sceneCharacters = plan.sceneCharacters.filter((item) => !deletedSceneIds.has(item.sceneId));
+  plan.sceneThreads = plan.sceneThreads.filter((item) => !deletedSceneIds.has(item.sceneId));
+  plan.sceneWorldElements = plan.sceneWorldElements.filter((item) => !deletedSceneIds.has(item.sceneId));
+  plan.sceneWorldRules = plan.sceneWorldRules.filter((item) => !deletedSceneIds.has(item.sceneId));
+
+  touchBook(state, input.bookId, new Date().toISOString());
+  writeState(state);
 }
 
 export async function browserGetCharacterWorkspace(
@@ -408,11 +502,11 @@ export async function browserUpsertChapterThreadRelation(
   const now = new Date().toISOString();
 
   if (!plan.chapters.some((chapter) => chapter.id === input.chapterId)) {
-    throw new Error("Nie znaleziono rozdzialu.");
+    throw new Error("Nie znaleziono rozdziału.");
   }
 
   if (!plan.threads.some((thread) => thread.id === input.threadId)) {
-    throw new Error("Nie znaleziono watku.");
+    throw new Error("Nie znaleziono wątku.");
   }
 
   plan.chapterThreads = [
@@ -435,7 +529,98 @@ export async function browserDeleteChapter(id: string): Promise<void> {
     plan.chapters = plan.chapters.filter((item) => item.id !== id);
     plan.chapterThreads = plan.chapterThreads.filter((item) => item.chapterId !== id);
     plan.chapterBeats = plan.chapterBeats.filter((item) => item.chapterId !== id);
+    plan.scenes = plan.scenes.map((scene) =>
+      scene.chapterId === id ? { ...scene, chapterId: null } : scene
+    );
   }
+  writeState(state);
+}
+
+export async function browserUpsertScene(input: UpsertSceneInput): Promise<Scene> {
+  const state = readState();
+  const plan = ensurePlan(state, input.bookId);
+  const now = new Date().toISOString();
+  const existing = input.id
+    ? plan.scenes.find((item) => item.id === input.id)
+    : undefined;
+  const scene: Scene = {
+    id: existing?.id ?? input.id ?? createId(),
+    bookId: input.bookId,
+    planVersionId: plan.planVersion.id,
+    chapterId: input.chapterId ?? null,
+    orderIndex: input.orderIndex,
+    title: input.title,
+    summary: input.summary,
+    goal: input.goal,
+    conflict: input.conflict,
+    outcome: input.outcome,
+    povCharacterId: input.povCharacterId ?? null,
+    locationId: input.locationId ?? null,
+    targetWordCount: input.targetWordCount ?? null,
+    actualWordCount: input.actualWordCount ?? null,
+    manuscriptContent: input.manuscriptContent ?? existing?.manuscriptContent ?? "",
+    status: input.status || "planned",
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now
+  };
+  plan.scenes = upsertById(plan.scenes, scene);
+  touchBook(state, input.bookId, now);
+  writeState(state);
+  return scene;
+}
+
+export async function browserDeleteScene(id: string): Promise<void> {
+  const state = readState();
+  for (const plan of Object.values(state.plans)) {
+    plan.scenes = plan.scenes.filter((item) => item.id !== id);
+    plan.sceneCharacters = plan.sceneCharacters.filter((item) => item.sceneId !== id);
+    plan.sceneThreads = plan.sceneThreads.filter((item) => item.sceneId !== id);
+    plan.sceneWorldElements = plan.sceneWorldElements.filter((item) => item.sceneId !== id);
+    plan.sceneWorldRules = plan.sceneWorldRules.filter((item) => item.sceneId !== id);
+  }
+  for (const workspace of Object.values(state.worldWorkspaces)) {
+    workspace.elementScenes = workspace.elementScenes.filter((item) => item.sceneId !== id);
+    workspace.ruleScenes = workspace.ruleScenes.filter((item) => item.sceneId !== id);
+  }
+  writeState(state);
+}
+
+export async function browserReorderScenes(input: ReorderScenesInput): Promise<void> {
+  const state = readState();
+  const plan = ensurePlan(state, input.bookId);
+  const ids = new Map(input.sceneIds.map((id, index) => [id, index]));
+  plan.scenes = plan.scenes.map((scene) =>
+    scene.chapterId === (input.chapterId ?? null) && ids.has(scene.id)
+      ? { ...scene, orderIndex: ids.get(scene.id) ?? scene.orderIndex }
+      : scene
+  );
+  touchBook(state, input.bookId, new Date().toISOString());
+  writeState(state);
+}
+
+export async function browserSetSceneRelations(
+  input: SetSceneRelationsInput
+): Promise<void> {
+  const state = readState();
+  const plan = ensurePlan(state, input.bookId);
+  const sceneId = input.sceneId;
+  plan.sceneCharacters = [
+    ...plan.sceneCharacters.filter((item) => item.sceneId !== sceneId),
+    ...uniqueIds(input.characterIds).map((characterId) => ({ sceneId, characterId }))
+  ];
+  plan.sceneThreads = [
+    ...plan.sceneThreads.filter((item) => item.sceneId !== sceneId),
+    ...uniqueIds(input.threadIds).map((threadId) => ({ sceneId, threadId }))
+  ];
+  plan.sceneWorldElements = [
+    ...plan.sceneWorldElements.filter((item) => item.sceneId !== sceneId),
+    ...uniqueIds(input.elementIds).map((elementId) => ({ sceneId, elementId }))
+  ];
+  plan.sceneWorldRules = [
+    ...plan.sceneWorldRules.filter((item) => item.sceneId !== sceneId),
+    ...uniqueIds(input.ruleIds).map((ruleId) => ({ sceneId, ruleId }))
+  ];
+  touchBook(state, input.bookId, new Date().toISOString());
   writeState(state);
 }
 
@@ -769,6 +954,10 @@ export async function browserSetWorldElementRelations(
     ...workspace.elementChapters.filter((item) => item.elementId !== elementId),
     ...uniqueIds(input.chapterIds).map((chapterId) => ({ elementId, chapterId }))
   ];
+  workspace.elementScenes = [
+    ...workspace.elementScenes.filter((item) => item.elementId !== elementId),
+    ...uniqueIds(input.sceneIds).map((sceneId) => ({ sceneId, elementId }))
+  ];
   workspace.elementRules = [
     ...workspace.elementRules.filter((item) => item.elementId !== elementId),
     ...uniqueIds(input.ruleIds).map((ruleId) => ({ elementId, ruleId }))
@@ -794,6 +983,10 @@ export async function browserSetWorldRuleRelations(
   workspace.ruleChapters = [
     ...workspace.ruleChapters.filter((item) => item.ruleId !== ruleId),
     ...uniqueIds(input.chapterIds).map((chapterId) => ({ ruleId, chapterId }))
+  ];
+  workspace.ruleScenes = [
+    ...workspace.ruleScenes.filter((item) => item.ruleId !== ruleId),
+    ...uniqueIds(input.sceneIds).map((sceneId) => ({ sceneId, ruleId }))
   ];
   touchProject(state, input.projectId, new Date().toISOString());
   writeState(state);
@@ -1242,6 +1435,8 @@ function appendAiRun(entry: AiLogEntry): void {
 
 function ensurePlan(state: BrowserPreviewState, bookId: string): BookPlan {
   const plan = normalizePlan(state.plans[bookId]);
+  plan.planVersion = { ...plan.planVersion, bookId };
+  plan.planVersions = plan.planVersions.map((version) => ({ ...version, bookId }));
   state.plans[bookId] = plan;
   return plan;
 }
@@ -1287,7 +1482,27 @@ function normalizeWorldWorkspaces(
 }
 
 function normalizePlan(plan: Partial<BookPlan> | undefined): BookPlan {
+  const now = new Date().toISOString();
+  const fallbackVersion: PlanVersion = {
+    id: "browser-preview-active-plan",
+    bookId: plan?.planVersion?.bookId ?? "",
+    name: "Plan główny",
+    description: "",
+    isActive: true,
+    createdAt: now,
+    updatedAt: now
+  };
+  const planVersions = Array.isArray(plan?.planVersions) && plan.planVersions.length > 0
+    ? plan.planVersions
+    : [plan?.planVersion ?? fallbackVersion];
+  const activeVersion =
+    planVersions.find((version) => version.isActive) ?? plan?.planVersion ?? planVersions[0];
   return {
+    planVersion: activeVersion,
+    planVersions: planVersions.map((version) => ({
+      ...version,
+      isActive: version.id === activeVersion.id
+    })),
     structure: plan?.structure ?? null,
     acts: Array.isArray(plan?.acts) ? plan.acts : [],
     beats: Array.isArray(plan?.beats) ? plan.beats : [],
@@ -1299,7 +1514,12 @@ function normalizePlan(plan: Partial<BookPlan> | undefined): BookPlan {
           description: relation.description ?? ""
         }))
       : [],
-    chapterBeats: Array.isArray(plan?.chapterBeats) ? plan.chapterBeats : []
+    chapterBeats: Array.isArray(plan?.chapterBeats) ? plan.chapterBeats : [],
+    scenes: Array.isArray(plan?.scenes) ? plan.scenes : [],
+    sceneCharacters: Array.isArray(plan?.sceneCharacters) ? plan.sceneCharacters : [],
+    sceneThreads: Array.isArray(plan?.sceneThreads) ? plan.sceneThreads : [],
+    sceneWorldElements: Array.isArray(plan?.sceneWorldElements) ? plan.sceneWorldElements : [],
+    sceneWorldRules: Array.isArray(plan?.sceneWorldRules) ? plan.sceneWorldRules : []
   };
 }
 
@@ -1324,9 +1544,11 @@ function normalizeWorldWorkspace(
     elementCharacters: Array.isArray(workspace?.elementCharacters) ? workspace.elementCharacters : [],
     elementThreads: Array.isArray(workspace?.elementThreads) ? workspace.elementThreads : [],
     elementChapters: Array.isArray(workspace?.elementChapters) ? workspace.elementChapters : [],
+    elementScenes: Array.isArray(workspace?.elementScenes) ? workspace.elementScenes : [],
     elementRules: Array.isArray(workspace?.elementRules) ? workspace.elementRules : [],
     ruleThreads: Array.isArray(workspace?.ruleThreads) ? workspace.ruleThreads : [],
     ruleChapters: Array.isArray(workspace?.ruleChapters) ? workspace.ruleChapters : [],
+    ruleScenes: Array.isArray(workspace?.ruleScenes) ? workspace.ruleScenes : [],
     visualAssets: Array.isArray(workspace?.visualAssets) ? workspace.visualAssets : []
   };
 }
@@ -1428,6 +1650,12 @@ function createId(): string {
   }
 
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function itemVersionId(item: unknown): string | undefined {
+  return item && typeof item === "object" && "planVersionId" in item
+    ? String((item as { planVersionId?: string }).planVersionId ?? "")
+    : undefined;
 }
 
 function createCoverDataUrl(title: string, prompt: string): string {

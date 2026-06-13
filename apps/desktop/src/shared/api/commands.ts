@@ -3,7 +3,10 @@ import {
   browserAcceptGeneratedBookCover,
   browserAcceptGeneratedCharacterImage,
   browserCheckCodexCli,
+  browserCreatePlanVersionFromActive,
+  browserDeletePlanVersion,
   browserListCodexModels,
+  browserListPlanVersions,
   browserListAiRuns,
   browserCreateProject,
   browserDeleteCharacter,
@@ -14,6 +17,7 @@ import {
   browserDeleteAct,
   browserDeleteBeat,
   browserDeleteChapter,
+  browserDeleteScene,
   browserDeletePlotThread,
   browserGetBookPlan,
   browserGetCharacterWorkspace,
@@ -22,8 +26,11 @@ import {
   browserListProjects,
   browserMoveBeatToChapter,
   browserReorderPlanItems,
+  browserReorderScenes,
   browserRunCodexPrompt,
   browserSaveStoryStructure,
+  browserSetActivePlanVersion,
+  browserSetSceneRelations,
   browserUpsertChapterThreadRelation,
   browserUpsertCharacter,
   browserUpsertCharacterMemory,
@@ -36,6 +43,7 @@ import {
   browserUpsertAct,
   browserUpsertBeat,
   browserUpsertChapter,
+  browserUpsertScene,
   browserUpsertPlotThread,
   browserUpdateBookConcept,
   browserDeleteWorldElement,
@@ -64,17 +72,24 @@ import type {
   CharacterWorkspace,
   CodexCliStatus,
   CodexModelCatalog,
+  CreatePlanVersionInput,
+  DeletePlanVersionInput,
   CreateProjectInput,
   GenerateBookCoverInput,
   GenerateCharacterImageInput,
   GenerateNewProjectTitleRequest,
   MoveBeatToChapterInput,
   PlotThread,
+  PlanVersion,
   ProjectDetails,
   ProjectSummary,
   ReorderPlanItemsInput,
+  ReorderScenesInput,
   RunCodexPromptRequest,
   SaveStoryStructureInput,
+  Scene,
+  SetActivePlanVersionInput,
+  SetSceneRelationsInput,
   SetWorldElementRelationsInput,
   SetWorldRuleRelationsInput,
   StoryStructure,
@@ -87,6 +102,7 @@ import type {
   UpsertCharacterMemoryLinkInput,
   UpsertCharacterRelationInput,
   UpsertPlotThreadInput,
+  UpsertSceneInput,
   UpsertWorldElementInput,
   UpsertWorldRuleInput,
   WorldElement,
@@ -124,6 +140,42 @@ export function getBookPlan(bookId: string): Promise<BookPlan> {
   }
 
   return invoke("get_book_plan", { bookId });
+}
+
+export function listPlanVersions(bookId: string): Promise<PlanVersion[]> {
+  if (!isTauriRuntime()) {
+    return browserListPlanVersions(bookId);
+  }
+
+  return invoke("list_plan_versions", { bookId });
+}
+
+export function createPlanVersionFromActive(
+  input: CreatePlanVersionInput
+): Promise<PlanVersion> {
+  if (!isTauriRuntime()) {
+    return browserCreatePlanVersionFromActive(input);
+  }
+
+  return invoke("create_plan_version_from_active", { input });
+}
+
+export function setActivePlanVersion(
+  input: SetActivePlanVersionInput
+): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserSetActivePlanVersion(input);
+  }
+
+  return invoke("set_active_plan_version", { input });
+}
+
+export function deletePlanVersion(input: DeletePlanVersionInput): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserDeletePlanVersion(input);
+  }
+
+  return invoke("delete_plan_version", { input });
 }
 
 export function getCharacterWorkspace(projectId: string): Promise<CharacterWorkspace> {
@@ -234,6 +286,38 @@ export function deleteChapter(id: string): Promise<void> {
   }
 
   return invoke("delete_chapter", { id });
+}
+
+export function upsertScene(input: UpsertSceneInput): Promise<Scene> {
+  if (!isTauriRuntime()) {
+    return browserUpsertScene(input);
+  }
+
+  return invoke("upsert_scene", { input });
+}
+
+export function deleteScene(id: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserDeleteScene(id);
+  }
+
+  return invoke("delete_scene", { id });
+}
+
+export function reorderScenes(input: ReorderScenesInput): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserReorderScenes(input);
+  }
+
+  return invoke("reorder_scenes", { input });
+}
+
+export function setSceneRelations(input: SetSceneRelationsInput): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserSetSceneRelations(input);
+  }
+
+  return invoke("set_scene_relations", { input });
 }
 
 export function upsertCharacter(input: UpsertCharacterInput): Promise<Character> {

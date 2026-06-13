@@ -124,10 +124,10 @@ Zrodla:
 - [x] Dodac AI action `expand_premise` z kontraktem `premise_development`.
 - [x] Dodac AI action `generate_style_guide`.
 - [x] Umozliwic czesciowa akceptacje pol z propozycji AI.
-- [ ] Upewnic sie, ze style guide trafia do pozniejszych promptow.
+- [x] Upewnic sie, ze style guide trafia do pozniejszych promptow.
 - [x] Dodac testy walidacji premisy, importu `premise_development` i promptu
       koncepcji.
-- [ ] Upewnić się, że każde generowane pole koncepcji ma przycisk AI, prompt
+- [x] Upewnić się, że każde generowane pole koncepcji ma przycisk AI, prompt
       bierze pozostałe kluczowe pola koncepcji, a wynik po polsku zachowuje
       polskie znaki.
 
@@ -139,20 +139,20 @@ Zrodla:
 [06_prompt_architecture.md](docs/blueprint/06_prompt_architecture.md),
 [10_faza_3_plan_powieści.md](docs/blueprint/10_faza_3_plan_powieści.md)
 
-- [ ] Dodac ekran struktury fabuly z wyborami: trzy akty, Save the Cat,
+- [x] Dodac ekran struktury fabuly z wyborami: trzy akty, Save the Cat,
       Hero's Journey, Mystery outline, Custom.
-- [ ] Dodac dane dla struktury, aktow i beatow.
-- [ ] Dodac widok planu rozdzialow z kolejnoscia, tytulem, streszczeniem,
+- [x] Dodac dane dla struktury, aktow i beatow.
+- [x] Dodac widok planu rozdzialow z kolejnoscia, tytulem, streszczeniem,
       celem, konfliktem i target word count.
-- [ ] Dodac podstawowy widok planu scen.
-- [ ] Dodac AI action `generate_plot_outline` z importem JSON jako oddzielnych
+- [x] Dodac podstawowy widok planu scen.
+- [x] Dodac AI action `generate_plot_outline` z importem JSON jako oddzielnych
       encji.
-- [ ] Umozliwic alternatywne plany bez kasowania aktualnego.
-- [ ] Umozliwic oznaczenie planu jako aktywnego.
-- [ ] Dodac kontrole jakosci: rozdzial bez konfliktu, brak payoffu,
+- [x] Umozliwic alternatywne plany bez kasowania aktualnego.
+- [x] Umozliwic oznaczenie planu jako aktywnego.
+- [x] Dodac kontrole jakosci: rozdzial bez konfliktu, brak payoffu,
       final bez przygotowania.
 - [ ] Dodac testy importu outline, `orderIndex`, reorder i walidacji konfliktu.
-- [ ] Upewnić się, że generowanie pól planu uwzględnia kluczowe pola
+- [x] Upewnić się, że generowanie pól planu uwzględnia kluczowe pola
       koncepcji i Story Bible oraz zachowuje polskie znaki w wynikach po
       polsku.
 
@@ -163,18 +163,18 @@ Zrodla:
 [06_prompt_architecture.md](docs/blueprint/06_prompt_architecture.md),
 [11_faza_4_postacie_relacje.md](docs/blueprint/11_faza_4_postacie_relacje.md)
 
-- [ ] Dodac liste postaci i ekran profilu postaci.
-- [ ] Dodac CRUD postaci z polami profilu, motywacji, sekretow, glosu i luku.
-- [ ] Dodac AI action `generate_character` z kontraktem `character_profile`.
-- [ ] Umozliwic czesciowa akceptacje pol profilu postaci.
-- [ ] Dodac relacje kierunkowe miedzy postaciami.
-- [ ] Dodac AI action dla konfliktu/rozwoju relacji.
-- [ ] Dodac podstawowy model wiedzy postaci.
-- [ ] Umozliwic przypisanie postaci do sceny.
-- [ ] Upewnic sie, ze prompt sceny moze dostac glos i wiedze postaci POV.
+- [x] Dodac liste postaci i ekran profilu postaci.
+- [x] Dodac CRUD postaci z polami profilu, motywacji, sekretow, glosu i luku.
+- [x] Dodac AI action `generate_character` z kontraktem `character_profile`.
+- [x] Umozliwic czesciowa akceptacje pol profilu postaci.
+- [x] Dodac relacje kierunkowe miedzy postaciami.
+- [x] Dodac AI action dla konfliktu/rozwoju relacji.
+- [x] Dodac podstawowy model wiedzy postaci.
+- [x] Umozliwic przypisanie postaci do sceny.
+- [x] Upewnic sie, ze prompt sceny moze dostac glos i wiedze postaci POV.
 - [ ] Dodac testy profilu, importu JSON, relacji i filtrowania postaci w
       promptach.
-- [ ] Upewnić się, że każde generowane pole profilu postaci ma przycisk AI,
+- [x] Upewnić się, że każde generowane pole profilu postaci ma przycisk AI,
       a prompt uwzględnia kluczowe pola książki, role fabularne, relacje i
       istniejące postacie.
 
@@ -185,18 +185,18 @@ Zrodla:
 [06_prompt_architecture.md](docs/blueprint/06_prompt_architecture.md),
 [12_faza_5_swiat_reguly.md](docs/blueprint/12_faza_5_swiat_reguly.md)
 
-- [ ] Dodac ekran elementow swiata.
-- [ ] Dodac CRUD lokacji, frakcji, przedmiotow, kultur, technologii, magii i
+- [x] Dodac ekran elementow swiata.
+- [x] Dodac CRUD lokacji, frakcji, przedmiotow, kultur, technologii, magii i
       innych elementow swiata.
-- [ ] Dodac osobny zapis regul swiata.
-- [ ] Umozliwic powiazanie regul z elementami swiata i scenami.
-- [ ] Dodac AI action `generate_world_element`.
-- [ ] Dodac AI action `check_world_rule`.
-- [ ] Dodac prompty wizualne jako tekst/metadane, bez image API.
-- [ ] Upewnic sie, ze prompt sceny zawiera tylko istotne reguly i lokacje.
+- [x] Dodac osobny zapis regul swiata.
+- [x] Umozliwic powiazanie regul z elementami swiata i scenami.
+- [x] Dodac AI action `generate_world_element`.
+- [x] Dodac AI action `check_world_rule`.
+- [x] Dodac prompty wizualne jako tekst/metadane, bez image API.
+- [x] Upewnic sie, ze prompt sceny zawiera tylko istotne reguly i lokacje.
 - [ ] Dodac testy importu elementu swiata, powiazan lokacji/regul i promptu
       sceny z lokacja.
-- [ ] Upewnić się, że generowanie pól świata i reguł ma akcje AI per pole oraz
+- [x] Upewnić się, że generowanie pól świata i reguł ma akcje AI per pole oraz
       używa kluczowego kontekstu książki, postaci, wątków i istniejących reguł.
 
 ### Faza 6: Watki, ciaglosc i wiedza

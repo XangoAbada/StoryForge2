@@ -43,15 +43,23 @@ import {
   deleteAct,
   deleteBeat,
   deleteChapter,
+  deletePlanVersion,
+  deleteScene,
   deletePlotThread,
   getBookPlan,
+  getCharacterWorkspace,
   getProject,
+  getWorldWorkspace,
   moveBeatToChapter,
+  createPlanVersionFromActive,
   saveStoryStructure,
+  setActivePlanVersion,
+  setSceneRelations,
   upsertAct,
   upsertBeat,
   upsertChapter,
   upsertChapterThreadRelation,
+  upsertScene,
   upsertPlotThread
 } from "../../shared/api/commands";
 import type {
@@ -60,14 +68,19 @@ import type {
   BookPlan,
   Chapter,
   ChapterThread,
+  CharacterWorkspace,
   MoveBeatToChapterInput,
   PlotThread,
+  Scene,
+  SetSceneRelationsInput,
   SaveStoryStructureInput,
   UpsertActInput,
   UpsertBeatInput,
   UpsertChapterInput,
   UpsertChapterThreadInput,
-  UpsertPlotThreadInput
+  UpsertPlotThreadInput,
+  UpsertSceneInput,
+  WorldWorkspace
 } from "../../shared/api/types";
 import { useProjectNavigationStore } from "../../app/projectNavigationStore";
 import {
@@ -93,7 +106,7 @@ type BookPlanPageProps = {
   projectId: string;
 };
 
-type PlanStep = "structure" | "acts" | "chapters" | "beats" | "threads";
+type PlanStep = "structure" | "acts" | "chapters" | "scenes" | "beats" | "threads";
 type PlanMode = "wizard" | "preview";
 type SelectedPlanItem =
   | { type: "structure"; id: string }
@@ -107,7 +120,11 @@ type ChapterModalState =
 type BeatModalState =
   | { mode: "create"; chapterId?: string | null }
   | { mode: "edit"; beatId: string };
+type SceneModalState =
+  | { mode: "create"; chapterId?: string | null }
+  | { mode: "edit"; sceneId: string };
 type ChapterRelationKind = "threads" | "beats";
+type SceneRelationKind = "characters" | "threads" | "elements" | "rules";
 type BeatSortMode = "order" | "name" | "role";
 type ThreadViewMode = "map" | "list" | "table";
 type ThreadSortMode = "order" | "name" | "status";
@@ -126,12 +143,13 @@ type BeatBoardLane = {
 type BeatSaveInput = UpsertBeatInput & {
   chapterId?: string | null;
 };
-type PlanPromptEntity = Act | Beat | PlotThread | Chapter | ChapterThread;
+type PlanPromptEntity = Act | Beat | PlotThread | Chapter | ChapterThread | Scene;
 
 const planSteps: Array<{ key: PlanStep; label: string; icon: typeof Map }> = [
   { key: "structure", label: "Struktura", icon: Map },
   { key: "acts", label: "Akty", icon: Flag },
   { key: "chapters", label: "Rozdziały", icon: FileText },
+  { key: "scenes", label: "Sceny", icon: ClipboardList },
   { key: "beats", label: "Beaty", icon: Target },
   { key: "threads", label: "Wątki", icon: GitBranch }
 ];
@@ -339,6 +357,7 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
   const [selectedItem, setSelectedItem] = useState<SelectedPlanItem | null>(null);
   const [chapterModal, setChapterModal] = useState<ChapterModalState | null>(null);
   const [beatModal, setBeatModal] = useState<BeatModalState | null>(null);
+  const [sceneModal, setSceneModal] = useState<SceneModalState | null>(null);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -354,7 +373,19 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
     enabled: Boolean(bookId),
     retry: 0
   });
+  const characterQuery = useQuery({
+    queryKey: ["character-workspace", projectId],
+    queryFn: () => getCharacterWorkspace(projectId),
+    retry: 0
+  });
+  const worldQuery = useQuery({
+    queryKey: ["world-workspace", projectId],
+    queryFn: () => getWorldWorkspace(projectId),
+    retry: 0
+  });
   const plan = planQuery.data ?? emptyPlan();
+  const characters = characterQuery.data ?? emptyCharacterWorkspace();
+  const world = worldQuery.data ?? emptyWorldWorkspace();
   const mode: PlanMode =
     storedMode === "preview" && isPlanReady(plan) ? "preview" : "wizard";
 
@@ -492,6 +523,60 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
     onSuccess: async () => {
       setSelectedItem(null);
       setMessage("Usunięto element planu.");
+      await invalidatePlan();
+    },
+    onError: showError
+  });
+  const sceneMutation = useMutation({
+    mutationFn: (input: UpsertSceneInput) => upsertScene(input),
+    onSuccess: async (scene) => {
+      setMessage("Zapisano scenę.");
+      await invalidatePlan();
+      return scene;
+    },
+    onError: showError
+  });
+  const sceneDeleteMutation = useMutation({
+    mutationFn: (id: string) => deleteScene(id),
+    onSuccess: async () => {
+      setSceneModal(null);
+      setMessage("Usunięto scenę.");
+      await invalidatePlan();
+    },
+    onError: showError
+  });
+  const sceneRelationsMutation = useMutation({
+    mutationFn: (input: SetSceneRelationsInput) => setSceneRelations(input),
+    onSuccess: invalidatePlan,
+    onError: showError
+  });
+  const duplicatePlanMutation = useMutation({
+    mutationFn: () =>
+      createPlanVersionFromActive({
+        bookId: bookId ?? "",
+        name: `Wariant ${plan.planVersions.length + 1}`,
+        description: "Duplikat aktywnego planu."
+      }),
+    onSuccess: async () => {
+      setMessage("Utworzono wariant planu.");
+      await invalidatePlan();
+    },
+    onError: showError
+  });
+  const activePlanMutation = useMutation({
+    mutationFn: (planVersionId: string) =>
+      setActivePlanVersion({ bookId: bookId ?? "", planVersionId }),
+    onSuccess: async () => {
+      setMessage("Zmieniono aktywny wariant planu.");
+      await invalidatePlan();
+    },
+    onError: showError
+  });
+  const deletePlanVersionMutation = useMutation({
+    mutationFn: (planVersionId: string) =>
+      deletePlanVersion({ bookId: bookId ?? "", planVersionId }),
+    onSuccess: async () => {
+      setMessage("Usunięto wariant planu.");
       await invalidatePlan();
     },
     onError: showError
@@ -650,6 +735,27 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         onGenerate={queuePlanGeneration}
         onActivatePrompt={activatePlanPromptContext}
       />
+    ) : activeStep === "scenes" ? (
+      <ScenesStep
+        bookId={bookId}
+        plan={plan}
+        characters={characters}
+        world={world}
+        saving={
+          sceneMutation.isPending ||
+          sceneRelationsMutation.isPending ||
+          duplicatePlanMutation.isPending ||
+          activePlanMutation.isPending ||
+          deletePlanVersionMutation.isPending
+        }
+        onCreateScene={(chapterId) => setSceneModal({ mode: "create", chapterId })}
+        onEditScene={(sceneId) => setSceneModal({ mode: "edit", sceneId })}
+        onSetRelations={(input) => sceneRelationsMutation.mutate(input)}
+        onDuplicatePlan={() => duplicatePlanMutation.mutate()}
+        onSetActivePlan={(planVersionId) => activePlanMutation.mutate(planVersionId)}
+        onDeletePlanVersion={(planVersionId) => deletePlanVersionMutation.mutate(planVersionId)}
+        onGenerate={queuePlanGeneration}
+      />
     ) : activeStep === "beats" ? (
       <BeatsStep
         bookId={bookId}
@@ -772,6 +878,30 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         onGenerate={queuePlanGeneration}
         onActivatePrompt={activatePlanPromptContext}
       />
+      <SceneEditModal
+        state={sceneModal}
+        bookId={bookId}
+        plan={plan}
+        characters={characters}
+        world={world}
+        saving={sceneMutation.isPending || sceneDeleteMutation.isPending}
+        onClose={() => setSceneModal(null)}
+        onSave={(input, relations) =>
+          sceneMutation.mutate(input, {
+            onSuccess: (scene) => {
+              sceneRelationsMutation.mutate({
+                ...relations,
+                bookId,
+                sceneId: scene.id
+              });
+              setSceneModal(null);
+            }
+          })
+        }
+        onDelete={(sceneId) => sceneDeleteMutation.mutate(sceneId)}
+        onGenerate={queuePlanGeneration}
+        onActivatePrompt={activatePlanPromptContext}
+      />
     </section>
   );
 }
@@ -786,6 +916,335 @@ type StepProps = {
     targetEntity?: PlanPromptEntity
   ) => void;
 };
+
+function ScenesStep({
+  bookId,
+  plan,
+  characters,
+  world,
+  saving,
+  onCreateScene,
+  onEditScene,
+  onSetRelations,
+  onDuplicatePlan,
+  onSetActivePlan,
+  onDeletePlanVersion,
+  onGenerate
+}: {
+  bookId: string;
+  plan: BookPlan;
+  characters: CharacterWorkspace;
+  world: WorldWorkspace;
+  saving: boolean;
+  onCreateScene: (chapterId?: string | null) => void;
+  onEditScene: (sceneId: string) => void;
+  onSetRelations: (input: SetSceneRelationsInput) => void;
+  onDuplicatePlan: () => void;
+  onSetActivePlan: (planVersionId: string) => void;
+  onDeletePlanVersion: (planVersionId: string) => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+}) {
+  const chapters = orderedChaptersForPlan(plan);
+  const lanes = [...chapters, null].map((chapter) => ({
+    chapter,
+    scenes: orderedScenesForChapter(plan, chapter?.id ?? null)
+  }));
+  const [relationPicker, setRelationPicker] = useState<{
+    sceneId: string;
+    kind: SceneRelationKind;
+  } | null>(null);
+  const pickerScene = relationPicker
+    ? plan.scenes.find((scene) => scene.id === relationPicker.sceneId)
+    : undefined;
+
+  return (
+    <div className="scenes-step plan-grid-list">
+      <PlanCard
+        title="Warianty planu"
+        icon={<GitBranch size={18} />}
+        action={
+          <button type="button" className="secondary-button" onClick={onDuplicatePlan} disabled={saving}>
+            <Plus size={15} />
+            Duplikuj aktywny plan
+          </button>
+        }
+      >
+        <div className="plan-chip-row">
+          {plan.planVersions.map((version) => {
+            const canDelete = !version.isActive && plan.planVersions.length > 1;
+            return (
+              <span
+                key={version.id}
+                className={version.isActive ? "scene-version-chip active" : "scene-version-chip"}
+              >
+                <button
+                  type="button"
+                  onClick={() => !version.isActive && onSetActivePlan(version.id)}
+                  disabled={version.isActive || saving}
+                  title={version.isActive ? "Aktywny wariant planu" : "Ustaw jako aktywny wariant"}
+                >
+                  {version.name}
+                </button>
+                {canDelete ? (
+                  <button
+                    type="button"
+                    className="scene-version-delete"
+                    onClick={() => {
+                      if (confirm(`Usunąć wariant planu "${version.name}"?`)) {
+                        onDeletePlanVersion(version.id);
+                      }
+                    }}
+                    disabled={saving}
+                    title={`Usuń wariant planu: ${version.name}`}
+                    aria-label={`Usuń wariant planu: ${version.name}`}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                ) : null}
+              </span>
+            );
+          })}
+        </div>
+      </PlanCard>
+
+      {lanes.map(({ chapter, scenes }) => (
+        <PlanCard
+          key={chapter?.id ?? "no-chapter"}
+          title={chapter ? `Rozdział ${chapter.number}: ${chapter.workingTitle || "Bez tytułu"}` : "Sceny bez rozdziału"}
+          icon={<ClipboardList size={18} />}
+          action={
+            <AddSceneActions
+              chapter={chapter}
+              onCreateScene={onCreateScene}
+              onGenerate={onGenerate}
+            />
+          }
+        >
+          <div className="scene-card-list">
+            {scenes.map((scene) => (
+              <div
+                className="chapter-board-card plan-scene-card"
+                key={scene.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => onEditScene(scene.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onEditScene(scene.id);
+                  }
+                }}
+              >
+                <span className="chapter-card-topline">
+                  <span className="chapter-number-badge">{scene.orderIndex + 1}</span>
+                  <span>{sceneStatusLabel(scene.status)}</span>
+                  <span>{scene.targetWordCount ? `${scene.targetWordCount.toLocaleString("pl-PL")} słów` : "Brak celu"}</span>
+                </span>
+                <strong>{scene.title || "Scena bez tytułu"}</strong>
+                <p>{scene.summary || "Brak streszczenia sceny."}</p>
+                <span className="chapter-card-field">
+                  <b>Cel</b>
+                  <span>{scene.goal || "Nie opisano"}</span>
+                </span>
+                <span className="chapter-card-field">
+                  <b>Konflikt</b>
+                  <span>{scene.conflict || "Nie opisano"}</span>
+                </span>
+                <span className="chapter-card-field">
+                  <b>Wynik</b>
+                  <span>{scene.outcome || "Nie opisano"}</span>
+                </span>
+                <SceneRelationChips
+                  bookId={bookId}
+                  scene={scene}
+                  plan={plan}
+                  characters={characters}
+                  world={world}
+                  onSetRelations={onSetRelations}
+                  onOpenPicker={(kind) => setRelationPicker({ sceneId: scene.id, kind })}
+                />
+              </div>
+            ))}
+            {scenes.length === 0 ? <p className="muted-text">Brak scen w tej sekcji.</p> : null}
+          </div>
+        </PlanCard>
+      ))}
+
+      {relationPicker && pickerScene ? (
+        <SceneRelationPickerModal
+          kind={relationPicker.kind}
+          plan={plan}
+          characters={characters}
+          world={world}
+          selectedIds={sceneRelationIds(plan, pickerScene.id, relationPicker.kind)}
+          onClose={() => setRelationPicker(null)}
+          onAdd={(ids) => {
+            const current = sceneRelationSnapshot(plan, pickerScene.id);
+            const nextIds = uniqueOrderedIds([
+              ...sceneRelationIds(plan, pickerScene.id, relationPicker.kind),
+              ...ids
+            ]);
+            onSetRelations({
+              bookId,
+              sceneId: pickerScene.id,
+              ...current,
+              [sceneRelationInputKey(relationPicker.kind)]: nextIds
+            });
+            setRelationPicker(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function AddSceneActions({
+  chapter,
+  onCreateScene,
+  onGenerate
+}: {
+  chapter: Chapter | null;
+  onCreateScene: (chapterId?: string | null) => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+}) {
+  return (
+    <span className="scene-add-actions">
+      <PlanAiActions
+        field="sceneDraft"
+        targetEntity={chapter ?? undefined}
+        onGenerate={() => onGenerate("sceneDraft", chapter ?? undefined)}
+        onActivatePrompt={() => undefined}
+      />
+      <button type="button" className="secondary-button" onClick={() => onCreateScene(chapter?.id ?? null)}>
+        <Plus size={15} />
+        Dodaj scenę
+      </button>
+    </span>
+  );
+}
+
+function SceneRelationChips({ bookId, scene, plan, characters, world, onSetRelations, onOpenPicker }: {
+  bookId: string;
+  scene: Scene;
+  plan: BookPlan;
+  characters: CharacterWorkspace;
+  world: WorldWorkspace;
+  onSetRelations: (input: SetSceneRelationsInput) => void;
+  onOpenPicker: (kind: SceneRelationKind) => void;
+}) {
+  const characterIds = sceneCharacterIds(plan, scene.id);
+  const threadIds = sceneThreadIds(plan, scene.id);
+  const elementIds = sceneElementIds(plan, scene.id);
+  const ruleIds = sceneRuleIds(plan, scene.id);
+  const update = (next: Partial<Omit<SetSceneRelationsInput, "bookId" | "sceneId">>) =>
+    onSetRelations({ bookId, sceneId: scene.id, characterIds, threadIds, elementIds, ruleIds, ...next });
+
+  return (
+    <div className="chapter-chip-row scene-card-relations" onClick={(event) => event.stopPropagation()}>
+      {characterIds.map((id) => (
+        <RelationMiniChip
+          key={id}
+          label={characterLabel(characters, id)}
+          onRemove={() => update({ characterIds: characterIds.filter((item) => item !== id) })}
+        />
+      ))}
+      {threadIds.map((id) => (
+        <RelationMiniChip
+          key={id}
+          label={plan.threads.find((item) => item.id === id)?.name ?? "Wątek"}
+          onRemove={() => update({ threadIds: threadIds.filter((item) => item !== id) })}
+        />
+      ))}
+      {elementIds.map((id) => (
+        <RelationMiniChip
+          key={id}
+          label={worldElementLabel(world, id)}
+          onRemove={() => update({ elementIds: elementIds.filter((item) => item !== id) })}
+        />
+      ))}
+      {ruleIds.map((id) => (
+        <RelationMiniChip
+          key={id}
+          label={world.rules.find((item) => item.id === id)?.name ?? "Reguła"}
+          onRemove={() => update({ ruleIds: ruleIds.filter((item) => item !== id) })}
+        />
+      ))}
+      {(["characters", "threads", "elements", "rules"] as SceneRelationKind[]).map((kind) => (
+        <button
+          type="button"
+          key={kind}
+          className="chapter-card-relation-add-button scene-card-relation-add-button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onOpenPicker(kind);
+          }}
+          title={`Dodaj: ${sceneRelationTitle(kind).toLowerCase()}`}
+          aria-label={`Dodaj relację sceny: ${sceneRelationTitle(kind)}`}
+        >
+          <Plus size={13} />
+          <span>{sceneRelationShortLabel(kind)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function RelationMiniChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="chapter-chip scene-relation-chip">
+      {label}
+      <button
+        type="button"
+        className="chapter-chip-remove"
+        onClick={(event) => {
+          event.stopPropagation();
+          onRemove();
+        }}
+        title={`Odłącz relację: ${label}`}
+        aria-label={`Odłącz relację: ${label}`}
+      >
+        <X size={11} />
+      </button>
+    </span>
+  );
+}
+
+function sceneStatusLabel(status: Scene["status"]): string {
+  if (status === "written") {
+    return "Napisana";
+  }
+  if (status === "draft") {
+    return "Szkic";
+  }
+  return "Planowana";
+}
+
+function sceneRelationShortLabel(kind: SceneRelationKind): string {
+  switch (kind) {
+    case "characters":
+      return "Postać";
+    case "threads":
+      return "Wątek";
+    case "elements":
+      return "Świat";
+    case "rules":
+      return "Reguła";
+  }
+}
+
+function sceneRelationTitle(kind: SceneRelationKind): string {
+  switch (kind) {
+    case "characters":
+      return "Postacie";
+    case "threads":
+      return "Wątki";
+    case "elements":
+      return "Elementy świata";
+    case "rules":
+      return "Reguły świata";
+  }
+}
 
 function PlanStageNavigation({
   activeStep,
@@ -4604,6 +5063,109 @@ function ChapterRelationPickerModal({
   );
 }
 
+function SceneRelationPickerModal({
+  kind,
+  plan,
+  characters,
+  world,
+  selectedIds,
+  onClose,
+  onAdd
+}: {
+  kind: SceneRelationKind;
+  plan: BookPlan;
+  characters: CharacterWorkspace;
+  world: WorldWorkspace;
+  selectedIds: string[];
+  onClose: () => void;
+  onAdd: (ids: string[]) => void;
+}) {
+  const [checkedIds, setCheckedIds] = useState<string[]>([]);
+  const selectedSet = new Set(selectedIds);
+  const items = sceneRelationOptions(kind, plan, characters, world).filter(
+    (item) => !selectedSet.has(item.id)
+  );
+  const title = `Dodaj: ${sceneRelationTitle(kind).toLowerCase()}`;
+  const emptyText = `Wszystkie elementy z grupy "${sceneRelationTitle(kind)}" są już przypisane do tej sceny.`;
+
+  function toggle(id: string) {
+    setCheckedIds((currentIds) =>
+      currentIds.includes(id)
+        ? currentIds.filter((currentId) => currentId !== id)
+        : [...currentIds, id]
+    );
+  }
+
+  return (
+    <div className="chapter-relation-modal" role="dialog" aria-modal="true">
+      <button
+        type="button"
+        className="chapter-relation-backdrop"
+        onClick={onClose}
+        aria-label="Zamknij wybór powiązań"
+      />
+      <section className="chapter-relation-shell" aria-label={title}>
+        <header className="chapter-relation-header">
+          <div>
+            <p className="eyebrow">Powiązania sceny</p>
+            <h4>{title}</h4>
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Zamknij wybór powiązań"
+            title="Zamknij"
+          >
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="chapter-relation-list">
+          {items.length === 0 ? (
+            <p className="chapter-relation-empty">{emptyText}</p>
+          ) : (
+            items.map((item) => {
+              const checked = checkedIds.includes(item.id);
+              return (
+                <button
+                  type="button"
+                  className={checked ? "chapter-relation-option selected" : "chapter-relation-option"}
+                  key={item.id}
+                  onClick={() => toggle(item.id)}
+                  title={item.description}
+                  aria-pressed={checked}
+                >
+                  <span className={`relation-dot ${sceneRelationDotClass(kind)}`} />
+                  <span>
+                    <strong>{item.label}</strong>
+                    <em>{item.description || "Brak opisu."}</em>
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <footer className="chapter-relation-footer">
+          <button type="button" className="ghost-button" onClick={onClose}>
+            Anuluj
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={checkedIds.length === 0}
+            onClick={() => onAdd(checkedIds)}
+          >
+            <Plus size={16} />
+            Dodaj wybrane
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 function PlanInlineField({
   label,
   value,
@@ -5626,20 +6188,571 @@ function chaptersWithoutAct(plan: BookPlan): Chapter[] {
   return orderedChaptersForPlan(plan).filter((chapter) => !chapter.actId);
 }
 
+function SceneEditModal({ state, bookId, plan, characters, world, saving, onClose, onSave, onDelete, onGenerate, onActivatePrompt }: {
+  state: SceneModalState | null;
+  bookId: string;
+  plan: BookPlan;
+  characters: CharacterWorkspace;
+  world: WorldWorkspace;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (input: UpsertSceneInput, relations: Omit<SetSceneRelationsInput, "bookId" | "sceneId">) => void;
+  onDelete: (sceneId: string) => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+  onActivatePrompt: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+}) {
+  const scene = state?.mode === "edit" ? plan.scenes.find((item) => item.id === state.sceneId) : undefined;
+  const [draft, setDraft] = useState<UpsertSceneInput>(() =>
+    sceneToInput(bookId, plan, scene, state?.mode === "create" ? state.chapterId : undefined)
+  );
+  const [characterIds, setCharacterIds] = useState<string[]>([]);
+  const [threadIds, setThreadIds] = useState<string[]>([]);
+  const [elementIds, setElementIds] = useState<string[]>([]);
+  const [ruleIds, setRuleIds] = useState<string[]>([]);
+  const [draftTargetId, setDraftTargetId] = useState("");
+  const [relationPicker, setRelationPicker] = useState<SceneRelationKind | null>(null);
+
+  useEffect(() => {
+    if (!state) return;
+    const current = state.mode === "edit" ? plan.scenes.find((item) => item.id === state.sceneId) : undefined;
+    setDraft(sceneToInput(bookId, plan, current, state.mode === "create" ? state.chapterId : undefined));
+    setCharacterIds(current ? sceneCharacterIds(plan, current.id) : []);
+    setThreadIds(current ? sceneThreadIds(plan, current.id) : []);
+    setElementIds(current ? sceneElementIds(plan, current.id) : []);
+    setRuleIds(current ? sceneRuleIds(plan, current.id) : []);
+    setDraftTargetId(
+      current?.id ??
+        `draft-scene:${state.mode === "create" ? state.chapterId ?? "none" : "none"}:${Date.now().toString(36)}`
+    );
+    setRelationPicker(null);
+  }, [bookId, plan, state]);
+
+  useEffect(() => {
+    if (!state || !draftTargetId) return;
+    registerPlanDraftFieldTarget(draftTargetId, (field, value) => {
+      setDraft((current) => applySceneDraftField(current, field, value));
+    });
+    return () => unregisterPlanDraftFieldTarget(draftTargetId);
+  }, [draftTargetId, state]);
+
+  useEffect(() => {
+    if (!state) return;
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose, state]);
+
+  if (!state) return null;
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSave(draft, { characterIds, threadIds, elementIds, ruleIds });
+  }
+
+  const scenePromptEntity = draftTargetId ? sceneDraftPromptEntity(draft, draftTargetId) : undefined;
+  const selectedChapter = draft.chapterId
+    ? plan.chapters.find((chapter) => chapter.id === draft.chapterId)
+    : undefined;
+  const selectedPov = characters.characters.find((character) => character.id === draft.povCharacterId);
+  const selectedLocation = world.elements.find((element) => element.id === draft.locationId);
+  const completionItems = [
+    { label: "Tytuł", complete: Boolean(draft.title.trim()) },
+    { label: "Streszczenie", complete: Boolean(draft.summary.trim()) },
+    { label: "Cel", complete: Boolean(draft.goal.trim()) },
+    { label: "Konflikt", complete: Boolean(draft.conflict.trim()) },
+    { label: "Wynik", complete: Boolean(draft.outcome.trim()) },
+    { label: "Postacie", complete: characterIds.length > 0 },
+    { label: "Wątki", complete: threadIds.length > 0 }
+  ];
+  const completedItems = completionItems.filter((item) => item.complete).length;
+  const completionPercent = Math.round((completedItems / completionItems.length) * 100);
+  const modalTitle = scene ? draft.title || "Edytuj scenę" : "Nowa scena";
+  const visualStatus =
+    completionPercent >= 85
+      ? "Gotowa do pisania"
+      : completionPercent >= 45
+        ? "W trakcie"
+        : "Szkic";
+  const currentRelationIds = relationPicker
+    ? { characters: characterIds, threads: threadIds, elements: elementIds, rules: ruleIds }[relationPicker]
+    : [];
+
+  const content = (
+    <div className="chapter-edit-modal scene-edit-modal" role="dialog" aria-modal="true" aria-labelledby="scene-modal-title">
+      <button type="button" className="chapter-edit-backdrop" onClick={onClose} aria-label="Zamknij edycję sceny" />
+      <div className="chapter-edit-shell scene-edit-shell">
+        <header className="chapter-edit-header">
+          <div>
+            <p className="eyebrow">Edycja sceny</p>
+            <h3 id="scene-modal-title">{modalTitle}</h3>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} title="Zamknij edycję sceny" aria-label="Zamknij edycję sceny">
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="chapter-edit-body">
+          <form className="chapter-edit-form scene-edit-form" onSubmit={submit}>
+            <div className="chapter-edit-metrics" aria-label="Najważniejsze informacje o scenie">
+              <span className="chapter-edit-metric">
+                <BookOpen size={16} />
+                <span>Rozdział:</span>
+                <strong>{selectedChapter ? `${selectedChapter.number}. ${selectedChapter.workingTitle || "Bez tytułu"}` : "Bez rozdziału"}</strong>
+              </span>
+              <span className="chapter-edit-metric">
+                <Eye size={16} />
+                <span>POV:</span>
+                <strong>{selectedPov?.name ?? "Brak"}</strong>
+              </span>
+              <span className="chapter-edit-metric">
+                <Map size={16} />
+                <span>Lokacja:</span>
+                <strong>{selectedLocation?.name ?? "Brak"}</strong>
+              </span>
+              <span className={completionPercent >= 85 ? "chapter-status-pill ready" : completionPercent >= 45 ? "chapter-status-pill active" : "chapter-status-pill"}>
+                <Circle size={10} />
+                {visualStatus}
+              </span>
+            </div>
+
+            <div className="chapter-edit-content-grid scene-edit-content-grid">
+              <main className="chapter-edit-main">
+                <section className="chapter-edit-section">
+                  <div className="chapter-section-heading">
+                    <ClipboardList size={17} />
+                    <h4>Treść sceny</h4>
+                  </div>
+                  <div className="chapter-field-stack">
+                    <SceneTextField field="sceneTitle" label="Tytuł" value={draft.title} targetEntity={scenePromptEntity} onChange={(title) => setDraft({ ...draft, title })} onGenerate={onGenerate} onActivatePrompt={onActivatePrompt} rows={1} />
+                    <SceneTextField field="sceneSummary" label="Streszczenie" value={draft.summary} targetEntity={scenePromptEntity} onChange={(summary) => setDraft({ ...draft, summary })} onGenerate={onGenerate} onActivatePrompt={onActivatePrompt} rows={4} />
+                    <SceneTextField field="sceneGoal" label="Cel" value={draft.goal} targetEntity={scenePromptEntity} onChange={(goal) => setDraft({ ...draft, goal })} onGenerate={onGenerate} onActivatePrompt={onActivatePrompt} />
+                    <SceneTextField field="sceneConflict" label="Konflikt" value={draft.conflict} targetEntity={scenePromptEntity} onChange={(conflict) => setDraft({ ...draft, conflict })} onGenerate={onGenerate} onActivatePrompt={onActivatePrompt} />
+                    <SceneTextField field="sceneOutcome" label="Wynik" value={draft.outcome} targetEntity={scenePromptEntity} onChange={(outcome) => setDraft({ ...draft, outcome })} onGenerate={onGenerate} onActivatePrompt={onActivatePrompt} />
+                  </div>
+                </section>
+
+                <section className="chapter-edit-section scene-settings-section">
+                  <div className="chapter-section-heading">
+                    <Target size={17} />
+                    <h4>Ustawienia sceny</h4>
+                  </div>
+                  <div className="scene-settings-grid">
+                    <label className="field-label">
+                      Rozdział
+                      <select value={draft.chapterId ?? ""} onChange={(event) => setDraft({ ...draft, chapterId: event.target.value || null })}>
+                        <option value="">Bez rozdziału</option>
+                        {orderedChaptersForPlan(plan).map((chapter) => (
+                          <option key={chapter.id} value={chapter.id}>Rozdział {chapter.number}: {chapter.workingTitle || "Bez tytułu"}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field-label">
+                      POV
+                      <select value={draft.povCharacterId ?? ""} onChange={(event) => setDraft({ ...draft, povCharacterId: event.target.value || null })}>
+                        <option value="">Brak</option>
+                        {characters.characters.map((character) => <option key={character.id} value={character.id}>{character.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="field-label">
+                      Lokacja
+                      <select value={draft.locationId ?? ""} onChange={(event) => setDraft({ ...draft, locationId: event.target.value || null })}>
+                        <option value="">Brak</option>
+                        {world.elements.map((element) => <option key={element.id} value={element.id}>{element.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="field-label">
+                      Cel słów
+                      <input type="number" min={0} value={draft.targetWordCount ?? ""} onChange={(event) => setDraft({ ...draft, targetWordCount: parseOptionalPositiveInt(event.target.value) })} />
+                    </label>
+                    <label className="field-label">
+                      Status
+                      <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Scene["status"] })}>
+                        <option value="planned">Planowana</option>
+                        <option value="draft">Szkic</option>
+                        <option value="written">Napisana</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+              </main>
+
+              <aside className="chapter-edit-sidebar" aria-label="Powiązania sceny">
+                <SceneRelationSection title="Postacie" kind="characters" items={sceneRelationOptions("characters", plan, characters, world).filter((item) => characterIds.includes(item.id))} emptyText="Brak powiązanych postaci" onOpenPicker={setRelationPicker} onRemove={(id) => setCharacterIds((currentIds) => currentIds.filter((item) => item !== id))} />
+                <SceneRelationSection title="Wątki" kind="threads" items={sceneRelationOptions("threads", plan, characters, world).filter((item) => threadIds.includes(item.id))} emptyText="Brak powiązanych wątków" onOpenPicker={setRelationPicker} onRemove={(id) => setThreadIds((currentIds) => currentIds.filter((item) => item !== id))} />
+                <SceneRelationSection title="Elementy świata" kind="elements" items={sceneRelationOptions("elements", plan, characters, world).filter((item) => elementIds.includes(item.id))} emptyText="Brak powiązanych elementów świata" onOpenPicker={setRelationPicker} onRemove={(id) => setElementIds((currentIds) => currentIds.filter((item) => item !== id))} />
+                <SceneRelationSection title="Reguły świata" kind="rules" items={sceneRelationOptions("rules", plan, characters, world).filter((item) => ruleIds.includes(item.id))} emptyText="Brak powiązanych reguł świata" onOpenPicker={setRelationPicker} onRemove={(id) => setRuleIds((currentIds) => currentIds.filter((item) => item !== id))} />
+              </aside>
+            </div>
+
+            {relationPicker ? (
+              <SceneRelationPickerModal
+                kind={relationPicker}
+                plan={plan}
+                characters={characters}
+                world={world}
+                selectedIds={currentRelationIds}
+                onClose={() => setRelationPicker(null)}
+                onAdd={(ids) => {
+                  if (relationPicker === "characters") setCharacterIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
+                  if (relationPicker === "threads") setThreadIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
+                  if (relationPicker === "elements") setElementIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
+                  if (relationPicker === "rules") setRuleIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
+                  setRelationPicker(null);
+                }}
+              />
+            ) : null}
+
+            <footer className="chapter-edit-footer">
+              <div className="chapter-footer-status">
+                <CheckCircle2 size={16} />
+                <span>{completedItems} / {completionItems.length} elementów sceny uzupełnionych</span>
+              </div>
+              <div className="chapter-footer-actions">
+                {scene ? (
+                  <button type="button" className="ghost-button chapter-delete-button" onClick={() => onDelete(scene.id)} disabled={saving}>
+                    <Trash2 size={16} />
+                    Usuń
+                  </button>
+                ) : null}
+                <button type="button" className="ghost-button" onClick={onClose}>
+                  Anuluj
+                </button>
+                <button type="submit" className="primary-button" disabled={saving}>
+                  <Save size={16} />
+                  {saving ? "Zapisuję" : "Zapisz scenę"}
+                </button>
+              </div>
+            </footer>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+
+  return typeof document === "undefined" ? content : createPortal(content, document.body);
+}
+
+function SceneRelationSection({
+  title,
+  kind,
+  items,
+  emptyText,
+  onOpenPicker,
+  onRemove
+}: {
+  title: string;
+  kind: SceneRelationKind;
+  items: Array<{ id: string; label: string; description: string }>;
+  emptyText: string;
+  onOpenPicker: (kind: SceneRelationKind) => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <section className="chapter-side-section scene-side-section">
+      <div className="chapter-side-heading">
+        <Link2 size={16} />
+        <h4>{title}</h4>
+      </div>
+      <div className="chapter-side-chip-list">
+        {items.length > 0 ? (
+          items.map((item) => (
+            <span className={`chapter-side-chip ${sceneRelationDotClass(kind)}`} key={item.id} title={item.description}>
+              {item.label}
+              <button type="button" className="chapter-side-chip-remove" onClick={() => onRemove(item.id)} aria-label={`Odepnij relację: ${item.label}`} title={`Odepnij relację: ${item.label}`}>
+                -
+              </button>
+            </span>
+          ))
+        ) : (
+          <span className="chapter-side-empty">{emptyText}</span>
+        )}
+      </div>
+      <button type="button" className="icon-button chapter-relation-add-button" onClick={() => onOpenPicker(kind)} title={`Dodaj: ${title.toLowerCase()}`} aria-label={`Dodaj relację sceny: ${title}`}>
+        <Plus size={15} />
+      </button>
+    </section>
+  );
+}
+
+function SceneTextField({
+  field,
+  label,
+  value,
+  targetEntity,
+  rows = 3,
+  onChange,
+  onGenerate,
+  onActivatePrompt
+}: {
+  field: PlanFieldKey;
+  label: string;
+  value: string;
+  targetEntity?: PlanPromptEntity;
+  rows?: number;
+  onChange: (value: string) => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+  onActivatePrompt: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+}) {
+  const activate = () => onActivatePrompt(field, targetEntity);
+  return (
+    <label className="field-label plan-inline-field scene-inline-field">
+      <span className="plan-inline-label-row">
+        {label}
+        <PlanAiActions
+          field={field}
+          targetEntity={targetEntity}
+          onGenerate={() => onGenerate(field, targetEntity)}
+          onActivatePrompt={activate}
+        />
+      </span>
+      {rows === 1 ? (
+        <input
+          value={value}
+          onFocus={activate}
+          onClick={activate}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      ) : (
+        <textarea
+          value={value}
+          rows={rows}
+          onFocus={activate}
+          onClick={activate}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )}
+    </label>
+  );
+}
+
 function emptyPlan(): BookPlan {
+  const now = new Date().toISOString();
+  const planVersion = {
+    id: "",
+    bookId: "",
+    name: "Plan główny",
+    description: "",
+    isActive: true,
+    createdAt: now,
+    updatedAt: now
+  };
   return {
+    planVersion,
+    planVersions: [planVersion],
     structure: null,
     acts: [],
     beats: [],
     threads: [],
     chapters: [],
     chapterThreads: [],
-    chapterBeats: []
+    chapterBeats: [],
+    scenes: [],
+    sceneCharacters: [],
+    sceneThreads: [],
+    sceneWorldElements: [],
+    sceneWorldRules: []
   };
 }
 
 function isPlanReady(plan: BookPlan): boolean {
   return plan.acts.length > 0 && plan.chapters.length > 0;
+}
+
+function emptyCharacterWorkspace(): CharacterWorkspace {
+  return { characters: [], relations: [], memories: [], memoryLinks: [], visualAssets: [] };
+}
+
+function emptyWorldWorkspace(): WorldWorkspace {
+  return { elements: [], rules: [], elementCharacters: [], elementThreads: [], elementChapters: [], elementScenes: [], elementRules: [], ruleThreads: [], ruleChapters: [], ruleScenes: [], visualAssets: [] };
+}
+
+function orderedScenesForChapter(plan: BookPlan, chapterId: string | null): Scene[] {
+  return plan.scenes
+    .filter((scene) => (scene.chapterId ?? null) === chapterId)
+    .sort((left, right) => left.orderIndex - right.orderIndex || left.title.localeCompare(right.title, "pl-PL"));
+}
+
+function characterLabel(characters: CharacterWorkspace, characterId: string | null | undefined): string {
+  if (!characterId) return "Brak";
+  return characters.characters.find((item) => item.id === characterId)?.name ?? "Postać";
+}
+
+function worldElementLabel(world: WorldWorkspace, elementId: string | null | undefined): string {
+  if (!elementId) return "Brak";
+  return world.elements.find((item) => item.id === elementId)?.name ?? "Element świata";
+}
+
+function sceneCharacterIds(plan: BookPlan, sceneId: string): string[] {
+  return plan.sceneCharacters.filter((item) => item.sceneId === sceneId).map((item) => item.characterId);
+}
+
+function sceneThreadIds(plan: BookPlan, sceneId: string): string[] {
+  return plan.sceneThreads.filter((item) => item.sceneId === sceneId).map((item) => item.threadId);
+}
+
+function sceneElementIds(plan: BookPlan, sceneId: string): string[] {
+  return plan.sceneWorldElements.filter((item) => item.sceneId === sceneId).map((item) => item.elementId);
+}
+
+function sceneRuleIds(plan: BookPlan, sceneId: string): string[] {
+  return plan.sceneWorldRules.filter((item) => item.sceneId === sceneId).map((item) => item.ruleId);
+}
+
+function sceneRelationIds(plan: BookPlan, sceneId: string, kind: SceneRelationKind): string[] {
+  switch (kind) {
+    case "characters":
+      return sceneCharacterIds(plan, sceneId);
+    case "threads":
+      return sceneThreadIds(plan, sceneId);
+    case "elements":
+      return sceneElementIds(plan, sceneId);
+    case "rules":
+      return sceneRuleIds(plan, sceneId);
+  }
+}
+
+function sceneRelationSnapshot(
+  plan: BookPlan,
+  sceneId: string
+): Omit<SetSceneRelationsInput, "bookId" | "sceneId"> {
+  return {
+    characterIds: sceneCharacterIds(plan, sceneId),
+    threadIds: sceneThreadIds(plan, sceneId),
+    elementIds: sceneElementIds(plan, sceneId),
+    ruleIds: sceneRuleIds(plan, sceneId)
+  };
+}
+
+function sceneRelationInputKey(
+  kind: SceneRelationKind
+): keyof Omit<SetSceneRelationsInput, "bookId" | "sceneId"> {
+  switch (kind) {
+    case "characters":
+      return "characterIds";
+    case "threads":
+      return "threadIds";
+    case "elements":
+      return "elementIds";
+    case "rules":
+      return "ruleIds";
+  }
+}
+
+function sceneRelationOptions(
+  kind: SceneRelationKind,
+  plan: BookPlan,
+  characters: CharacterWorkspace,
+  world: WorldWorkspace
+): Array<{ id: string; label: string; description: string }> {
+  switch (kind) {
+    case "characters":
+      return characters.characters.map((character) => ({
+        id: character.id,
+        label: character.name || "Postać bez imienia",
+        description: character.shortDescription || character.arcSummary || character.role || "Brak opisu postaci."
+      }));
+    case "threads":
+      return plan.threads.map((thread) => ({
+        id: thread.id,
+        label: thread.name || "Wątek bez nazwy",
+        description: thread.description || thread.status || "Brak opisu wątku."
+      }));
+    case "elements":
+      return world.elements.map((element) => ({
+        id: element.id,
+        label: element.name || "Element świata bez nazwy",
+        description: element.summary || element.details || element.elementType || "Brak opisu elementu świata."
+      }));
+    case "rules":
+      return world.rules.map((rule) => ({
+        id: rule.id,
+        label: rule.name || "Reguła bez nazwy",
+        description: rule.description || "Brak opisu reguły świata."
+      }));
+  }
+}
+
+function sceneRelationDotClass(kind: SceneRelationKind): string {
+  switch (kind) {
+    case "characters":
+      return "character";
+    case "threads":
+      return "thread";
+    case "elements":
+      return "element";
+    case "rules":
+      return "rule";
+  }
+}
+
+function sceneToInput(bookId: string, plan: BookPlan, scene?: Scene, chapterId?: string | null): UpsertSceneInput {
+  return {
+    id: scene?.id,
+    bookId,
+    chapterId: scene?.chapterId ?? chapterId ?? null,
+    orderIndex: scene?.orderIndex ?? orderedScenesForChapter(plan, chapterId ?? null).length,
+    title: scene?.title ?? "Nowa scena",
+    summary: scene?.summary ?? "",
+    goal: scene?.goal ?? "",
+    conflict: scene?.conflict ?? "",
+    outcome: scene?.outcome ?? "",
+    povCharacterId: scene?.povCharacterId ?? null,
+    locationId: scene?.locationId ?? null,
+    targetWordCount: scene?.targetWordCount ?? null,
+    actualWordCount: scene?.actualWordCount ?? null,
+    manuscriptContent: scene?.manuscriptContent ?? "",
+    status: scene?.status ?? "planned"
+  };
+}
+
+function sceneDraftPromptEntity(draft: UpsertSceneInput, id: string): Scene {
+  const now = new Date().toISOString();
+  return {
+    id,
+    bookId: draft.bookId,
+    planVersionId: "",
+    chapterId: draft.chapterId ?? null,
+    orderIndex: draft.orderIndex,
+    title: draft.title,
+    summary: draft.summary,
+    goal: draft.goal,
+    conflict: draft.conflict,
+    outcome: draft.outcome,
+    povCharacterId: draft.povCharacterId ?? null,
+    locationId: draft.locationId ?? null,
+    targetWordCount: draft.targetWordCount ?? null,
+    actualWordCount: draft.actualWordCount ?? null,
+    manuscriptContent: draft.manuscriptContent ?? "",
+    status: draft.status,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function applySceneDraftField(draft: UpsertSceneInput, field: PlanFieldKey, value: string): UpsertSceneInput {
+  if (field === "sceneTitle") {
+    return { ...draft, title: value };
+  }
+  if (field === "sceneSummary") {
+    return { ...draft, summary: value };
+  }
+  if (field === "sceneGoal") {
+    return { ...draft, goal: value };
+  }
+  if (field === "sceneConflict") {
+    return { ...draft, conflict: value };
+  }
+  if (field === "sceneOutcome") {
+    return { ...draft, outcome: value };
+  }
+
+  return draft;
+}
+
+function toggleId(ids: string[], id: string): string[] {
+  return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
 }
 
 function normalizePlanStep(value: string | undefined): PlanStep {
@@ -5660,6 +6773,12 @@ function isEntityField(field: PlanFieldKey): boolean {
     "chapterPurpose",
     "chapterConflict",
     "chapterTurningPoint",
+    "sceneDraft",
+    "sceneTitle",
+    "sceneSummary",
+    "sceneGoal",
+    "sceneConflict",
+    "sceneOutcome",
     "threadChapterDescription",
     "chapterThreadSuggestions",
     "chapterBeatSuggestions"

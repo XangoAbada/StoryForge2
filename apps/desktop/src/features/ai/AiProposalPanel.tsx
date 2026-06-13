@@ -1,4 +1,4 @@
-import { Check, Clock3, FileJson, Loader2, RotateCcw, X } from "lucide-react";
+import { Check, Clock3, FileJson, GitBranch, Loader2, RotateCcw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
@@ -7,6 +7,7 @@ import { isTauriRuntime } from "../../shared/api/browserDevCommands";
 import {
   acceptGeneratedBookCover,
   acceptGeneratedCharacterImage,
+  createPlanVersionFromActive,
   generateBookCover,
   generateCharacterImage,
   generateNewProjectTitle,
@@ -14,6 +15,8 @@ import {
   moveBeatToChapter,
   runCodexPrompt,
   saveStoryStructure,
+  setActivePlanVersion,
+  setSceneRelations,
   upsertAct,
   upsertBeat,
   upsertChapter,
@@ -21,6 +24,7 @@ import {
   upsertCharacterRelation,
   upsertChapterThreadRelation,
   upsertPlotThread,
+  upsertScene,
   upsertWorldElement,
   upsertWorldRule,
   updateBookConcept
@@ -91,7 +95,7 @@ export function AiProposalPanel({
     .sort(compareProposalsForPanel);
 
   const acceptMutation = useMutation({
-    mutationFn: async (proposalId: string) => {
+    mutationFn: async ({ proposalId, asNewPlanVersion = false }: { proposalId: string; asNewPlanVersion?: boolean }) => {
       const proposal = useProposalStore
         .getState()
         .proposals.find((item) => item.id === proposalId);
@@ -158,7 +162,7 @@ export function AiProposalPanel({
       }
 
       if (proposal.scope === "bookPlan") {
-        const plan = await getBookPlan(proposal.bookId);
+        let plan = await getBookPlan(proposal.bookId);
         const payload = planPayloadFromEditableValue(proposal);
         const packageContext =
           "context" in proposal.promptPackageJson
@@ -169,8 +173,20 @@ export function AiProposalPanel({
             ? (packageContext as Record<string, unknown>)
             : {};
         const planField = proposal.field as PlanFieldKey;
+        if (asNewPlanVersion && isLargePlanField(planField)) {
+          const version = await createPlanVersionFromActive({
+            bookId: proposal.bookId,
+            name: `Wariant AI: ${planFieldConfigs[planField]?.label ?? "Plan"}`,
+            description: "Utworzono z akceptowanej propozycji AI."
+          });
+          await setActivePlanVersion({
+            bookId: proposal.bookId,
+            planVersionId: version.id
+          });
+          plan = await getBookPlan(proposal.bookId);
+        }
 
-        if (isBeatDraftField(planField) && isDraftAcceptance(scopedPackageContext)) {
+        if (isDraftPlanField(planField) && isDraftAcceptance(scopedPackageContext)) {
           const targetEntityId =
             typeof scopedPackageContext.targetEntityId === "string"
               ? scopedPackageContext.targetEntityId
@@ -180,7 +196,15 @@ export function AiProposalPanel({
             return null;
           }
 
-          if (!targetEntityId || targetEntityId.startsWith("draft-beat:")) {
+          if (isSceneDraftField(planField)) {
+            throw new Error("Nie ma już otwartego formularza sceny dla tej propozycji AI.");
+          }
+
+          if (
+            !targetEntityId ||
+            targetEntityId.startsWith("draft-beat:") ||
+            targetEntityId.startsWith("draft-scene:")
+          ) {
             throw new Error(
               "Nie ma już otwartego formularza beatu dla tej propozycji AI."
             );
@@ -200,7 +224,9 @@ export function AiProposalPanel({
             moveBeatToChapter,
             saveThread: upsertPlotThread,
             saveChapter: upsertChapter,
-            saveChapterThreadRelation: upsertChapterThreadRelation
+            saveChapterThreadRelation: upsertChapterThreadRelation,
+            saveScene: upsertScene,
+            setSceneRelations
           }
         );
         return null;
@@ -292,7 +318,8 @@ export function AiProposalPanel({
         proposalInputFromValue(value, { field: proposal.field as ConceptFieldKey })
       );
     },
-    onSuccess: async (_payload, proposalId) => {
+    onSuccess: async (_payload, variables) => {
+      const proposalId = variables.proposalId;
       const proposal = useProposalStore
         .getState()
         .proposals.find((item) => item.id === proposalId);
@@ -346,9 +373,10 @@ export function AiProposalPanel({
           <ProposalQueueItem
             key={proposal.id}
             proposal={proposal}
-            accepting={acceptMutation.isPending && acceptMutation.variables === proposal.id}
+            accepting={acceptMutation.isPending && acceptMutation.variables?.proposalId === proposal.id}
             retrying={proposal.status === "queued"}
-            onAccept={() => acceptMutation.mutate(proposal.id)}
+            onAccept={() => acceptMutation.mutate({ proposalId: proposal.id })}
+            onAcceptAsPlanVersion={() => acceptMutation.mutate({ proposalId: proposal.id, asNewPlanVersion: true })}
             onClear={() => clearProposal(proposal.id)}
             onRetry={() => retryProposal(proposal.id)}
             onPreview={(src, alt) => setPreviewImage({ src, alt })}
@@ -378,6 +406,7 @@ type ProposalQueueItemProps = {
   accepting: boolean;
   retrying: boolean;
   onAccept: () => void;
+  onAcceptAsPlanVersion: () => void;
   onClear: () => void;
   onRetry: () => void;
   onPreview: (src: string, alt: string) => void;
@@ -391,6 +420,7 @@ function ProposalQueueItem({
   accepting,
   retrying,
   onAccept,
+  onAcceptAsPlanVersion,
   onClear,
   onRetry,
   onPreview,
@@ -443,6 +473,11 @@ function ProposalQueueItem({
       : structured
         ? hasSelectedEditableField(proposal)
         : proposal.editableValue.trim().length > 0;
+  const canAcceptAsPlanVersion =
+    planProposal &&
+    isLargePlanField(proposal.field as PlanFieldKey) &&
+    success &&
+    canAccept;
 
   return (
     <article className={`proposal-queue-item ${proposal.status}`}>
@@ -629,6 +664,17 @@ function ProposalQueueItem({
           <Check size={16} />
           {accepting ? "Zapisuję" : "Akceptuj"}
         </button>
+        {canAcceptAsPlanVersion ? (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={onAcceptAsPlanVersion}
+            disabled={accepting || running || queued || error || !canAccept}
+          >
+            <GitBranch size={16} />
+            Akceptuj jako wariant
+          </button>
+        ) : null}
         <button
           type="button"
           className="ghost-button"
@@ -1289,6 +1335,11 @@ function isPlanTextField(field: PlanFieldKey): boolean {
     "beatName",
     "beatRole",
     "beatDescription",
+    "sceneTitle",
+    "sceneSummary",
+    "sceneGoal",
+    "sceneConflict",
+    "sceneOutcome",
     "threadDescription",
     "threadChapterDescription"
   ].includes(field);
@@ -1305,6 +1356,7 @@ function isPlanAction(action: string): boolean {
     "generate_thread_chapter_field",
     "generate_chapter_plan",
     "generate_chapter_field",
+    "generate_scene_field",
     "suggest_chapter_relations",
     "find_plan_gaps"
   ].includes(action);
@@ -1326,8 +1378,20 @@ function isWorldAction(action: string): boolean {
   ].includes(action);
 }
 
+function isLargePlanField(field: PlanFieldKey): boolean {
+  return ["acts", "beatSheet", "plotThreads", "chapterPlan"].includes(field);
+}
+
 function isBeatDraftField(field: PlanFieldKey): boolean {
   return ["beatName", "beatRole", "beatDescription"].includes(field);
+}
+
+function isSceneDraftField(field: PlanFieldKey): boolean {
+  return ["sceneTitle", "sceneSummary", "sceneGoal", "sceneConflict", "sceneOutcome"].includes(field);
+}
+
+function isDraftPlanField(field: PlanFieldKey): boolean {
+  return isBeatDraftField(field) || isSceneDraftField(field);
 }
 
 function planPayloadTextValue(payload: unknown): string {

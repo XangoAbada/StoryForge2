@@ -86,8 +86,8 @@ type WorldSidebarItem =
       description: string;
     };
 type RelationPickerState =
-  | { target: "element"; kind: "characters" | "threads" | "chapters" | "rules" }
-  | { target: "rule"; kind: "elements" | "threads" | "chapters" };
+  | { target: "element"; kind: "characters" | "threads" | "chapters" | "scenes" | "rules" }
+  | { target: "rule"; kind: "elements" | "threads" | "chapters" | "scenes" };
 
 const newWorldElementDraftId = "new-world-element";
 const newWorldRuleDraftId = "new-world-rule";
@@ -534,6 +534,7 @@ export function WorldPage({ projectId }: WorldPageProps) {
       characterIds: elementCharacterIds(world, selectedElement.id),
       threadIds: elementThreadIds(world, selectedElement.id),
       chapterIds: elementChapterIds(world, selectedElement.id),
+      sceneIds: elementSceneIds(world, selectedElement.id),
       ruleIds: elementRuleIds(world, selectedElement.id),
       ...next
     });
@@ -550,6 +551,7 @@ export function WorldPage({ projectId }: WorldPageProps) {
       elementIds: ruleElementIds(world, selectedRule.id),
       threadIds: ruleThreadIds(world, selectedRule.id),
       chapterIds: ruleChapterIds(world, selectedRule.id),
+      sceneIds: ruleSceneIds(world, selectedRule.id),
       ...next
     });
   }
@@ -889,6 +891,14 @@ function WorldLinksPanel({ world, plan, characters, selectedElement, selectedRul
         </>
       ) : null}
 
+      {selectedElement ? (
+        <RelationBlock title="Sceny" icon={<FileText size={17} />} onAdd={() => onOpenPicker({ target: "element", kind: "scenes" })}>
+          {elementSceneIds(world, selectedElement.id).map((id) => (
+            <RelationChip key={id} label={sceneLabel(plan, id)} onRemove={() => onUpdateElement({ sceneIds: elementSceneIds(world, selectedElement.id).filter((item) => item !== id) })} />
+          ))}
+        </RelationBlock>
+      ) : null}
+
       {selectedRule ? (
         <>
           <RelationBlock title="Elementy reguły" icon={<Globe2 size={17} />} onAdd={() => onOpenPicker({ target: "rule", kind: "elements" })}>
@@ -907,6 +917,14 @@ function WorldLinksPanel({ world, plan, characters, selectedElement, selectedRul
             ))}
           </RelationBlock>
         </>
+      ) : null}
+
+      {selectedRule ? (
+        <RelationBlock title="Sceny reguły" icon={<FileText size={17} />} onAdd={() => onOpenPicker({ target: "rule", kind: "scenes" })}>
+          {ruleSceneIds(world, selectedRule.id).map((id) => (
+            <RelationChip key={id} label={sceneLabel(plan, id)} onRemove={() => onUpdateRule({ sceneIds: ruleSceneIds(world, selectedRule.id).filter((item) => item !== id) })} />
+          ))}
+        </RelationBlock>
       ) : null}
     </div>
   );
@@ -1141,7 +1159,32 @@ function applyWorldRuleValue(input: UpsertWorldRuleInput, field: WorldFieldKey, 
 }
 
 function emptyPlan(): BookPlan {
-  return { structure: null, acts: [], beats: [], threads: [], chapters: [], chapterThreads: [], chapterBeats: [] };
+  const now = new Date().toISOString();
+  const planVersion = {
+    id: "",
+    bookId: "",
+    name: "Plan główny",
+    description: "",
+    isActive: true,
+    createdAt: now,
+    updatedAt: now
+  };
+  return {
+    planVersion,
+    planVersions: [planVersion],
+    structure: null,
+    acts: [],
+    beats: [],
+    threads: [],
+    chapters: [],
+    chapterThreads: [],
+    chapterBeats: [],
+    scenes: [],
+    sceneCharacters: [],
+    sceneThreads: [],
+    sceneWorldElements: [],
+    sceneWorldRules: []
+  };
 }
 
 function emptyCharacterWorkspace(): CharacterWorkspace {
@@ -1149,7 +1192,7 @@ function emptyCharacterWorkspace(): CharacterWorkspace {
 }
 
 function emptyWorldWorkspace(): WorldWorkspace {
-  return { elements: [], rules: [], elementCharacters: [], elementThreads: [], elementChapters: [], elementRules: [], ruleThreads: [], ruleChapters: [], visualAssets: [] };
+  return { elements: [], rules: [], elementCharacters: [], elementThreads: [], elementChapters: [], elementScenes: [], elementRules: [], ruleThreads: [], ruleChapters: [], ruleScenes: [], visualAssets: [] };
 }
 
 function elementCharacterIds(world: WorldWorkspace, elementId: string): string[] {
@@ -1162,6 +1205,10 @@ function elementThreadIds(world: WorldWorkspace, elementId: string): string[] {
 
 function elementChapterIds(world: WorldWorkspace, elementId: string): string[] {
   return world.elementChapters.filter((item) => item.elementId === elementId).map((item) => item.chapterId);
+}
+
+function elementSceneIds(world: WorldWorkspace, elementId: string): string[] {
+  return world.elementScenes.filter((item) => item.elementId === elementId).map((item) => item.sceneId);
 }
 
 function elementRuleIds(world: WorldWorkspace, elementId: string): string[] {
@@ -1180,6 +1227,10 @@ function ruleChapterIds(world: WorldWorkspace, ruleId: string): string[] {
   return world.ruleChapters.filter((item) => item.ruleId === ruleId).map((item) => item.chapterId);
 }
 
+function ruleSceneIds(world: WorldWorkspace, ruleId: string): string[] {
+  return world.ruleScenes.filter((item) => item.ruleId === ruleId).map((item) => item.sceneId);
+}
+
 function pickerOptions(state: RelationPickerState, world: WorldWorkspace, plan: BookPlan, characters: CharacterWorkspace, selectedElement: WorldElement | null, selectedRule: WorldRule | null) {
   const currentIds =
     state.target === "element" && selectedElement
@@ -1189,13 +1240,17 @@ function pickerOptions(state: RelationPickerState, world: WorldWorkspace, plan: 
           ? elementThreadIds(world, selectedElement.id)
           : state.kind === "chapters"
             ? elementChapterIds(world, selectedElement.id)
-            : elementRuleIds(world, selectedElement.id)
+            : state.kind === "scenes"
+              ? elementSceneIds(world, selectedElement.id)
+              : elementRuleIds(world, selectedElement.id)
       : state.target === "rule" && selectedRule
         ? state.kind === "elements"
           ? ruleElementIds(world, selectedRule.id)
           : state.kind === "threads"
             ? ruleThreadIds(world, selectedRule.id)
-            : ruleChapterIds(world, selectedRule.id)
+            : state.kind === "chapters"
+              ? ruleChapterIds(world, selectedRule.id)
+              : ruleSceneIds(world, selectedRule.id)
         : [];
 
   const source =
@@ -1205,6 +1260,8 @@ function pickerOptions(state: RelationPickerState, world: WorldWorkspace, plan: 
         ? plan.threads.map((item) => ({ id: item.id, label: item.name, description: item.description }))
         : state.kind === "chapters"
           ? plan.chapters.map((item) => ({ id: item.id, label: chapterLabel(plan, item.id), description: item.summary }))
+          : state.kind === "scenes"
+            ? plan.scenes.map((item) => ({ id: item.id, label: sceneLabel(plan, item.id), description: item.summary }))
           : state.kind === "rules"
             ? world.rules.map((item) => ({ id: item.id, label: item.name, description: item.description }))
             : world.elements.map((item) => ({ id: item.id, label: item.name, description: item.summary }));
@@ -1228,11 +1285,11 @@ function pickerTitle(state: RelationPickerState): string {
 }
 
 function relationInputKey(kind: Extract<RelationPickerState, { target: "element" }>["kind"]) {
-  return kind === "characters" ? "characterIds" : kind === "threads" ? "threadIds" : kind === "chapters" ? "chapterIds" : "ruleIds";
+  return kind === "characters" ? "characterIds" : kind === "threads" ? "threadIds" : kind === "chapters" ? "chapterIds" : kind === "scenes" ? "sceneIds" : "ruleIds";
 }
 
 function ruleRelationInputKey(kind: Extract<RelationPickerState, { target: "rule" }>["kind"]) {
-  return kind === "elements" ? "elementIds" : kind === "threads" ? "threadIds" : "chapterIds";
+  return kind === "elements" ? "elementIds" : kind === "threads" ? "threadIds" : kind === "chapters" ? "chapterIds" : "sceneIds";
 }
 
 function toggleId(ids: string[], id: string): string[] {
@@ -1246,6 +1303,16 @@ function chapterLabel(plan: BookPlan, chapterId: string): string {
 
 function typeLabel(value: string): string {
   return worldElementTypes.find((option) => option.value === value)?.label ?? value;
+}
+
+function sceneLabel(plan: BookPlan, sceneId: string): string {
+  const scene = plan.scenes.find((item) => item.id === sceneId);
+  if (!scene) {
+    return "Scena";
+  }
+  const chapter = scene.chapterId ? plan.chapters.find((item) => item.id === scene.chapterId) : null;
+  const chapterPrefix = chapter ? `R${chapter.number}` : "Bez rozdziału";
+  return `${chapterPrefix}.${scene.orderIndex + 1} ${scene.title || "Scena bez tytułu"}`;
 }
 
 function isRuleField(field: WorldFieldKey): boolean {

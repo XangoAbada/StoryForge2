@@ -131,6 +131,26 @@ const unrelatedThread: PlotThread = {
 };
 
 const plan: BookPlan = {
+  planVersion: {
+    id: "plan-version-1",
+    bookId: "book-1",
+    name: "Plan glowny",
+    description: "",
+    isActive: true,
+    createdAt: "2026-06-05T12:00:00Z",
+    updatedAt: "2026-06-05T12:00:00Z"
+  },
+  planVersions: [
+    {
+      id: "plan-version-1",
+      bookId: "book-1",
+      name: "Plan glowny",
+      description: "",
+      isActive: true,
+      createdAt: "2026-06-05T12:00:00Z",
+      updatedAt: "2026-06-05T12:00:00Z"
+    }
+  ],
   structure: {
     id: "structure-1",
     bookId: "book-1",
@@ -160,7 +180,12 @@ const plan: BookPlan = {
   threads: [thread, unrelatedThread],
   chapters: [chapter, unrelatedChapter],
   chapterThreads: [{ chapterId: "chapter-1", threadId: "thread-1", description: "" }],
-  chapterBeats: [{ chapterId: "chapter-1", beatId: "beat-1" }]
+  chapterBeats: [{ chapterId: "chapter-1", beatId: "beat-1" }],
+  scenes: [],
+  sceneCharacters: [],
+  sceneThreads: [],
+  sceneWorldElements: [],
+  sceneWorldRules: []
 };
 
 describe("buildPlanPromptPackage", () => {

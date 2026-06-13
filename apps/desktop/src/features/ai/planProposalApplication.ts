@@ -4,11 +4,13 @@ import type {
   Chapter,
   MoveBeatToChapterInput,
   SaveStoryStructureInput,
+  SetSceneRelationsInput,
   UpsertActInput,
   UpsertBeatInput,
   UpsertChapterInput,
   UpsertChapterThreadInput,
-  UpsertPlotThreadInput
+  UpsertPlotThreadInput,
+  UpsertSceneInput
 } from "../../shared/api/types";
 import type { PlanFieldKey } from "./planPromptPackage";
 
@@ -24,6 +26,8 @@ export type ApplyPlanContext = {
   saveThread: (input: UpsertPlotThreadInput) => Promise<unknown>;
   saveChapter: (input: UpsertChapterInput) => Promise<unknown>;
   saveChapterThreadRelation: (input: UpsertChapterThreadInput) => Promise<unknown>;
+  saveScene?: (input: UpsertSceneInput) => Promise<{ id: string }>;
+  setSceneRelations?: (input: SetSceneRelationsInput) => Promise<unknown>;
 };
 
 export async function applyPlanProposalPayload(
@@ -61,6 +65,11 @@ export async function applyPlanProposalPayload(
 
   if (field === "chapterPlan") {
     await applyChapters(record, context);
+    return;
+  }
+
+  if (field === "sceneDraft") {
+    await applySceneDraft(record, scopedPackageContext, context);
     return;
   }
 
@@ -249,6 +258,53 @@ async function applyChapterRelationSuggestions(
       relationKind === "beats"
         ? uniqueOrderedIds([...currentBeatIds, ...additions])
         : currentBeatIds
+  });
+}
+
+async function applySceneDraft(
+  record: Record<string, unknown>,
+  packageContext: Record<string, unknown>,
+  context: ApplyPlanContext
+) {
+  const targetEntityId = textValue(packageContext.targetEntityId);
+  const chapter = context.plan.chapters.find((item) => item.id === targetEntityId);
+  if (!chapter || !record.scene || typeof record.scene !== "object") {
+    return;
+  }
+  if (!context.saveScene || !context.setSceneRelations) {
+    throw new Error("Brak obsługi zapisu sceny dla propozycji AI.");
+  }
+
+  const sceneRecord = record.scene as Record<string, unknown>;
+  const savedScene = await context.saveScene({
+    bookId: context.bookId,
+    chapterId: chapter.id,
+    orderIndex: context.plan.scenes.filter((scene) => scene.chapterId === chapter.id).length,
+    title: textValue(sceneRecord.title) || "Nowa scena",
+    summary: textValue(sceneRecord.summary),
+    goal: textValue(sceneRecord.goal),
+    conflict: textValue(sceneRecord.conflict),
+    outcome: textValue(sceneRecord.outcome),
+    povCharacterId: null,
+    locationId: null,
+    targetWordCount: numberValue(sceneRecord.targetWordCount, 0) || null,
+    actualWordCount: null,
+    manuscriptContent: "",
+    status: "planned"
+  });
+
+  const relationHints =
+    record.relationHints && typeof record.relationHints === "object"
+      ? (record.relationHints as Record<string, unknown>)
+      : {};
+
+  await context.setSceneRelations({
+    bookId: context.bookId,
+    sceneId: savedScene.id,
+    characterIds: [],
+    threadIds: namesToIds(context.plan.threads, relationHints.threadNamesOrIds),
+    elementIds: [],
+    ruleIds: []
   });
 }
 

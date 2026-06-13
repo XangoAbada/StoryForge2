@@ -68,6 +68,16 @@ export type StoryStructure = {
   updatedAt: string;
 };
 
+export type PlanVersion = {
+  id: string;
+  bookId: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Act = {
   id: string;
   bookId: string;
@@ -132,7 +142,50 @@ export type ChapterBeat = {
   beatId: string;
 };
 
+export type Scene = {
+  id: string;
+  bookId: string;
+  planVersionId: string;
+  chapterId: string | null;
+  orderIndex: number;
+  title: string;
+  summary: string;
+  goal: string;
+  conflict: string;
+  outcome: string;
+  povCharacterId: string | null;
+  locationId: string | null;
+  targetWordCount: number | null;
+  actualWordCount: number | null;
+  manuscriptContent: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SceneCharacter = {
+  sceneId: string;
+  characterId: string;
+};
+
+export type SceneThread = {
+  sceneId: string;
+  threadId: string;
+};
+
+export type SceneWorldElement = {
+  sceneId: string;
+  elementId: string;
+};
+
+export type SceneWorldRule = {
+  sceneId: string;
+  ruleId: string;
+};
+
 export type BookPlan = {
+  planVersion: PlanVersion;
+  planVersions: PlanVersion[];
   structure: StoryStructure | null;
   acts: Act[];
   beats: Beat[];
@@ -140,6 +193,11 @@ export type BookPlan = {
   chapters: Chapter[];
   chapterThreads: ChapterThread[];
   chapterBeats: ChapterBeat[];
+  scenes: Scene[];
+  sceneCharacters: SceneCharacter[];
+  sceneThreads: SceneThread[];
+  sceneWorldElements: SceneWorldElement[];
+  sceneWorldRules: SceneWorldRule[];
 };
 
 export type VisualAsset = {
@@ -308,9 +366,11 @@ export type WorldWorkspace = {
   elementCharacters: WorldElementCharacter[];
   elementThreads: WorldElementThread[];
   elementChapters: WorldElementChapter[];
+  elementScenes: SceneWorldElement[];
   elementRules: WorldElementRule[];
   ruleThreads: WorldRuleThread[];
   ruleChapters: WorldRuleChapter[];
+  ruleScenes: SceneWorldRule[];
   visualAssets: VisualAsset[];
 };
 
@@ -414,6 +474,7 @@ export type SetWorldElementRelationsInput = {
   characterIds: string[];
   threadIds: string[];
   chapterIds: string[];
+  sceneIds: string[];
   ruleIds: string[];
 };
 
@@ -423,6 +484,56 @@ export type SetWorldRuleRelationsInput = {
   elementIds: string[];
   threadIds: string[];
   chapterIds: string[];
+  sceneIds: string[];
+};
+
+export type CreatePlanVersionInput = {
+  bookId: string;
+  name: string;
+  description: string;
+};
+
+export type SetActivePlanVersionInput = {
+  bookId: string;
+  planVersionId: string;
+};
+
+export type DeletePlanVersionInput = {
+  bookId: string;
+  planVersionId: string;
+};
+
+export type UpsertSceneInput = {
+  id?: string;
+  bookId: string;
+  chapterId?: string | null;
+  orderIndex: number;
+  title: string;
+  summary: string;
+  goal: string;
+  conflict: string;
+  outcome: string;
+  povCharacterId?: string | null;
+  locationId?: string | null;
+  targetWordCount?: number | null;
+  actualWordCount?: number | null;
+  manuscriptContent?: string;
+  status: string;
+};
+
+export type SetSceneRelationsInput = {
+  bookId: string;
+  sceneId: string;
+  characterIds: string[];
+  threadIds: string[];
+  elementIds: string[];
+  ruleIds: string[];
+};
+
+export type ReorderScenesInput = {
+  bookId: string;
+  chapterId?: string | null;
+  sceneIds: string[];
 };
 
 export type SaveStoryStructureInput = {
@@ -563,6 +674,7 @@ export type AIAction =
   | "generate_plot_threads"
   | "generate_chapter_plan"
   | "generate_chapter_field"
+  | "generate_scene_field"
   | "generate_thread_chapter_field"
   | "suggest_chapter_relations"
   | "find_plan_gaps"

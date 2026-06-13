@@ -298,6 +298,18 @@ pub struct BookCoverResult {
 
 #[derive(Debug, Clone, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
+pub struct PlanVersion {
+    pub id: String,
+    pub book_id: String,
+    pub name: String,
+    pub description: String,
+    pub is_active: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct StoryStructure {
     pub id: String,
     pub book_id: String,
@@ -385,9 +397,62 @@ pub struct ChapterBeat {
     pub beat_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct Scene {
+    pub id: String,
+    pub book_id: String,
+    pub plan_version_id: String,
+    pub chapter_id: Option<String>,
+    pub order_index: i64,
+    pub title: String,
+    pub summary: String,
+    pub goal: String,
+    pub conflict: String,
+    pub outcome: String,
+    pub pov_character_id: Option<String>,
+    pub location_id: Option<String>,
+    pub target_word_count: Option<i64>,
+    pub actual_word_count: i64,
+    pub manuscript_content: String,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneCharacter {
+    pub scene_id: String,
+    pub character_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneThread {
+    pub scene_id: String,
+    pub thread_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneWorldElement {
+    pub scene_id: String,
+    pub element_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneWorldRule {
+    pub scene_id: String,
+    pub rule_id: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookPlan {
+    pub plan_version: PlanVersion,
+    pub plan_versions: Vec<PlanVersion>,
     pub structure: Option<StoryStructure>,
     pub acts: Vec<Act>,
     pub beats: Vec<Beat>,
@@ -395,6 +460,11 @@ pub struct BookPlan {
     pub chapters: Vec<Chapter>,
     pub chapter_threads: Vec<ChapterThread>,
     pub chapter_beats: Vec<ChapterBeat>,
+    pub scenes: Vec<Scene>,
+    pub scene_characters: Vec<SceneCharacter>,
+    pub scene_threads: Vec<SceneThread>,
+    pub scene_world_elements: Vec<SceneWorldElement>,
+    pub scene_world_rules: Vec<SceneWorldRule>,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -593,9 +663,11 @@ pub struct WorldWorkspace {
     pub element_characters: Vec<WorldElementCharacter>,
     pub element_threads: Vec<WorldElementThread>,
     pub element_chapters: Vec<WorldElementChapter>,
+    pub element_scenes: Vec<SceneWorldElement>,
     pub element_rules: Vec<WorldElementRule>,
     pub rule_threads: Vec<WorldRuleThread>,
     pub rule_chapters: Vec<WorldRuleChapter>,
+    pub rule_scenes: Vec<SceneWorldRule>,
     pub visual_assets: Vec<VisualAsset>,
 }
 
@@ -687,6 +759,67 @@ pub struct UpsertChapterThreadInput {
 #[serde(rename_all = "camelCase")]
 pub struct ReorderPlanItemsInput {
     pub item_type: String,
+    pub ordered_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePlanVersionInput {
+    pub book_id: String,
+    pub name: String,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetActivePlanVersionInput {
+    pub book_id: String,
+    pub plan_version_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeletePlanVersionInput {
+    pub book_id: String,
+    pub plan_version_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertSceneInput {
+    pub id: Option<String>,
+    pub book_id: String,
+    pub chapter_id: Option<String>,
+    pub order_index: i64,
+    pub title: String,
+    pub summary: String,
+    pub goal: String,
+    pub conflict: String,
+    pub outcome: String,
+    pub pov_character_id: Option<String>,
+    pub location_id: Option<String>,
+    pub target_word_count: Option<i64>,
+    pub actual_word_count: Option<i64>,
+    pub manuscript_content: Option<String>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetSceneRelationsInput {
+    pub book_id: String,
+    pub scene_id: String,
+    pub character_ids: Vec<String>,
+    pub thread_ids: Vec<String>,
+    pub element_ids: Vec<String>,
+    pub rule_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReorderScenesInput {
+    pub book_id: String,
+    pub chapter_id: Option<String>,
     pub ordered_ids: Vec<String>,
 }
 
@@ -804,6 +937,7 @@ pub struct SetWorldElementRelationsInput {
     pub character_ids: Vec<String>,
     pub thread_ids: Vec<String>,
     pub chapter_ids: Vec<String>,
+    pub scene_ids: Vec<String>,
     pub rule_ids: Vec<String>,
 }
 
@@ -815,6 +949,7 @@ pub struct SetWorldRuleRelationsInput {
     pub element_ids: Vec<String>,
     pub thread_ids: Vec<String>,
     pub chapter_ids: Vec<String>,
+    pub scene_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -970,38 +1105,46 @@ pub async fn get_project_details(
 }
 
 pub async fn get_book_plan_in_pool(pool: &SqlitePool, book_id: &str) -> Result<BookPlan, AppError> {
+    let plan_version = ensure_active_plan_version_in_pool(pool, book_id).await?;
+    let plan_versions = list_plan_versions_in_pool(pool, book_id).await?;
+
     let structure = sqlx::query_as::<_, StoryStructure>(
-        "SELECT * FROM story_structures WHERE book_id = ?",
+        "SELECT * FROM story_structures WHERE book_id = ? AND plan_version_id = ?",
     )
     .bind(book_id)
+    .bind(&plan_version.id)
     .fetch_optional(pool)
     .await?;
 
     let acts = sqlx::query_as::<_, Act>(
-        "SELECT * FROM acts WHERE book_id = ? ORDER BY order_index, created_at",
+        "SELECT * FROM acts WHERE book_id = ? AND plan_version_id = ? ORDER BY order_index, created_at",
     )
     .bind(book_id)
+    .bind(&plan_version.id)
     .fetch_all(pool)
     .await?;
 
     let beats = sqlx::query_as::<_, Beat>(
-        "SELECT * FROM beats WHERE book_id = ? ORDER BY order_index, created_at",
+        "SELECT * FROM beats WHERE book_id = ? AND plan_version_id = ? ORDER BY order_index, created_at",
     )
     .bind(book_id)
+    .bind(&plan_version.id)
     .fetch_all(pool)
     .await?;
 
     let threads = sqlx::query_as::<_, PlotThread>(
-        "SELECT * FROM plot_threads WHERE book_id = ? ORDER BY order_index, created_at",
+        "SELECT * FROM plot_threads WHERE book_id = ? AND plan_version_id = ? ORDER BY order_index, created_at",
     )
     .bind(book_id)
+    .bind(&plan_version.id)
     .fetch_all(pool)
     .await?;
 
     let chapters = sqlx::query_as::<_, Chapter>(
-        "SELECT * FROM chapters WHERE book_id = ? ORDER BY order_index, number, created_at",
+        "SELECT * FROM chapters WHERE book_id = ? AND plan_version_id = ? ORDER BY order_index, number, created_at",
     )
     .bind(book_id)
+    .bind(&plan_version.id)
     .fetch_all(pool)
     .await?;
 
@@ -1010,11 +1153,12 @@ pub async fn get_book_plan_in_pool(pool: &SqlitePool, book_id: &str) -> Result<B
         SELECT ct.chapter_id, ct.thread_id, ct.description
         FROM chapter_threads ct
         INNER JOIN chapters c ON c.id = ct.chapter_id
-        WHERE c.book_id = ?
+        WHERE c.book_id = ? AND c.plan_version_id = ?
         ORDER BY c.order_index
         "#,
     )
     .bind(book_id)
+    .bind(&plan_version.id)
     .fetch_all(pool)
     .await?;
 
@@ -1023,15 +1167,82 @@ pub async fn get_book_plan_in_pool(pool: &SqlitePool, book_id: &str) -> Result<B
         SELECT cb.chapter_id, cb.beat_id
         FROM chapter_beats cb
         INNER JOIN chapters c ON c.id = cb.chapter_id
-        WHERE c.book_id = ?
+        WHERE c.book_id = ? AND c.plan_version_id = ?
         ORDER BY c.order_index
         "#,
     )
     .bind(book_id)
+    .bind(&plan_version.id)
+    .fetch_all(pool)
+    .await?;
+
+    let scenes = sqlx::query_as::<_, Scene>(
+        "SELECT * FROM scenes WHERE book_id = ? AND plan_version_id = ? ORDER BY chapter_id, order_index, created_at",
+    )
+    .bind(book_id)
+    .bind(&plan_version.id)
+    .fetch_all(pool)
+    .await?;
+
+    let scene_characters = sqlx::query_as::<_, SceneCharacter>(
+        r#"
+        SELECT sc.scene_id, sc.character_id
+        FROM scene_characters sc
+        INNER JOIN scenes s ON s.id = sc.scene_id
+        WHERE s.book_id = ? AND s.plan_version_id = ?
+        ORDER BY s.order_index
+        "#,
+    )
+    .bind(book_id)
+    .bind(&plan_version.id)
+    .fetch_all(pool)
+    .await?;
+
+    let scene_threads = sqlx::query_as::<_, SceneThread>(
+        r#"
+        SELECT st.scene_id, st.thread_id
+        FROM scene_threads st
+        INNER JOIN scenes s ON s.id = st.scene_id
+        WHERE s.book_id = ? AND s.plan_version_id = ?
+        ORDER BY s.order_index
+        "#,
+    )
+    .bind(book_id)
+    .bind(&plan_version.id)
+    .fetch_all(pool)
+    .await?;
+
+    let scene_world_elements = sqlx::query_as::<_, SceneWorldElement>(
+        r#"
+        SELECT swe.scene_id, swe.element_id
+        FROM scene_world_elements swe
+        INNER JOIN scenes s ON s.id = swe.scene_id
+        WHERE s.book_id = ? AND s.plan_version_id = ?
+        ORDER BY s.order_index
+        "#,
+    )
+    .bind(book_id)
+    .bind(&plan_version.id)
+    .fetch_all(pool)
+    .await?;
+
+    let scene_world_rules = sqlx::query_as::<_, SceneWorldRule>(
+        r#"
+        SELECT swr.scene_id, swr.rule_id
+        FROM scene_world_rules swr
+        INNER JOIN scenes s ON s.id = swr.scene_id
+        WHERE s.book_id = ? AND s.plan_version_id = ?
+        ORDER BY s.order_index
+        "#,
+    )
+    .bind(book_id)
+    .bind(&plan_version.id)
     .fetch_all(pool)
     .await?;
 
     Ok(BookPlan {
+        plan_version,
+        plan_versions,
         structure,
         acts,
         beats,
@@ -1039,7 +1250,93 @@ pub async fn get_book_plan_in_pool(pool: &SqlitePool, book_id: &str) -> Result<B
         chapters,
         chapter_threads,
         chapter_beats,
+        scenes,
+        scene_characters,
+        scene_threads,
+        scene_world_elements,
+        scene_world_rules,
     })
+}
+
+pub async fn list_plan_versions_in_pool(
+    pool: &SqlitePool,
+    book_id: &str,
+) -> Result<Vec<PlanVersion>, AppError> {
+    sqlx::query_as::<_, PlanVersion>(
+        "SELECT * FROM plan_versions WHERE book_id = ? ORDER BY is_active DESC, updated_at DESC, created_at DESC",
+    )
+    .bind(book_id)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::from)
+}
+
+async fn ensure_active_plan_version_in_pool(
+    pool: &SqlitePool,
+    book_id: &str,
+) -> Result<PlanVersion, AppError> {
+    if let Some(version) = sqlx::query_as::<_, PlanVersion>(
+        "SELECT * FROM plan_versions WHERE book_id = ? AND is_active = 1 LIMIT 1",
+    )
+    .bind(book_id)
+    .fetch_optional(pool)
+    .await?
+    {
+        return Ok(version);
+    }
+
+    let now = Utc::now().to_rfc3339();
+    let id = Uuid::new_v4().to_string();
+    sqlx::query(
+        r#"
+        INSERT INTO plan_versions (id, book_id, name, description, is_active, created_at, updated_at)
+        VALUES (?, ?, 'Plan główny', '', 1, ?, ?)
+        "#,
+    )
+    .bind(&id)
+    .bind(book_id)
+    .bind(&now)
+    .bind(&now)
+    .execute(pool)
+    .await?;
+
+    sqlx::query_as::<_, PlanVersion>("SELECT * FROM plan_versions WHERE id = ?")
+        .bind(id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
+}
+
+async fn active_plan_version_id_in_tx(
+    tx: &mut Transaction<'_, Sqlite>,
+    book_id: &str,
+) -> Result<String, AppError> {
+    if let Some((id,)) = sqlx::query_as::<_, (String,)>(
+        "SELECT id FROM plan_versions WHERE book_id = ? AND is_active = 1 LIMIT 1",
+    )
+    .bind(book_id)
+    .fetch_optional(&mut **tx)
+    .await?
+    {
+        return Ok(id);
+    }
+
+    let now = Utc::now().to_rfc3339();
+    let id = Uuid::new_v4().to_string();
+    sqlx::query(
+        r#"
+        INSERT INTO plan_versions (id, book_id, name, description, is_active, created_at, updated_at)
+        VALUES (?, ?, 'Plan główny', '', 1, ?, ?)
+        "#,
+    )
+    .bind(&id)
+    .bind(book_id)
+    .bind(&now)
+    .bind(&now)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(id)
 }
 
 pub async fn save_story_structure_in_pool(
@@ -1054,13 +1351,14 @@ pub async fn save_story_structure_in_pool(
     let id = input.id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let status = input.status.unwrap_or_else(|| "draft".into());
     let mut tx = pool.begin().await?;
+    let plan_version_id = active_plan_version_id_in_tx(&mut tx, &input.book_id).await?;
 
     sqlx::query(
         r#"
         INSERT INTO story_structures
-          (id, book_id, structure_type, description, notes, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(book_id) DO UPDATE SET
+          (id, book_id, plan_version_id, structure_type, description, notes, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(plan_version_id) DO UPDATE SET
           structure_type = excluded.structure_type,
           description = excluded.description,
           notes = excluded.notes,
@@ -1070,6 +1368,7 @@ pub async fn save_story_structure_in_pool(
     )
     .bind(&id)
     .bind(&input.book_id)
+    .bind(&plan_version_id)
     .bind(input.structure_type.trim())
     .bind(input.description)
     .bind(input.notes)
@@ -1082,8 +1381,9 @@ pub async fn save_story_structure_in_pool(
     touch_project_for_book(&mut tx, &input.book_id, &now).await?;
     tx.commit().await?;
 
-    sqlx::query_as::<_, StoryStructure>("SELECT * FROM story_structures WHERE book_id = ?")
+    sqlx::query_as::<_, StoryStructure>("SELECT * FROM story_structures WHERE book_id = ? AND plan_version_id = ?")
         .bind(&input.book_id)
+        .bind(plan_version_id)
         .fetch_one(pool)
         .await
         .map_err(AppError::from)
@@ -1100,12 +1400,13 @@ pub async fn upsert_act_in_pool(
     let now = Utc::now().to_rfc3339();
     let id = input.id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let mut tx = pool.begin().await?;
+    let plan_version_id = active_plan_version_id_in_tx(&mut tx, &input.book_id).await?;
 
     sqlx::query(
         r#"
         INSERT INTO acts
-          (id, book_id, name, purpose, summary, start_percent, end_percent, order_index, color, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, book_id, plan_version_id, name, purpose, summary, start_percent, end_percent, order_index, color, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           name = excluded.name,
           purpose = excluded.purpose,
@@ -1119,6 +1420,7 @@ pub async fn upsert_act_in_pool(
     )
     .bind(&id)
     .bind(&input.book_id)
+    .bind(&plan_version_id)
     .bind(input.name)
     .bind(input.purpose)
     .bind(input.summary)
@@ -1152,12 +1454,13 @@ pub async fn upsert_beat_in_pool(
     let now = Utc::now().to_rfc3339();
     let id = input.id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let mut tx = pool.begin().await?;
+    let plan_version_id = active_plan_version_id_in_tx(&mut tx, &input.book_id).await?;
 
     sqlx::query(
         r#"
         INSERT INTO beats
-          (id, book_id, name, description, role, order_index, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          (id, book_id, plan_version_id, name, description, role, order_index, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           name = excluded.name,
           description = excluded.description,
@@ -1168,6 +1471,7 @@ pub async fn upsert_beat_in_pool(
     )
     .bind(&id)
     .bind(&input.book_id)
+    .bind(&plan_version_id)
     .bind(input.name)
     .bind(input.description)
     .bind(input.role)
@@ -1193,11 +1497,13 @@ pub async fn move_beat_to_chapter_in_pool(
 ) -> Result<(), AppError> {
     let now = Utc::now().to_rfc3339();
     let mut tx = pool.begin().await?;
+    let plan_version_id = active_plan_version_id_in_tx(&mut tx, &input.book_id).await?;
 
     let beat_exists: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM beats WHERE id = ? AND book_id = ?")
+        sqlx::query_as("SELECT COUNT(*) FROM beats WHERE id = ? AND book_id = ? AND plan_version_id = ?")
             .bind(&input.beat_id)
             .bind(&input.book_id)
+            .bind(&plan_version_id)
             .fetch_one(&mut *tx)
             .await?;
     if beat_exists.0 == 0 {
@@ -1206,9 +1512,10 @@ pub async fn move_beat_to_chapter_in_pool(
 
     if let Some(chapter_id) = &input.chapter_id {
         let chapter_exists: (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM chapters WHERE id = ? AND book_id = ?")
+            sqlx::query_as("SELECT COUNT(*) FROM chapters WHERE id = ? AND book_id = ? AND plan_version_id = ?")
                 .bind(chapter_id)
                 .bind(&input.book_id)
+                .bind(&plan_version_id)
                 .fetch_one(&mut *tx)
                 .await?;
         if chapter_exists.0 == 0 {
@@ -1252,12 +1559,13 @@ pub async fn upsert_plot_thread_in_pool(
     let now = Utc::now().to_rfc3339();
     let id = input.id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let mut tx = pool.begin().await?;
+    let plan_version_id = active_plan_version_id_in_tx(&mut tx, &input.book_id).await?;
 
     sqlx::query(
         r#"
         INSERT INTO plot_threads
-          (id, book_id, name, description, color, status, order_index, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, book_id, plan_version_id, name, description, color, status, order_index, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           name = excluded.name,
           description = excluded.description,
@@ -1269,6 +1577,7 @@ pub async fn upsert_plot_thread_in_pool(
     )
     .bind(&id)
     .bind(&input.book_id)
+    .bind(&plan_version_id)
     .bind(input.name)
     .bind(input.description)
     .bind(input.color)
@@ -1300,12 +1609,13 @@ pub async fn upsert_chapter_in_pool(
     let now = Utc::now().to_rfc3339();
     let id = input.id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let mut tx = pool.begin().await?;
+    let plan_version_id = active_plan_version_id_in_tx(&mut tx, &input.book_id).await?;
 
     sqlx::query(
         r#"
         INSERT INTO chapters
-          (id, book_id, act_id, number, working_title, summary, purpose, conflict, turning_point, target_word_count, order_index, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, book_id, plan_version_id, act_id, number, working_title, summary, purpose, conflict, turning_point, target_word_count, order_index, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           act_id = excluded.act_id,
           number = excluded.number,
@@ -1321,6 +1631,7 @@ pub async fn upsert_chapter_in_pool(
     )
     .bind(&id)
     .bind(&input.book_id)
+    .bind(&plan_version_id)
     .bind(input.act_id)
     .bind(input.number)
     .bind(input.working_title)
@@ -1397,11 +1708,13 @@ pub async fn upsert_chapter_thread_relation_in_pool(
 ) -> Result<(), AppError> {
     let now = Utc::now().to_rfc3339();
     let mut tx = pool.begin().await?;
+    let plan_version_id = active_plan_version_id_in_tx(&mut tx, &input.book_id).await?;
 
     let chapter_exists: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM chapters WHERE id = ? AND book_id = ?")
+        sqlx::query_as("SELECT COUNT(*) FROM chapters WHERE id = ? AND book_id = ? AND plan_version_id = ?")
             .bind(&input.chapter_id)
             .bind(&input.book_id)
+            .bind(&plan_version_id)
             .fetch_one(&mut *tx)
             .await?;
     if chapter_exists.0 == 0 {
@@ -1409,9 +1722,10 @@ pub async fn upsert_chapter_thread_relation_in_pool(
     }
 
     let thread_exists: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM plot_threads WHERE id = ? AND book_id = ?")
+        sqlx::query_as("SELECT COUNT(*) FROM plot_threads WHERE id = ? AND book_id = ? AND plan_version_id = ?")
             .bind(&input.thread_id)
             .bind(&input.book_id)
+            .bind(&plan_version_id)
             .fetch_one(&mut *tx)
             .await?;
     if thread_exists.0 == 0 {
@@ -1431,6 +1745,566 @@ pub async fn upsert_chapter_thread_relation_in_pool(
     .bind(input.description)
     .execute(&mut *tx)
     .await?;
+
+    touch_project_for_book(&mut tx, &input.book_id, &now).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+pub async fn create_plan_version_from_active_in_pool(
+    pool: &SqlitePool,
+    input: CreatePlanVersionInput,
+) -> Result<PlanVersion, AppError> {
+    if input.name.trim().is_empty() {
+        return Err(AppError::Process("Nazwa wariantu planu nie moze byc pusta.".into()));
+    }
+
+    let active = ensure_active_plan_version_in_pool(pool, &input.book_id).await?;
+    let now = Utc::now().to_rfc3339();
+    let new_version_id = Uuid::new_v4().to_string();
+    let mut tx = pool.begin().await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO plan_versions (id, book_id, name, description, is_active, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 0, ?, ?)
+        "#,
+    )
+    .bind(&new_version_id)
+    .bind(&input.book_id)
+    .bind(input.name.trim())
+    .bind(input.description.unwrap_or_default())
+    .bind(&now)
+    .bind(&now)
+    .execute(&mut *tx)
+    .await?;
+
+    let mut act_ids: Vec<(String, String)> = Vec::new();
+    let acts = sqlx::query_as::<_, Act>(
+        "SELECT * FROM acts WHERE book_id = ? AND plan_version_id = ? ORDER BY order_index, created_at",
+    )
+    .bind(&input.book_id)
+    .bind(&active.id)
+    .fetch_all(&mut *tx)
+    .await?;
+    for act in acts {
+        let new_id = Uuid::new_v4().to_string();
+        sqlx::query(
+            r#"
+            INSERT INTO acts
+              (id, book_id, plan_version_id, name, purpose, summary, start_percent, end_percent, order_index, color, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&new_id)
+        .bind(&input.book_id)
+        .bind(&new_version_id)
+        .bind(act.name)
+        .bind(act.purpose)
+        .bind(act.summary)
+        .bind(act.start_percent)
+        .bind(act.end_percent)
+        .bind(act.order_index)
+        .bind(act.color)
+        .bind(&now)
+        .bind(&now)
+        .execute(&mut *tx)
+        .await?;
+        act_ids.push((act.id, new_id));
+    }
+
+    let mut thread_ids: Vec<(String, String)> = Vec::new();
+    let threads = sqlx::query_as::<_, PlotThread>(
+        "SELECT * FROM plot_threads WHERE book_id = ? AND plan_version_id = ? ORDER BY order_index, created_at",
+    )
+    .bind(&input.book_id)
+    .bind(&active.id)
+    .fetch_all(&mut *tx)
+    .await?;
+    for thread in threads {
+        let new_id = Uuid::new_v4().to_string();
+        sqlx::query(
+            r#"
+            INSERT INTO plot_threads
+              (id, book_id, plan_version_id, name, description, color, status, order_index, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&new_id)
+        .bind(&input.book_id)
+        .bind(&new_version_id)
+        .bind(thread.name)
+        .bind(thread.description)
+        .bind(thread.color)
+        .bind(thread.status)
+        .bind(thread.order_index)
+        .bind(&now)
+        .bind(&now)
+        .execute(&mut *tx)
+        .await?;
+        thread_ids.push((thread.id, new_id));
+    }
+
+    let mut beat_ids: Vec<(String, String)> = Vec::new();
+    let beats = sqlx::query_as::<_, Beat>(
+        "SELECT * FROM beats WHERE book_id = ? AND plan_version_id = ? ORDER BY order_index, created_at",
+    )
+    .bind(&input.book_id)
+    .bind(&active.id)
+    .fetch_all(&mut *tx)
+    .await?;
+    for beat in beats {
+        let new_id = Uuid::new_v4().to_string();
+        sqlx::query(
+            r#"
+            INSERT INTO beats
+              (id, book_id, plan_version_id, name, description, role, order_index, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&new_id)
+        .bind(&input.book_id)
+        .bind(&new_version_id)
+        .bind(beat.name)
+        .bind(beat.description)
+        .bind(beat.role)
+        .bind(beat.order_index)
+        .bind(&now)
+        .bind(&now)
+        .execute(&mut *tx)
+        .await?;
+        beat_ids.push((beat.id, new_id));
+    }
+
+    let structure = sqlx::query_as::<_, StoryStructure>(
+        "SELECT * FROM story_structures WHERE book_id = ? AND plan_version_id = ?",
+    )
+    .bind(&input.book_id)
+    .bind(&active.id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    if let Some(structure) = structure {
+        sqlx::query(
+            r#"
+            INSERT INTO story_structures
+              (id, book_id, plan_version_id, structure_type, description, notes, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(Uuid::new_v4().to_string())
+        .bind(&input.book_id)
+        .bind(&new_version_id)
+        .bind(structure.structure_type)
+        .bind(structure.description)
+        .bind(structure.notes)
+        .bind(structure.status)
+        .bind(&now)
+        .bind(&now)
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    let mut chapter_ids: Vec<(String, String)> = Vec::new();
+    let chapters = sqlx::query_as::<_, Chapter>(
+        "SELECT * FROM chapters WHERE book_id = ? AND plan_version_id = ? ORDER BY order_index, number, created_at",
+    )
+    .bind(&input.book_id)
+    .bind(&active.id)
+    .fetch_all(&mut *tx)
+    .await?;
+    for chapter in chapters {
+        let new_id = Uuid::new_v4().to_string();
+        let mapped_act_id = chapter
+            .act_id
+            .as_ref()
+            .and_then(|id| map_id(&act_ids, id));
+        sqlx::query(
+            r#"
+            INSERT INTO chapters
+              (id, book_id, plan_version_id, act_id, number, working_title, summary, purpose, conflict, turning_point, target_word_count, order_index, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&new_id)
+        .bind(&input.book_id)
+        .bind(&new_version_id)
+        .bind(mapped_act_id)
+        .bind(chapter.number)
+        .bind(chapter.working_title)
+        .bind(chapter.summary)
+        .bind(chapter.purpose)
+        .bind(chapter.conflict)
+        .bind(chapter.turning_point)
+        .bind(chapter.target_word_count)
+        .bind(chapter.order_index)
+        .bind(&now)
+        .bind(&now)
+        .execute(&mut *tx)
+        .await?;
+        chapter_ids.push((chapter.id, new_id));
+    }
+
+    copy_mapped_chapter_relations(&mut tx, &chapter_ids, &thread_ids, &beat_ids).await?;
+
+    let mut scene_ids: Vec<(String, String)> = Vec::new();
+    let scenes = sqlx::query_as::<_, Scene>(
+        "SELECT * FROM scenes WHERE book_id = ? AND plan_version_id = ? ORDER BY chapter_id, order_index",
+    )
+    .bind(&input.book_id)
+    .bind(&active.id)
+    .fetch_all(&mut *tx)
+    .await?;
+    for scene in scenes {
+        let mapped_chapter_id = scene
+            .chapter_id
+            .as_ref()
+            .and_then(|id| map_id(&chapter_ids, id));
+        let new_id = Uuid::new_v4().to_string();
+        sqlx::query(
+            r#"
+            INSERT INTO scenes
+              (id, book_id, plan_version_id, chapter_id, order_index, title, summary, goal, conflict, outcome, pov_character_id, location_id, target_word_count, actual_word_count, manuscript_content, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&new_id)
+        .bind(&input.book_id)
+        .bind(&new_version_id)
+        .bind(mapped_chapter_id)
+        .bind(scene.order_index)
+        .bind(scene.title)
+        .bind(scene.summary)
+        .bind(scene.goal)
+        .bind(scene.conflict)
+        .bind(scene.outcome)
+        .bind(scene.pov_character_id)
+        .bind(scene.location_id)
+        .bind(scene.target_word_count)
+        .bind(scene.actual_word_count)
+        .bind(scene.manuscript_content)
+        .bind(scene.status)
+        .bind(&now)
+        .bind(&now)
+        .execute(&mut *tx)
+        .await?;
+        scene_ids.push((scene.id, new_id));
+    }
+    copy_mapped_scene_relations(&mut tx, &scene_ids, &thread_ids).await?;
+
+    touch_project_for_book(&mut tx, &input.book_id, &now).await?;
+    tx.commit().await?;
+
+    sqlx::query_as::<_, PlanVersion>("SELECT * FROM plan_versions WHERE id = ?")
+        .bind(new_version_id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
+}
+
+pub async fn set_active_plan_version_in_pool(
+    pool: &SqlitePool,
+    input: SetActivePlanVersionInput,
+) -> Result<PlanVersion, AppError> {
+    let now = Utc::now().to_rfc3339();
+    let mut tx = pool.begin().await?;
+    let exists: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM plan_versions WHERE id = ? AND book_id = ?",
+    )
+    .bind(&input.plan_version_id)
+    .bind(&input.book_id)
+    .fetch_one(&mut *tx)
+    .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono wariantu planu.".into()));
+    }
+
+    sqlx::query("UPDATE plan_versions SET is_active = 0, updated_at = ? WHERE book_id = ?")
+        .bind(&now)
+        .bind(&input.book_id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("UPDATE plan_versions SET is_active = 1, updated_at = ? WHERE id = ?")
+        .bind(&now)
+        .bind(&input.plan_version_id)
+        .execute(&mut *tx)
+        .await?;
+    touch_project_for_book(&mut tx, &input.book_id, &now).await?;
+    tx.commit().await?;
+
+    sqlx::query_as::<_, PlanVersion>("SELECT * FROM plan_versions WHERE id = ?")
+        .bind(input.plan_version_id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
+}
+
+pub async fn delete_plan_version_in_pool(
+    pool: &SqlitePool,
+    input: DeletePlanVersionInput,
+) -> Result<(), AppError> {
+    let now = Utc::now().to_rfc3339();
+    let mut tx = pool.begin().await?;
+    let version = sqlx::query_as::<_, PlanVersion>(
+        "SELECT * FROM plan_versions WHERE id = ? AND book_id = ?",
+    )
+    .bind(&input.plan_version_id)
+    .bind(&input.book_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some(version) = version else {
+        return Err(AppError::Process("Nie znaleziono wariantu planu.".into()));
+    };
+    if version.is_active != 0 {
+        return Err(AppError::Process("Nie można usunąć aktywnego wariantu planu.".into()));
+    }
+
+    let version_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM plan_versions WHERE book_id = ?",
+    )
+    .bind(&input.book_id)
+    .fetch_one(&mut *tx)
+    .await?;
+    if version_count.0 <= 1 {
+        return Err(AppError::Process("Nie można usunąć ostatniego wariantu planu.".into()));
+    }
+
+    sqlx::query(
+        "DELETE FROM chapter_threads WHERE chapter_id IN (SELECT id FROM chapters WHERE plan_version_id = ?)",
+    )
+    .bind(&input.plan_version_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        "DELETE FROM chapter_beats WHERE chapter_id IN (SELECT id FROM chapters WHERE plan_version_id = ?)",
+    )
+    .bind(&input.plan_version_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        "DELETE FROM scene_characters WHERE scene_id IN (SELECT id FROM scenes WHERE plan_version_id = ?)",
+    )
+    .bind(&input.plan_version_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        "DELETE FROM scene_threads WHERE scene_id IN (SELECT id FROM scenes WHERE plan_version_id = ?)",
+    )
+    .bind(&input.plan_version_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        "DELETE FROM scene_world_elements WHERE scene_id IN (SELECT id FROM scenes WHERE plan_version_id = ?)",
+    )
+    .bind(&input.plan_version_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        "DELETE FROM scene_world_rules WHERE scene_id IN (SELECT id FROM scenes WHERE plan_version_id = ?)",
+    )
+    .bind(&input.plan_version_id)
+    .execute(&mut *tx)
+    .await?;
+    for table in [
+        "story_structures",
+        "scenes",
+        "chapters",
+        "acts",
+        "beats",
+        "plot_threads",
+    ] {
+        sqlx::query(&format!("DELETE FROM {table} WHERE plan_version_id = ?"))
+            .bind(&input.plan_version_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+    sqlx::query("DELETE FROM plan_versions WHERE id = ? AND book_id = ?")
+        .bind(&input.plan_version_id)
+        .bind(&input.book_id)
+        .execute(&mut *tx)
+        .await?;
+    touch_project_for_book(&mut tx, &input.book_id, &now).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+pub async fn upsert_scene_in_pool(
+    pool: &SqlitePool,
+    input: UpsertSceneInput,
+) -> Result<Scene, AppError> {
+    if input.title.trim().is_empty() {
+        return Err(AppError::Process("Tytuł sceny nie może być pusty.".into()));
+    }
+
+    let now = Utc::now().to_rfc3339();
+    let id = input.id.unwrap_or_else(|| Uuid::new_v4().to_string());
+    let mut tx = pool.begin().await?;
+    let plan_version_id = active_plan_version_id_in_tx(&mut tx, &input.book_id).await?;
+    validate_optional_chapter_for_plan(&mut tx, &input.chapter_id, &input.book_id, &plan_version_id).await?;
+
+    if let Some(character_id) = &input.pov_character_id {
+        validate_character_for_book(&mut tx, character_id, &input.book_id).await?;
+    }
+    if let Some(location_id) = &input.location_id {
+        validate_world_element_for_book(&mut tx, location_id, &input.book_id).await?;
+    }
+
+    sqlx::query(
+        r#"
+        INSERT INTO scenes
+          (id, book_id, plan_version_id, chapter_id, order_index, title, summary, goal, conflict, outcome, pov_character_id, location_id, target_word_count, actual_word_count, manuscript_content, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          chapter_id = excluded.chapter_id,
+          order_index = excluded.order_index,
+          title = excluded.title,
+          summary = excluded.summary,
+          goal = excluded.goal,
+          conflict = excluded.conflict,
+          outcome = excluded.outcome,
+          pov_character_id = excluded.pov_character_id,
+          location_id = excluded.location_id,
+          target_word_count = excluded.target_word_count,
+          actual_word_count = excluded.actual_word_count,
+          manuscript_content = excluded.manuscript_content,
+          status = excluded.status,
+          updated_at = excluded.updated_at
+        "#,
+    )
+    .bind(&id)
+    .bind(&input.book_id)
+    .bind(&plan_version_id)
+    .bind(input.chapter_id)
+    .bind(input.order_index)
+    .bind(input.title)
+    .bind(input.summary)
+    .bind(input.goal)
+    .bind(input.conflict)
+    .bind(input.outcome)
+    .bind(input.pov_character_id)
+    .bind(input.location_id)
+    .bind(input.target_word_count)
+    .bind(input.actual_word_count.unwrap_or(0))
+    .bind(input.manuscript_content.unwrap_or_default())
+    .bind(input.status)
+    .bind(&now)
+    .bind(&now)
+    .execute(&mut *tx)
+    .await?;
+
+    touch_project_for_book(&mut tx, &input.book_id, &now).await?;
+    tx.commit().await?;
+
+    sqlx::query_as::<_, Scene>("SELECT * FROM scenes WHERE id = ?")
+        .bind(id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
+}
+
+pub async fn delete_scene_in_pool(pool: &SqlitePool, id: &str) -> Result<(), AppError> {
+    sqlx::query("DELETE FROM scenes WHERE id = ?").bind(id).execute(pool).await?;
+    Ok(())
+}
+
+pub async fn reorder_scenes_in_pool(
+    pool: &SqlitePool,
+    input: ReorderScenesInput,
+) -> Result<(), AppError> {
+    let now = Utc::now().to_rfc3339();
+    let mut tx = pool.begin().await?;
+    let plan_version_id = active_plan_version_id_in_tx(&mut tx, &input.book_id).await?;
+    validate_optional_chapter_for_plan(&mut tx, &input.chapter_id, &input.book_id, &plan_version_id).await?;
+    for (index, id) in input.ordered_ids.iter().enumerate() {
+        if let Some(chapter_id) = &input.chapter_id {
+            sqlx::query(
+                "UPDATE scenes SET order_index = ?, updated_at = ? WHERE id = ? AND book_id = ? AND plan_version_id = ? AND chapter_id = ?",
+            )
+            .bind(index as i64)
+            .bind(&now)
+            .bind(id)
+            .bind(&input.book_id)
+            .bind(&plan_version_id)
+            .bind(chapter_id)
+            .execute(&mut *tx)
+            .await?;
+        } else {
+            sqlx::query(
+                "UPDATE scenes SET order_index = ?, updated_at = ? WHERE id = ? AND book_id = ? AND plan_version_id = ? AND chapter_id IS NULL",
+            )
+            .bind(index as i64)
+            .bind(&now)
+            .bind(id)
+            .bind(&input.book_id)
+            .bind(&plan_version_id)
+            .execute(&mut *tx)
+            .await?;
+        }
+    }
+    touch_project_for_book(&mut tx, &input.book_id, &now).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+pub async fn set_scene_relations_in_pool(
+    pool: &SqlitePool,
+    input: SetSceneRelationsInput,
+) -> Result<(), AppError> {
+    let now = Utc::now().to_rfc3339();
+    let mut tx = pool.begin().await?;
+    let plan_version_id = active_plan_version_id_in_tx(&mut tx, &input.book_id).await?;
+    validate_scene_for_plan(&mut tx, &input.scene_id, &input.book_id, &plan_version_id).await?;
+
+    sqlx::query("DELETE FROM scene_characters WHERE scene_id = ?")
+        .bind(&input.scene_id)
+        .execute(&mut *tx)
+        .await?;
+    for character_id in unique_ids(input.character_ids) {
+        validate_character_for_book(&mut tx, &character_id, &input.book_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO scene_characters (scene_id, character_id) VALUES (?, ?)")
+            .bind(&input.scene_id)
+            .bind(character_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    sqlx::query("DELETE FROM scene_threads WHERE scene_id = ?")
+        .bind(&input.scene_id)
+        .execute(&mut *tx)
+        .await?;
+    for thread_id in unique_ids(input.thread_ids) {
+        validate_thread_for_plan(&mut tx, &thread_id, &input.book_id, &plan_version_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO scene_threads (scene_id, thread_id) VALUES (?, ?)")
+            .bind(&input.scene_id)
+            .bind(thread_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    sqlx::query("DELETE FROM scene_world_elements WHERE scene_id = ?")
+        .bind(&input.scene_id)
+        .execute(&mut *tx)
+        .await?;
+    for element_id in unique_ids(input.element_ids) {
+        validate_world_element_for_book(&mut tx, &element_id, &input.book_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO scene_world_elements (scene_id, element_id) VALUES (?, ?)")
+            .bind(&input.scene_id)
+            .bind(element_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    sqlx::query("DELETE FROM scene_world_rules WHERE scene_id = ?")
+        .bind(&input.scene_id)
+        .execute(&mut *tx)
+        .await?;
+    for rule_id in unique_ids(input.rule_ids) {
+        validate_world_rule_for_book(&mut tx, &rule_id, &input.book_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO scene_world_rules (scene_id, rule_id) VALUES (?, ?)")
+            .bind(&input.scene_id)
+            .bind(rule_id)
+            .execute(&mut *tx)
+            .await?;
+    }
 
     touch_project_for_book(&mut tx, &input.book_id, &now).await?;
     tx.commit().await?;
@@ -1493,6 +2367,268 @@ fn plan_table_for_item_type(item_type: &str) -> Result<&'static str, AppError> {
         "chapter" | "chapters" => Ok("chapters"),
         _ => Err(AppError::Process("Nieznany typ elementu planu.".into())),
     }
+}
+
+fn map_id(map: &[(String, String)], old_id: &str) -> Option<String> {
+    map.iter()
+        .find(|(source_id, _)| source_id == old_id)
+        .map(|(_, target_id)| target_id.clone())
+}
+
+async fn copy_mapped_chapter_relations(
+    tx: &mut Transaction<'_, Sqlite>,
+    chapter_ids: &[(String, String)],
+    thread_ids: &[(String, String)],
+    beat_ids: &[(String, String)],
+) -> Result<(), AppError> {
+    for (old_chapter_id, new_chapter_id) in chapter_ids {
+        let chapter_threads = sqlx::query_as::<_, ChapterThread>(
+            "SELECT chapter_id, thread_id, description FROM chapter_threads WHERE chapter_id = ?",
+        )
+        .bind(old_chapter_id)
+        .fetch_all(&mut **tx)
+        .await?;
+        for relation in chapter_threads {
+            if let Some(new_thread_id) = map_id(thread_ids, &relation.thread_id) {
+                sqlx::query(
+                    "INSERT OR IGNORE INTO chapter_threads (chapter_id, thread_id, description) VALUES (?, ?, ?)",
+                )
+                .bind(new_chapter_id)
+                .bind(new_thread_id)
+                .bind(relation.description)
+                .execute(&mut **tx)
+                .await?;
+            }
+        }
+
+        let chapter_beats = sqlx::query_as::<_, ChapterBeat>(
+            "SELECT chapter_id, beat_id FROM chapter_beats WHERE chapter_id = ?",
+        )
+        .bind(old_chapter_id)
+        .fetch_all(&mut **tx)
+        .await?;
+        for relation in chapter_beats {
+            if let Some(new_beat_id) = map_id(beat_ids, &relation.beat_id) {
+                sqlx::query(
+                    "INSERT OR IGNORE INTO chapter_beats (chapter_id, beat_id) VALUES (?, ?)",
+                )
+                .bind(new_chapter_id)
+                .bind(new_beat_id)
+                .execute(&mut **tx)
+                .await?;
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn copy_mapped_scene_relations(
+    tx: &mut Transaction<'_, Sqlite>,
+    scene_ids: &[(String, String)],
+    thread_ids: &[(String, String)],
+) -> Result<(), AppError> {
+    for (old_scene_id, new_scene_id) in scene_ids {
+        let characters = sqlx::query_as::<_, SceneCharacter>(
+            "SELECT scene_id, character_id FROM scene_characters WHERE scene_id = ?",
+        )
+        .bind(old_scene_id)
+        .fetch_all(&mut **tx)
+        .await?;
+        for relation in characters {
+            sqlx::query("INSERT OR IGNORE INTO scene_characters (scene_id, character_id) VALUES (?, ?)")
+                .bind(new_scene_id)
+                .bind(relation.character_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+
+        let threads = sqlx::query_as::<_, SceneThread>(
+            "SELECT scene_id, thread_id FROM scene_threads WHERE scene_id = ?",
+        )
+        .bind(old_scene_id)
+        .fetch_all(&mut **tx)
+        .await?;
+        for relation in threads {
+            if let Some(new_thread_id) = map_id(thread_ids, &relation.thread_id) {
+                sqlx::query("INSERT OR IGNORE INTO scene_threads (scene_id, thread_id) VALUES (?, ?)")
+                    .bind(new_scene_id)
+                    .bind(new_thread_id)
+                    .execute(&mut **tx)
+                    .await?;
+            }
+        }
+
+        let elements = sqlx::query_as::<_, SceneWorldElement>(
+            "SELECT scene_id, element_id FROM scene_world_elements WHERE scene_id = ?",
+        )
+        .bind(old_scene_id)
+        .fetch_all(&mut **tx)
+        .await?;
+        for relation in elements {
+            sqlx::query("INSERT OR IGNORE INTO scene_world_elements (scene_id, element_id) VALUES (?, ?)")
+                .bind(new_scene_id)
+                .bind(relation.element_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+
+        let rules = sqlx::query_as::<_, SceneWorldRule>(
+            "SELECT scene_id, rule_id FROM scene_world_rules WHERE scene_id = ?",
+        )
+        .bind(old_scene_id)
+        .fetch_all(&mut **tx)
+        .await?;
+        for relation in rules {
+            sqlx::query("INSERT OR IGNORE INTO scene_world_rules (scene_id, rule_id) VALUES (?, ?)")
+                .bind(new_scene_id)
+                .bind(relation.rule_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+async fn validate_chapter_for_plan(
+    tx: &mut Transaction<'_, Sqlite>,
+    chapter_id: &str,
+    book_id: &str,
+    plan_version_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM chapters WHERE id = ? AND book_id = ? AND plan_version_id = ?",
+    )
+    .bind(chapter_id)
+    .bind(book_id)
+    .bind(plan_version_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono rozdziału w aktywnym wariancie planu.".into()));
+    }
+    Ok(())
+}
+
+async fn validate_optional_chapter_for_plan(
+    tx: &mut Transaction<'_, Sqlite>,
+    chapter_id: &Option<String>,
+    book_id: &str,
+    plan_version_id: &str,
+) -> Result<(), AppError> {
+    if let Some(chapter_id) = chapter_id {
+        validate_chapter_for_plan(tx, chapter_id, book_id, plan_version_id).await?;
+    }
+
+    Ok(())
+}
+
+async fn validate_thread_for_plan(
+    tx: &mut Transaction<'_, Sqlite>,
+    thread_id: &str,
+    book_id: &str,
+    plan_version_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM plot_threads WHERE id = ? AND book_id = ? AND plan_version_id = ?",
+    )
+    .bind(thread_id)
+    .bind(book_id)
+    .bind(plan_version_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono wątku w aktywnym wariancie planu.".into()));
+    }
+    Ok(())
+}
+
+async fn validate_scene_for_plan(
+    tx: &mut Transaction<'_, Sqlite>,
+    scene_id: &str,
+    book_id: &str,
+    plan_version_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM scenes WHERE id = ? AND book_id = ? AND plan_version_id = ?",
+    )
+    .bind(scene_id)
+    .bind(book_id)
+    .bind(plan_version_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono sceny w aktywnym wariancie planu.".into()));
+    }
+    Ok(())
+}
+
+async fn validate_character_for_book(
+    tx: &mut Transaction<'_, Sqlite>,
+    character_id: &str,
+    book_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*)
+        FROM characters c
+        JOIN books b ON b.project_id = c.project_id
+        WHERE c.id = ? AND b.id = ?
+        "#,
+    )
+    .bind(character_id)
+    .bind(book_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono postaci dla tej książki.".into()));
+    }
+    Ok(())
+}
+
+async fn validate_world_element_for_book(
+    tx: &mut Transaction<'_, Sqlite>,
+    element_id: &str,
+    book_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*)
+        FROM world_elements e
+        JOIN books b ON b.project_id = e.project_id
+        WHERE e.id = ? AND b.id = ?
+        "#,
+    )
+    .bind(element_id)
+    .bind(book_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono elementu świata dla tej książki.".into()));
+    }
+    Ok(())
+}
+
+async fn validate_world_rule_for_book(
+    tx: &mut Transaction<'_, Sqlite>,
+    rule_id: &str,
+    book_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*)
+        FROM world_rules r
+        JOIN books b ON b.project_id = r.project_id
+        WHERE r.id = ? AND b.id = ?
+        "#,
+    )
+    .bind(rule_id)
+    .bind(book_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono reguły świata dla tej książki.".into()));
+    }
+    Ok(())
 }
 
 async fn touch_project_for_book(
@@ -1663,6 +2799,19 @@ pub async fn get_world_workspace_in_pool(
     .fetch_all(pool)
     .await?;
 
+    let element_scenes = sqlx::query_as::<_, SceneWorldElement>(
+        r#"
+        SELECT swe.*
+        FROM scene_world_elements swe
+        JOIN world_elements e ON e.id = swe.element_id
+        WHERE e.project_id = ?
+        ORDER BY swe.element_id, swe.scene_id
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
     let element_rules = sqlx::query_as::<_, WorldElementRule>(
         r#"
         SELECT er.*
@@ -1702,6 +2851,19 @@ pub async fn get_world_workspace_in_pool(
     .fetch_all(pool)
     .await?;
 
+    let rule_scenes = sqlx::query_as::<_, SceneWorldRule>(
+        r#"
+        SELECT swr.*
+        FROM scene_world_rules swr
+        JOIN world_rules r ON r.id = swr.rule_id
+        WHERE r.project_id = ?
+        ORDER BY swr.rule_id, swr.scene_id
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
     let visual_assets = sqlx::query_as::<_, VisualAsset>(
         "SELECT * FROM visual_assets WHERE project_id = ? AND related_type = 'world_element' ORDER BY created_at",
     )
@@ -1715,9 +2877,11 @@ pub async fn get_world_workspace_in_pool(
         element_characters,
         element_threads,
         element_chapters,
+        element_scenes,
         element_rules,
         rule_threads,
         rule_chapters,
+        rule_scenes,
         visual_assets,
     })
 }
@@ -2203,6 +3367,19 @@ pub async fn set_world_element_relations_in_pool(
             .await?;
     }
 
+    sqlx::query("DELETE FROM scene_world_elements WHERE element_id = ?")
+        .bind(&input.element_id)
+        .execute(&mut *tx)
+        .await?;
+    for scene_id in unique_ids(input.scene_ids) {
+        validate_scene_in_project(&mut tx, &scene_id, &input.project_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO scene_world_elements (scene_id, element_id) VALUES (?, ?)")
+            .bind(scene_id)
+            .bind(&input.element_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
     sqlx::query("DELETE FROM world_element_rules WHERE element_id = ?")
         .bind(&input.element_id)
         .execute(&mut *tx)
@@ -2264,6 +3441,19 @@ pub async fn set_world_rule_relations_in_pool(
         sqlx::query("INSERT OR IGNORE INTO world_rule_chapters (rule_id, chapter_id) VALUES (?, ?)")
             .bind(&input.rule_id)
             .bind(chapter_id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    sqlx::query("DELETE FROM scene_world_rules WHERE rule_id = ?")
+        .bind(&input.rule_id)
+        .execute(&mut *tx)
+        .await?;
+    for scene_id in unique_ids(input.scene_ids) {
+        validate_scene_in_project(&mut tx, &scene_id, &input.project_id).await?;
+        sqlx::query("INSERT OR IGNORE INTO scene_world_rules (scene_id, rule_id) VALUES (?, ?)")
+            .bind(scene_id)
+            .bind(&input.rule_id)
             .execute(&mut *tx)
             .await?;
     }
@@ -2388,6 +3578,30 @@ async fn validate_chapter_in_project(
     .await?;
     if exists.0 == 0 {
         return Err(AppError::Process("Nie znaleziono rozdzialu.".into()));
+    }
+
+    Ok(())
+}
+
+async fn validate_scene_in_project(
+    tx: &mut Transaction<'_, Sqlite>,
+    scene_id: &str,
+    project_id: &str,
+) -> Result<(), AppError> {
+    let exists: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*)
+        FROM scenes s
+        JOIN books b ON b.id = s.book_id
+        WHERE s.id = ? AND b.project_id = ?
+        "#,
+    )
+    .bind(scene_id)
+    .bind(project_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    if exists.0 == 0 {
+        return Err(AppError::Process("Nie znaleziono sceny.".into()));
     }
 
     Ok(())
@@ -3083,6 +4297,77 @@ async fn upsert_chapter_thread_relation(
 #[tauri::command]
 async fn delete_chapter(state: State<'_, AppState>, id: String) -> Result<(), String> {
     delete_chapter_in_pool(&state.db, &id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn list_plan_versions(
+    state: State<'_, AppState>,
+    book_id: String,
+) -> Result<Vec<PlanVersion>, String> {
+    list_plan_versions_in_pool(&state.db, &book_id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn create_plan_version_from_active(
+    state: State<'_, AppState>,
+    input: CreatePlanVersionInput,
+) -> Result<PlanVersion, String> {
+    create_plan_version_from_active_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn set_active_plan_version(
+    state: State<'_, AppState>,
+    input: SetActivePlanVersionInput,
+) -> Result<PlanVersion, String> {
+    set_active_plan_version_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn delete_plan_version(
+    state: State<'_, AppState>,
+    input: DeletePlanVersionInput,
+) -> Result<(), String> {
+    delete_plan_version_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn upsert_scene(state: State<'_, AppState>, input: UpsertSceneInput) -> Result<Scene, String> {
+    upsert_scene_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn delete_scene(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    delete_scene_in_pool(&state.db, &id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn reorder_scenes(state: State<'_, AppState>, input: ReorderScenesInput) -> Result<(), String> {
+    reorder_scenes_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn set_scene_relations(
+    state: State<'_, AppState>,
+    input: SetSceneRelationsInput,
+) -> Result<(), String> {
+    set_scene_relations_in_pool(&state.db, input)
         .await
         .map_err(command_error)
 }
@@ -4513,6 +5798,10 @@ pub fn run() {
             list_projects,
             get_project,
             get_book_plan,
+            list_plan_versions,
+            create_plan_version_from_active,
+            set_active_plan_version,
+            delete_plan_version,
             get_character_workspace,
             get_world_workspace,
             save_story_structure,
@@ -4526,6 +5815,10 @@ pub fn run() {
             upsert_chapter,
             upsert_chapter_thread_relation,
             delete_chapter,
+            upsert_scene,
+            delete_scene,
+            reorder_scenes,
+            set_scene_relations,
             reorder_plan_items,
             upsert_character,
             delete_character,
