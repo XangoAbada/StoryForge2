@@ -688,7 +688,8 @@ export type AIAction =
   | "draft_scene"
   | "continue_scene"
   | "rewrite_selection"
-  | "expand_selection";
+  | "expand_selection"
+  | "analyze_scene_story_bible_opportunities";
 
 export type ReasoningEffort = "low" | "medium" | "high" | "xhigh";
 

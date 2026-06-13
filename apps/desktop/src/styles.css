@@ -198,6 +198,30 @@
   text-align: left;
 }
 
+.scene-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.scene-context-add-button,
+.scene-context-add-rail-button {
+  align-self: stretch;
+  min-width: 34px;
+}
+
+.scene-context-add-rail-button {
+  width: 100%;
+  margin: -4px 0 8px;
+}
+
+.scene-ai-icon-button {
+  min-width: 42px;
+  justify-content: center;
+  padding-inline: 12px;
+}
+
 .scene-list-item:hover,
 .scene-list-item.active {
   border-color: rgba(47, 128, 103, 0.48);
@@ -5566,6 +5590,62 @@ a:focus-visible {
 .proposal-queue-list {
   display: grid;
   gap: 11px;
+}
+
+.scene-discovery-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.scene-discovery-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.scene-discovery-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(47, 128, 103, 0.22);
+  border-radius: 8px;
+  background: #fbfefc;
+}
+
+.scene-audit-prompt-card {
+  border-color: rgba(170, 107, 16, 0.32);
+  background: #fffaf1;
+}
+
+.scene-discovery-card h3 {
+  margin: 3px 0 4px;
+  color: #1b2824;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.scene-discovery-card p,
+.scene-discovery-card small {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.scene-discovery-kind {
+  color: #2f8067;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.scene-discovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .proposal-queue-item {

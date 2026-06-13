@@ -1,6 +1,6 @@
-import { Check, Clock3, FileJson, GitBranch, Loader2, RotateCcw, X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Check, Clock3, FileJson, GitBranch, Loader2, RotateCcw, Sparkles, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { coverImageSource } from "../../shared/api/assets";
 import { isTauriRuntime } from "../../shared/api/browserDevCommands";
@@ -11,6 +11,9 @@ import {
   generateBookCover,
   generateCharacterImage,
   generateNewProjectTitle,
+  getCharacterWorkspace,
+  getProject,
+  getWorldWorkspace,
   getBookPlan,
   moveBeatToChapter,
   runCodexPrompt,
@@ -31,7 +34,11 @@ import {
 } from "../../shared/api/commands";
 import type {
   BookConceptInput,
+  Character,
+  CharacterMemory,
   CoverGenerationProgressEvent,
+  WorldElement,
+  WorldRule,
   UpsertCharacterMemoryInput,
   UpsertCharacterRelationInput,
   UpsertWorldElementInput,
@@ -49,13 +56,17 @@ import { planFieldConfigs, PlanFieldKey } from "./planPromptPackage";
 import { applyPlanDraftField } from "./planDraftFieldTargets";
 import { applyPlanProposalPayload } from "./planProposalApplication";
 import {
+  buildCharacterPromptPackage,
   characterFieldConfigs,
-  CharacterFieldKey
+  CharacterFieldKey,
+  renderCharacterPromptPackage
 } from "./characterPromptPackage";
 import { applyCharacterDraftField } from "./characterDraftFieldTargets";
 import {
+  buildWorldPromptPackage,
   worldFieldConfigs,
-  WorldFieldKey
+  WorldFieldKey,
+  renderWorldPromptPackage
 } from "./worldPromptPackage";
 import { applyWorldDraftField } from "./worldDraftFieldTargets";
 import {
@@ -63,6 +74,18 @@ import {
   sceneEditorFieldLabel,
   SceneEditorFieldKey
 } from "./sceneEditorPromptPackage";
+import {
+  parseSceneStoryBibleAuditResult,
+  buildSceneStoryBibleAuditPromptPackage,
+  renderSceneStoryBibleAuditPromptPackage,
+  SCENE_STORY_BIBLE_AUDIT_FIELD
+} from "./sceneStoryBibleAuditPromptPackage";
+import { buildScenePromptContext } from "./scenePromptContext";
+import {
+  PendingSceneAuditPrompt,
+  SceneDiscovery,
+  useSceneDiscoveryStore
+} from "./sceneDiscoveryStore";
 import {
   applySceneEditorProposal,
   SceneEditorInsertMode
@@ -97,11 +120,23 @@ export function AiProposalPanel({
   const setEditableValue = useProposalStore((state) => state.setEditableValue);
   const setEditableField = useProposalStore((state) => state.setEditableField);
   const toggleSelectedField = useProposalStore((state) => state.toggleSelectedField);
+  const enqueueProposal = useProposalStore((state) => state.enqueueProposal);
   const clearProposal = useProposalStore((state) => state.clearProposal);
   const retryProposal = useProposalStore((state) => state.retryProposal);
+  const addAuditPrompt = useSceneDiscoveryStore((state) => state.addAuditPrompt);
+  const pendingAuditPrompts = useSceneDiscoveryStore((state) => state.pendingAuditPrompts);
   const visibleProposals = proposals
     .filter((proposal) => proposal.projectId === projectId)
     .sort(compareProposalsForPanel);
+  const discoveries = useSceneDiscoveryStore((state) => state.discoveries);
+  const visibleDiscoveries = useMemo(
+    () => discoveries.filter((discovery) => discovery.projectId === projectId),
+    [discoveries, projectId]
+  );
+  const visibleAuditPrompts = useMemo(
+    () => pendingAuditPrompts.filter((prompt) => prompt.projectId === projectId),
+    [pendingAuditPrompts, projectId]
+  );
 
   const acceptMutation = useMutation({
     mutationFn: async ({ proposalId, asNewPlanVersion = false }: { proposalId: string; asNewPlanVersion?: boolean }) => {
@@ -372,10 +407,13 @@ export function AiProposalPanel({
         await queryClient.invalidateQueries({ queryKey: ["project", projectId] });
         await queryClient.invalidateQueries({ queryKey: ["projects"] });
       }
+      if (proposal.scope === "sceneEditor" && proposal.field !== SCENE_STORY_BIBLE_AUDIT_FIELD) {
+        addAuditPrompt(sceneAuditPromptFromProposal(proposal));
+      }
     }
   });
 
-  if (visibleProposals.length === 0) {
+  if (visibleProposals.length === 0 && visibleDiscoveries.length === 0 && visibleAuditPrompts.length === 0) {
     return (
       <section className="context-section compact">
         <div className="section-title-row">
@@ -404,6 +442,9 @@ export function AiProposalPanel({
           {visibleProposals.length}
         </span>
       </div>
+
+      <SceneAuditPromptPanel prompts={visibleAuditPrompts} />
+      <SceneDiscoveryPanel projectId={projectId} discoveries={visibleDiscoveries} />
 
       <div className="proposal-queue-list">
         {visibleProposals.map((proposal) => (
@@ -452,6 +493,355 @@ type ProposalQueueItemProps = {
   onToggleField: (field: ConceptFieldKey) => void;
 };
 
+function SceneAuditPromptPanel({ prompts }: { prompts: PendingSceneAuditPrompt[] }) {
+  const enqueueProposal = useProposalStore((state) => state.enqueueProposal);
+  const removeAuditPrompt = useSceneDiscoveryStore((state) => state.removeAuditPrompt);
+
+  if (prompts.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="scene-discovery-list" aria-label="Pytania o analizę sceny">
+      {prompts.map((prompt) => (
+        <article className="scene-discovery-card scene-audit-prompt-card" key={prompt.id}>
+          <div>
+            <span className="scene-discovery-kind">Analiza sceny</span>
+            <h3>{prompt.sceneTitle || "Scena"}</h3>
+            <p>Przeanalizować scenę pod kątem nowych postaci i elementów świata?</p>
+            <small>Analiza doda znalezione rzeczy jako osobne karty w tym panelu. Nic nie zapisze się w kanonie bez akceptacji.</small>
+          </div>
+          <div className="scene-discovery-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void queueSceneAuditFromAcceptedProposal(prompt.sourceProposal, enqueueProposal);
+                removeAuditPrompt(prompt.id);
+              }}
+            >
+              <Sparkles size={14} />
+              Analizuj
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => removeAuditPrompt(prompt.id)}
+            >
+              Pomiń
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function SceneDiscoveryPanel({
+  projectId,
+  discoveries
+}: {
+  projectId: string;
+  discoveries: SceneDiscovery[];
+}) {
+  const enqueueProposal = useProposalStore((state) => state.enqueueProposal);
+  const removeDiscovery = useSceneDiscoveryStore((state) => state.removeDiscovery);
+  const projectQuery = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: () => getProject(projectId),
+    retry: 0
+  });
+  const bookId = projectQuery.data?.book.id;
+  const planQuery = useQuery({
+    queryKey: ["book-plan", bookId],
+    queryFn: () => getBookPlan(bookId ?? ""),
+    enabled: Boolean(bookId),
+    retry: 0
+  });
+  const characterQuery = useQuery({
+    queryKey: ["character-workspace", projectId],
+    queryFn: () => getCharacterWorkspace(projectId),
+    retry: 0
+  });
+  const worldQuery = useQuery({
+    queryKey: ["world-workspace", projectId],
+    queryFn: () => getWorldWorkspace(projectId),
+    retry: 0
+  });
+
+  if (discoveries.length === 0) {
+    return null;
+  }
+
+  function queueDiscovery(discovery: SceneDiscovery) {
+    const project = projectQuery.data?.project;
+    const book = projectQuery.data?.book;
+    const characters = characterQuery.data;
+    const world = worldQuery.data;
+    const plan = planQuery.data;
+    if (!project || !book || !characters || !world || !plan) {
+      return;
+    }
+
+    if (discovery.kind === "character") {
+      const target = characterDraftFromDiscovery(discovery);
+      const promptPackage = buildCharacterPromptPackage(
+        project,
+        book,
+        characters,
+        "characterProfile",
+        target
+      );
+      enqueueProposal({
+        scope: "characters",
+        projectId,
+        bookId: book.id,
+        field: "characterProfile",
+        action: promptPackage.action,
+        promptPackageId: promptPackage.id,
+        promptPackageJson: promptPackage,
+        prompt: renderCharacterPromptPackage(promptPackage)
+      });
+      removeDiscovery(discovery.id);
+      return;
+    }
+
+    if (discovery.kind === "characterMemory") {
+      const character = discovery.targetExistingCharacterId
+        ? characters.characters.find((item) => item.id === discovery.targetExistingCharacterId)
+        : null;
+      if (!character) {
+        return;
+      }
+      const target = characterMemoryDraftFromDiscovery(discovery, character);
+      const promptPackage = buildCharacterPromptPackage(
+        project,
+        book,
+        characters,
+        "characterMemory",
+        target
+      );
+      enqueueProposal({
+        scope: "characters",
+        projectId,
+        bookId: book.id,
+        field: "characterMemory",
+        action: promptPackage.action,
+        promptPackageId: promptPackage.id,
+        promptPackageJson: promptPackage,
+        prompt: renderCharacterPromptPackage(promptPackage)
+      });
+      removeDiscovery(discovery.id);
+      return;
+    }
+
+    if (discovery.kind === "worldElement") {
+      const target = worldElementDraftFromDiscovery(discovery);
+      const promptPackage = buildWorldPromptPackage(
+        project,
+        book,
+        plan,
+        characters,
+        world,
+        "worldElement",
+        target
+      );
+      enqueueProposal({
+        scope: "world",
+        projectId,
+        bookId: book.id,
+        field: "worldElement",
+        action: promptPackage.action,
+        promptPackageId: promptPackage.id,
+        promptPackageJson: promptPackage,
+        prompt: renderWorldPromptPackage(promptPackage)
+      });
+      removeDiscovery(discovery.id);
+      return;
+    }
+
+    if (discovery.kind === "worldRule") {
+      const target = worldRuleDraftFromDiscovery(discovery);
+      const promptPackage = buildWorldPromptPackage(
+        project,
+        book,
+        plan,
+        characters,
+        world,
+        "worldRule",
+        target
+      );
+      enqueueProposal({
+        scope: "world",
+        projectId,
+        bookId: book.id,
+        field: "worldRule",
+        action: promptPackage.action,
+        promptPackageId: promptPackage.id,
+        promptPackageJson: promptPackage,
+        prompt: renderWorldPromptPackage(promptPackage)
+      });
+      removeDiscovery(discovery.id);
+    }
+  }
+
+  return (
+    <div className="scene-discovery-list" aria-label="Znalezione elementy sceny">
+      <div className="scene-discovery-heading">
+        <p className="eyebrow">Analiza sceny</p>
+        <span className="status-pill">{discoveries.length}</span>
+      </div>
+      {discoveries.map((discovery) => {
+        const canGenerate =
+          discovery.kind !== "characterMemory" ||
+          Boolean(
+            discovery.targetExistingCharacterId &&
+              characterQuery.data?.characters.some((item) => item.id === discovery.targetExistingCharacterId)
+          );
+        return (
+          <article className="scene-discovery-card" key={discovery.id}>
+            <div>
+              <span className="scene-discovery-kind">{discoveryKindLabel(discovery.kind)}</span>
+              <h3>{discovery.title}</h3>
+              <p>{discovery.reason}</p>
+              <small>{discovery.evidence}</small>
+            </div>
+            <div className="scene-discovery-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => queueDiscovery(discovery)}
+                disabled={
+                  !canGenerate ||
+                  projectQuery.isLoading ||
+                  planQuery.isLoading ||
+                  characterQuery.isLoading ||
+                  worldQuery.isLoading
+                }
+                title={
+                  canGenerate
+                    ? "Dodaj pełną propozycję do kolejki AI"
+                    : "Wspomnienie wymaga wskazania istniejącej postaci."
+                }
+              >
+                <Sparkles size={14} />
+                Generuj
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => removeDiscovery(discovery.id)}
+              >
+                Odrzuć
+              </button>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+async function queueSceneAuditFromAcceptedProposal(
+  proposal: ActiveAiProposal,
+  enqueueProposal: ReturnType<typeof useProposalStore.getState>["enqueueProposal"]
+) {
+  const context =
+    "context" in proposal.promptPackageJson
+      ? proposal.promptPackageJson.context
+      : {};
+  const scopedContext =
+    context && typeof context === "object"
+      ? (context as Record<string, unknown>)
+      : {};
+  const targetEntityId =
+    typeof scopedContext.targetEntityId === "string"
+      ? scopedContext.targetEntityId
+      : "";
+  if (!targetEntityId) {
+    return;
+  }
+
+  const [projectDetails, plan, characters, world] = await Promise.all([
+    getProject(proposal.projectId),
+    getBookPlan(proposal.bookId),
+    getCharacterWorkspace(proposal.projectId),
+    getWorldWorkspace(proposal.projectId)
+  ]);
+  const scene = plan.scenes.find((item) => item.id === targetEntityId);
+  if (!scene) {
+    return;
+  }
+  const sceneContext = buildScenePromptContext({
+    book: projectDetails.book,
+    plan,
+    characters,
+    world,
+    sceneId: scene.id
+  });
+  if (!sceneContext) {
+    return;
+  }
+
+  const promptPackage = buildSceneStoryBibleAuditPromptPackage({
+    project: projectDetails.project,
+    book: projectDetails.book,
+    scene,
+    sceneContext,
+    characters,
+    world,
+    acceptedText: proposal.editableValue.trim()
+  });
+
+  enqueueProposal({
+    scope: "sceneEditor",
+    projectId: proposal.projectId,
+    bookId: proposal.bookId,
+    field: SCENE_STORY_BIBLE_AUDIT_FIELD,
+    action: promptPackage.action,
+    promptPackageId: promptPackage.id,
+    promptPackageJson: promptPackage,
+    prompt: renderSceneStoryBibleAuditPromptPackage(promptPackage)
+  });
+}
+
+function sceneAuditPromptFromProposal(
+  proposal: ActiveAiProposal
+): Omit<PendingSceneAuditPrompt, "id" | "createdAt"> {
+  const context =
+    "context" in proposal.promptPackageJson
+      ? proposal.promptPackageJson.context
+      : {};
+  const scopedContext =
+    context && typeof context === "object"
+      ? (context as Record<string, unknown>)
+      : {};
+  const sceneSnapshot =
+    "sceneContext" in scopedContext &&
+    scopedContext.sceneContext &&
+    typeof scopedContext.sceneContext === "object" &&
+    !Array.isArray(scopedContext.sceneContext) &&
+    "scene" in scopedContext.sceneContext
+      ? (scopedContext.sceneContext.scene as Record<string, unknown>)
+      : {};
+  const sceneId =
+    typeof scopedContext.targetEntityId === "string"
+      ? scopedContext.targetEntityId
+      : "";
+  const sceneTitle =
+    typeof sceneSnapshot.title === "string" && sceneSnapshot.title.trim()
+      ? sceneSnapshot.title.trim()
+      : "Scena";
+
+  return {
+    projectId: proposal.projectId,
+    bookId: proposal.bookId,
+    sceneId,
+    sceneTitle,
+    sourceProposal: proposal
+  };
+}
+
 function ProposalQueueItem({
   proposal,
   accepting,
@@ -471,7 +861,10 @@ function ProposalQueueItem({
   const characterProposal = proposal.scope === "characters";
   const worldProposal = proposal.scope === "world";
   const sceneEditorProposal = proposal.scope === "sceneEditor";
-  const label = coverProposal
+  const sceneAuditProposal = proposal.field === SCENE_STORY_BIBLE_AUDIT_FIELD;
+  const label = sceneAuditProposal
+    ? "Analiza sceny"
+    : coverProposal
     ? "Okładka"
     : planProposal
       ? planFieldConfigs[proposal.field as PlanFieldKey]?.label ?? "Plan"
@@ -496,6 +889,7 @@ function ProposalQueueItem({
     !coverProposal &&
     !characterProposal &&
     !worldProposal &&
+    !sceneAuditProposal &&
     !sceneEditorProposal &&
     !planProposal &&
     (longConceptFields.includes(proposal.field as ConceptFieldKey) || structured)
@@ -505,6 +899,8 @@ function ProposalQueueItem({
     ? Boolean((proposal.coverImagePath || proposal.editableValue).trim())
     : characterImageProposal
       ? Boolean((proposal.characterImagePath || proposal.coverImagePath || proposal.editableValue).trim())
+    : sceneAuditProposal
+      ? false
     : sceneEditorProposal
       ? proposal.editableValue.trim().length > 0
     : planProposal
@@ -537,7 +933,9 @@ function ProposalQueueItem({
                     ? "Postacie"
                     : worldProposal
                       ? "Świat"
-                      : "Pole"}
+                      : sceneAuditProposal
+                        ? "Analiza"
+                        : "Pole"}
           </p>
           <h3>{label}</h3>
         </div>
@@ -642,7 +1040,7 @@ function ProposalQueueItem({
         </div>
       ) : null}
 
-      {success && !structured && !coverProposal && !characterImageProposal ? (
+      {success && !structured && !coverProposal && !characterImageProposal && !sceneAuditProposal ? (
         <label className="field-label">
           {sceneEditorProposal
             ? "Tekst do wstawienia po akceptacji"
@@ -665,11 +1063,15 @@ function ProposalQueueItem({
         </p>
       ) : null}
 
-      {sceneEditorProposal && success ? (
+      {sceneEditorProposal && !sceneAuditProposal && success ? (
         <p className="muted-text">
           Akceptacja zastosuje tekst w aktywnym edytorze sceny zgodnie z trybem
           wstawiania zapisanym w prompcie. Do tego momentu manuskrypt się nie zmieni.
         </p>
+      ) : null}
+
+      {sceneAuditProposal && success ? (
+        <p className="muted-text">Analiza zakończona. Znalezione elementy dodano do kart w prawym panelu.</p>
       ) : null}
 
       {proposal.parsed && "rationale" in proposal.parsed && proposal.parsed.rationale ? (
@@ -926,9 +1328,31 @@ function useAiQueueRunner() {
 
         const parsed = parseProposalResult(
           result.rawOutput,
-          snapshot.field as ConceptFieldKey | PlanFieldKey | CharacterFieldKey | WorldFieldKey | SceneEditorFieldKey,
+          snapshot.field as ConceptFieldKey | PlanFieldKey | CharacterFieldKey | WorldFieldKey | SceneEditorFieldKey | typeof SCENE_STORY_BIBLE_AUDIT_FIELD,
           snapshot.action
         );
+        if (parsed.kind === "scene_story_bible_audit") {
+          const context =
+            "context" in snapshot.promptPackageJson
+              ? snapshot.promptPackageJson.context
+              : {};
+          const scopedContext =
+            context && typeof context === "object"
+              ? (context as Record<string, unknown>)
+              : {};
+          const sceneId =
+            typeof scopedContext.targetEntityId === "string"
+              ? scopedContext.targetEntityId
+              : "";
+          if (sceneId) {
+            useSceneDiscoveryStore.getState().addCandidates({
+              projectId: snapshot.projectId,
+              bookId: snapshot.bookId,
+              sceneId,
+              candidates: parsed.candidates
+            });
+          }
+        }
         finishProposal(proposalId, {
           aiRunId: result.id,
           rawOutput: result.rawOutput ?? "",
@@ -1016,9 +1440,13 @@ function useCoverGenerationProgressListener() {
 
 export function parseProposalResult(
   rawOutput: string,
-  expectedField: ConceptFieldKey | PlanFieldKey | CharacterFieldKey | WorldFieldKey | SceneEditorFieldKey,
+  expectedField: ConceptFieldKey | PlanFieldKey | CharacterFieldKey | WorldFieldKey | SceneEditorFieldKey | typeof SCENE_STORY_BIBLE_AUDIT_FIELD,
   action: string
 ): ParsedAiProposal {
+  if (action === "analyze_scene_story_bible_opportunities") {
+    return parseSceneStoryBibleAuditResult(rawOutput);
+  }
+
   if (isPlanAction(action)) {
     return parsePlanSuggestion(rawOutput, expectedField as PlanFieldKey);
   }
@@ -1636,6 +2064,105 @@ function parseTargetWordCount(value: string): number | null {
 
   const parsed = Number(match[0]);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function discoveryKindLabel(kind: SceneDiscovery["kind"]): string {
+  if (kind === "character") return "Postać";
+  if (kind === "characterMemory") return "Wspomnienie";
+  if (kind === "worldElement") return "Element świata";
+  if (kind === "worldRule") return "Reguła świata";
+  return "Relacja";
+}
+
+function characterDraftFromDiscovery(discovery: SceneDiscovery): Character {
+  const now = new Date().toISOString();
+  return {
+    id: `audit-character:${discovery.id}`,
+    projectId: discovery.projectId,
+    characterType: discovery.suggestedType || "person",
+    name: discovery.title,
+    aliasesJson: "[]",
+    role: "",
+    shortDescription: discovery.reason,
+    externalGoal: "",
+    internalNeed: "",
+    wound: "",
+    falseBelief: "",
+    secret: "",
+    strengthsJson: "[]",
+    weaknessesJson: "[]",
+    voiceNotes: "",
+    arcSummary: "",
+    knowledgeNotes: discovery.evidence,
+    visualPrompt: "",
+    imageAssetId: null,
+    status: "draft",
+    orderIndex: 0,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function characterMemoryDraftFromDiscovery(
+  discovery: SceneDiscovery,
+  character: Character
+): CharacterMemory {
+  const now = new Date().toISOString();
+  return {
+    id: `audit-memory:${discovery.id}`,
+    projectId: discovery.projectId,
+    characterId: character.id,
+    title: discovery.title,
+    summary: discovery.reason,
+    details: discovery.evidence,
+    memoryType: discovery.suggestedType || "wydarzenie",
+    subject: discovery.title,
+    emotion: "",
+    importance: 50,
+    status: "draft",
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function worldElementDraftFromDiscovery(discovery: SceneDiscovery): WorldElement {
+  const now = new Date().toISOString();
+  return {
+    id: `audit-world-element:${discovery.id}`,
+    projectId: discovery.projectId,
+    elementType: discovery.suggestedType || "location",
+    name: discovery.title,
+    summary: discovery.reason,
+    details: discovery.evidence,
+    storyPurpose: "",
+    constraints: "",
+    visualPrompt: "",
+    imageAssetId: null,
+    status: "draft",
+    orderIndex: 0,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function worldRuleDraftFromDiscovery(discovery: SceneDiscovery): WorldRule {
+  const now = new Date().toISOString();
+  return {
+    id: `audit-world-rule:${discovery.id}`,
+    projectId: discovery.projectId,
+    name: discovery.title,
+    description: discovery.reason,
+    scope: discovery.evidence,
+    cost: "",
+    limitation: "",
+    exceptions: "",
+    violationConsequences: "",
+    sceneExamples: "",
+    status: "draft",
+    orderIndex: 0,
+    createdAt: now,
+    updatedAt: now
+  };
 }
 
 function serializeListValue(value: string): string {

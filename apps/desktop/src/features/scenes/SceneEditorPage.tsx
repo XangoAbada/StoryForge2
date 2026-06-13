@@ -78,8 +78,10 @@ import {
   createPlanPromptContextTarget,
   planPromptContextTargetId,
   promptContextControlForActiveTarget,
+  promptContextControlForTarget,
   useAiPromptContextStore
 } from "../ai/aiPromptContextStore";
+import type { PromptContextSource } from "../ai/promptPackage";
 import { pendingProposalStatus, useProposalStore } from "../ai/proposalStore";
 import { ChapterEditModal, type ChapterModalState } from "../book/ChapterEditModal";
 
@@ -122,6 +124,10 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
   const proposals = useProposalStore((state) => state.proposals);
   const activatePromptContextTarget = useAiPromptContextStore((state) => state.activateTarget);
   const closePromptContextTarget = useAiPromptContextStore((state) => state.closeTarget);
+  const activePromptContextTarget = useAiPromptContextStore((state) =>
+    state.activeTargetId ? state.targets[state.activeTargetId] : null
+  );
+  const addContextSourceToActiveTarget = useAiPromptContextStore((state) => state.addContextSourceToActiveTarget);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null | undefined>(undefined);
   const [draft, setDraft] = useState<UpsertSceneInput | null>(null);
@@ -133,6 +139,7 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
   const [chapterPickerOpen, setChapterPickerOpen] = useState(false);
   const [statusText, setStatusText] = useState("Wybierz scenę");
   const [variants, setVariants] = useState<SceneVariant[]>([]);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const lastSavedSignature = useRef("");
 
   const projectQuery = useQuery({
@@ -288,6 +295,7 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
     editor?.commands.setContent(selectedScene.manuscriptContent || "", { emitUpdate: false });
     setSelectionText("");
     setVariants(loadVariants(selectedScene.id));
+    setSelectedVariantId(null);
     setStatusText("Scena gotowa");
   }, [editor, selectedScene?.id]);
 
@@ -395,6 +403,31 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
     );
   }
 
+  function activateSceneEditorPromptContext() {
+    if (!selectedScene) {
+      return;
+    }
+    const targetId = sceneEditorPromptContextTargetId(projectId, selectedScene.id);
+    const sources = sceneEditorPromptContextSources(selectedScene, selectedChapter);
+
+    activatePromptContextTarget({
+      targetId,
+      projectId,
+      title: "Pisanie sceny",
+      subtitle: selectedScene.title || "Aktywna scena",
+      sources,
+      defaultSources: sources,
+      submitLabel: "AI",
+      submitDisabled: !projectQuery.data || !bookId || Boolean(pendingEditorStatus),
+      submitDisabledReason: pendingEditorStatus ? "AI już pracuje nad tą sceną." : "Najpierw wczytaj dane projektu.",
+      onSubmit: () => queueEditorAction("continueScene", "append_to_scene")
+    });
+  }
+
+  function addSceneEditorContextSource(source: PromptContextSource) {
+    addContextSourceToActiveTarget(source);
+  }
+
   function queueSceneField(field: PlanFieldKey, targetEntity?: PlanPromptEntity, draftOverride?: UpsertSceneInput) {
     if (!projectQuery.data || !bookId) {
       return;
@@ -440,6 +473,10 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
     if (!projectQuery.data || !bookId || !selectedScene || !editor) {
       return;
     }
+    const targetId = sceneEditorPromptContextTargetId(projectId, selectedScene.id);
+    const contextControl =
+      promptContextControlForTarget(targetId) ??
+      sceneEditorDefaultContextControl(sceneEditorPromptContextSources(selectedScene, selectedChapter));
     const sceneContext = buildScenePromptContext({
       book: projectQuery.data.book,
       plan,
@@ -462,7 +499,9 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
       currentText: editor.getText(),
       customInstruction,
       insertMode: mode,
-      contextControl: undefined
+      targetWordCount: draft?.targetWordCount ?? selectedScene.targetWordCount ?? selectedChapter?.targetWordCount ?? null,
+      manualContextSnippets: sceneEditorManualContextSnippets(plan, contextControl),
+      contextControl
     });
 
     enqueueProposal({
@@ -475,6 +514,7 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
       promptPackageJson: promptPackage,
       prompt: renderSceneEditorPromptPackage(promptPackage)
     });
+    closePromptContextTarget(targetId);
   }
 
   async function saveSceneFromModal(input: UpsertSceneInput, relations: Omit<SetSceneRelationsInput, "bookId" | "sceneId">) {
@@ -575,12 +615,23 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
           Ustawienia rozdziału
         </button>
 
+        <button
+          type="button"
+          className="icon-button scene-context-add-rail-button"
+          onClick={() => selectedChapter && addSceneEditorContextSource(chapterPromptContextSource(selectedChapter))}
+          disabled={!selectedChapter || !activePromptContextTarget || (selectedChapter ? contextSourceAlreadyAdded(activePromptContextTarget.sources, chapterPromptContextSource(selectedChapter).key) : true)}
+          title="Dodaj rozdział do aktywnego kontekstu AI"
+          aria-label="Dodaj rozdział do aktywnego kontekstu AI"
+        >
+          <Plus size={15} />
+        </button>
+
         <div className="scene-chapter-list">
           <p className="scene-list-heading">Sceny w rozdziale</p>
           {chapterScenes.map((scene, index) => (
+            <div className="scene-list-row" key={scene.id}>
             <button
               type="button"
-              key={scene.id}
               className={scene.id === selectedScene?.id ? "scene-list-item active" : "scene-list-item"}
               onClick={() => {
                 setSelectedChapterId(scene.chapterId ?? null);
@@ -591,6 +642,20 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
               <span>{scene.title || "Scena bez tytułu"}</span>
               <small>{sceneStatusLabel(scene.status)} · {scene.actualWordCount || countWords(htmlToText(scene.manuscriptContent))} / {scene.targetWordCount ?? "?"} słów</small>
             </button>
+              <button
+                type="button"
+                className="icon-button scene-context-add-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  addSceneEditorContextSource(scenePromptContextSource(scene));
+                }}
+                disabled={!activePromptContextTarget || contextSourceAlreadyAdded(activePromptContextTarget.sources, scenePromptContextSource(scene).key)}
+                title={`Dodaj scenę do aktywnego kontekstu AI: ${scene.title || "Scena bez tytułu"}`}
+                aria-label={`Dodaj scenę do aktywnego kontekstu AI: ${scene.title || "Scena bez tytułu"}`}
+              >
+                <Plus size={14} />
+              </button>
+            </div>
           ))}
           {chapterScenes.length === 0 ? <span className="scene-empty-note">Brak scen w tej sekcji.</span> : null}
         </div>
@@ -616,9 +681,15 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
                 <span className="scene-editor-stat"><FileText size={14} /> {currentWordCount.toLocaleString("pl-PL")} słów</span>
                 <span className="scene-editor-stat"><Target size={14} /> Cel: {targetWordCount ? targetWordCount.toLocaleString("pl-PL") : "brak"}</span>
                 <span className="scene-editor-stat"><CheckCircle2 size={14} /> {pendingEditorStatus ? "AI pracuje" : "Gotowe na AI"}</span>
-                <button type="button" className="secondary-button" onClick={() => queueEditorAction("continueScene", "append_to_scene")}>
-                  <Sparkles size={16} />
-                  AI: kontynuuj
+                <button
+                  type="button"
+                  className="secondary-button scene-ai-icon-button"
+                  onClick={() => queueEditorAction("continueScene", "append_to_scene")}
+                  title="AI"
+                  aria-label="AI: kontynuuj scenę"
+                  disabled={Boolean(pendingEditorStatus)}
+                >
+                  {pendingEditorStatus ? <Loader2 size={16} className="spin-icon" /> : <Sparkles size={16} />}
                 </button>
               </div>
             </header>
@@ -637,13 +708,18 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
                   {selectionText ? (
                     <div className="scene-selection-popover" role="toolbar" aria-label="AI dla zaznaczenia">
                       <span>{countWords(selectionText)} słów zaznaczenia</span>
-                      <button type="button" onClick={() => queueEditorAction("rewriteSelection", insertMode)}>Przepisz</button>
-                      <button type="button" onClick={() => queueEditorAction("expandSelection", insertMode)}>Rozwiń</button>
-                      <button type="button" onClick={() => queueEditorAction("rewriteSelection", insertMode)}>Popraw dialog</button>
-                      <button type="button" onClick={() => queueEditorAction("expandSelection", insertMode)}>Dodaj napięcie</button>
+                      <button type="button" onClick={() => queueEditorAction("rewriteSelection", "replace_selection")}>Przepisz</button>
+                      <button type="button" onClick={() => queueEditorAction("expandSelection", "insert_after_selection")}>Rozwiń</button>
+                      <button type="button" onClick={() => queueEditorAction("rewriteSelection", "replace_selection")}>Popraw dialog</button>
+                      <button type="button" onClick={() => queueEditorAction("expandSelection", "insert_after_selection")}>Dodaj napięcie</button>
                     </div>
                   ) : null}
-                  <EditorContent editor={editor} className="scene-editor-scroll" />
+                  <EditorContent
+                    editor={editor}
+                    className="scene-editor-scroll"
+                    onFocusCapture={activateSceneEditorPromptContext}
+                    onClick={activateSceneEditorPromptContext}
+                  />
                   <span className="scene-editor-word-corner">{currentWordCount.toLocaleString("pl-PL")} słów</span>
                 </div>
               </section>
@@ -657,7 +733,7 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
               <details className="scene-variants-menu">
                 <summary className="ghost-button">
                   <Sparkles size={16} />
-                  Warianty AI
+                  {selectedVariantLabel(variants, selectedVariantId)}
                 </summary>
                 <div className="scene-variants-popover">
                   {variants.map((variant) => (
@@ -665,7 +741,10 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
                       type="button"
                       className="scene-variant-item"
                       key={variant.id}
-                      onClick={() => editor?.chain().focus().setTextSelection(editor.state.doc.content.size).insertContent(`\n\n${variant.text}`).run()}
+                      onClick={() => {
+                        setSelectedVariantId(variant.id);
+                        editor?.chain().focus().setTextSelection(editor.state.doc.content.size).insertContent(`\n\n${variant.text}`).run();
+                      }}
                     >
                       <span>{new Date(variant.createdAt).toLocaleString("pl-PL")}</span>
                       <strong>{variant.mode}</strong>
@@ -674,10 +753,8 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
                   {variants.length === 0 ? <p>Brak zapisanych wariantów dla tej sceny.</p> : null}
                 </div>
               </details>
-              <button type="button" className="ghost-button" onClick={() => setSceneModal({ mode: "edit", sceneId: selectedScene.id })}>
-                <FileText size={16} />
-                Edytuj ustawienia
-              </button>
+              {false ? (
+                <>
               <label className="scene-insert-mode">
                 Tryb AI
                 <select value={insertMode} onChange={(event) => setInsertMode(event.target.value as SceneEditorInsertMode)}>
@@ -688,6 +765,8 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
                 </select>
               </label>
               <input value={customInstruction} onChange={(event) => setCustomInstruction(event.target.value)} placeholder="Własna instrukcja dla AI" />
+                </>
+              ) : null}
               <span className="autosave-status">
                 {saveMutation.isPending ? <Loader2 size={16} className="spin-icon" /> : <CheckCircle2 size={16} />}
                 {statusText}
@@ -1400,6 +1479,108 @@ function planPromptEntityId(entity: PlanPromptEntity): string {
   return entity.id;
 }
 
+function sceneEditorPromptContextTargetId(projectId: string, sceneId: string): string {
+  return `project:${projectId}:scene-editor:continueScene:${sceneId}`;
+}
+
+function sceneEditorPromptContextSources(scene: Scene, chapter: Chapter | null): PromptContextSource[] {
+  return [
+    { key: "sceneEditor:continueScene", label: "Kontynuacja sceny", required: true },
+    { key: "sceneEditor:bookCore", label: "Książka i styl", required: false },
+    { key: `sceneEditor:activeScene:${scene.id}`, label: `Aktywna scena: ${scene.title || "bez tytułu"}`, required: true },
+    ...(chapter ? [{ key: `sceneEditor:activeChapter:${chapter.id}`, label: `Rozdział ${chapter.number}: ${chapter.workingTitle || "bez tytułu"}`, required: false }] : []),
+    { key: "sceneEditor:relations", label: "Powiązane postacie, wątki i świat", required: false }
+  ];
+}
+
+function scenePromptContextSource(scene: Scene): PromptContextSource {
+  return {
+    key: `scene-context:${scene.id}`,
+    label: `Scena: ${scene.title || "bez tytułu"}`,
+    required: false
+  };
+}
+
+function chapterPromptContextSource(chapter: Chapter): PromptContextSource {
+  return {
+    key: `chapter-context:${chapter.id}`,
+    label: `Rozdział ${chapter.number}: ${chapter.workingTitle || "bez tytułu"}`,
+    required: false
+  };
+}
+
+function contextSourceAlreadyAdded(sources: PromptContextSource[], key: string): boolean {
+  return sources.some((source) => source.key === key);
+}
+
+function sceneEditorDefaultContextControl(sources: PromptContextSource[]) {
+  return {
+    includedContextKeys: sources.map((source) => source.key),
+    authorPriorityComment: "",
+    contextSources: sources
+  };
+}
+
+function sceneEditorManualContextSnippets(
+  plan: BookPlan,
+  contextControl: ReturnType<typeof promptContextControlForTarget>
+): Array<{ key: string; label: string; content: string }> {
+  if (!contextControl) {
+    return [];
+  }
+
+  return contextControl.contextSources
+    .filter((source) => contextControl.includedContextKeys.includes(source.key))
+    .map((source) => {
+      if (source.key.startsWith("scene-context:")) {
+        const sceneId = source.key.replace("scene-context:", "");
+        const scene = plan.scenes.find((item) => item.id === sceneId);
+        return scene
+          ? {
+              key: source.key,
+              label: source.label,
+              content: [
+                `Tytuł: ${scene.title || "bez tytułu"}`,
+                `Streszczenie: ${scene.summary || "(brak)"}`,
+                `Cel: ${scene.goal || "(brak)"}`,
+                `Konflikt: ${scene.conflict || "(brak)"}`,
+                `Wynik: ${scene.outcome || "(brak)"}`,
+                `Tekst: ${compactText(htmlToText(scene.manuscriptContent), 900)}`
+              ].join("\n")
+            }
+          : null;
+      }
+
+      if (source.key.startsWith("chapter-context:")) {
+        const chapterId = source.key.replace("chapter-context:", "");
+        const chapter = plan.chapters.find((item) => item.id === chapterId);
+        const scenes = orderedScenes(plan.scenes.filter((scene) => scene.chapterId === chapterId));
+        return chapter
+          ? {
+              key: source.key,
+              label: source.label,
+              content: [
+                `Tytuł: ${chapter.workingTitle || "bez tytułu"}`,
+                `Streszczenie: ${chapter.summary || "(brak)"}`,
+                `Cel: ${chapter.purpose || "(brak)"}`,
+                `Konflikt: ${chapter.conflict || "(brak)"}`,
+                `Punkt zwrotny: ${chapter.turningPoint || "(brak)"}`,
+                `Sceny: ${scenes.map((scene) => `${scene.title || "bez tytułu"} - ${compactText(scene.summary || htmlToText(scene.manuscriptContent), 220)}`).join(" | ")}`
+              ].join("\n")
+            }
+          : null;
+      }
+
+      return null;
+    })
+    .filter((snippet): snippet is { key: string; label: string; content: string } => Boolean(snippet));
+}
+
+function selectedVariantLabel(variants: SceneVariant[], selectedVariantId: string | null): string {
+  const selected = selectedVariantId ? variants.find((variant) => variant.id === selectedVariantId) : null;
+  return selected ? `Wariant: ${new Date(selected.createdAt).toLocaleString("pl-PL")}` : "Warianty AI";
+}
+
 function isEntityField(field: PlanFieldKey): boolean {
   return ["sceneTitle", "sceneSummary", "sceneGoal", "sceneConflict", "sceneOutcome"].includes(field);
 }
@@ -1418,6 +1599,11 @@ function countWords(text: string): number {
 
 function htmlToText(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+}
+
+function compactText(text: string, maxLength: number): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 1).trim()}...`;
 }
 
 function selectedTextFromEditor(editor: Editor): string {

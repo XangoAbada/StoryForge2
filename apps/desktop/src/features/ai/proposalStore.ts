@@ -21,6 +21,11 @@ import type {
   SceneEditorFieldKey,
   SceneEditorPromptPackage
 } from "./sceneEditorPromptPackage";
+import {
+  SCENE_STORY_BIBLE_AUDIT_FIELD,
+  type NormalizedSceneStoryBibleAudit,
+  type SceneStoryBibleAuditPromptPackage
+} from "./sceneStoryBibleAuditPromptPackage";
 
 export type AiProposalStatus = "queued" | "running" | "success" | "error";
 export type PendingAiProposalStatus = Extract<
@@ -45,11 +50,13 @@ export type AiTaskFieldKey =
   | WorldFieldKey
   | SceneEditorFieldKey
   | typeof BOOK_COVER_FIELD
-  | typeof CHARACTER_IMAGE_FIELD;
+  | typeof CHARACTER_IMAGE_FIELD
+  | typeof SCENE_STORY_BIBLE_AUDIT_FIELD;
 export type ParsedAiProposal =
   | NormalizedConceptFieldSuggestion
   | NormalizedPremiseDevelopment
-  | NormalizedPlanSuggestion;
+  | NormalizedPlanSuggestion
+  | NormalizedSceneStoryBibleAudit;
 
 export type NormalizedPlanSuggestion = {
   kind: "book_plan_suggestion";
@@ -73,7 +80,8 @@ export type AiPromptSnapshot = {
     | PlanPromptPackage
     | CharacterPromptPackage
     | WorldPromptPackage
-    | SceneEditorPromptPackage;
+    | SceneEditorPromptPackage
+    | SceneStoryBibleAuditPromptPackage;
   prompt: string;
   coverPrompt?: string;
   coverNegativePrompt?: string;

@@ -52,6 +52,29 @@ describe("AiLogPage", () => {
         status: "success",
         createdAt: "2026-06-05T12:00:00Z",
         completedAt: "2026-06-05T12:00:05Z"
+      },
+      {
+        id: "run-2",
+        projectId: "project-1",
+        providerId: "codex-cli-bridge",
+        model: "gpt-5.5",
+        reasoningEffort: "medium",
+        action: "generate_world_element_field",
+        promptPackageJson: {
+          context: {
+            targetField: "worldElement",
+            generationMode: "generate"
+          }
+        },
+        prompt: "# Role\nPrompt świata",
+        rawOutput: JSON.stringify({
+          version: 1,
+          kind: "world_element",
+          name: "Most Solny"
+        }),
+        status: "success",
+        createdAt: "2026-06-05T12:10:00Z",
+        completedAt: "2026-06-05T12:10:05Z"
       }
     ]);
 
@@ -64,10 +87,10 @@ describe("AiLogPage", () => {
 
     fireEvent.click(entry);
 
-    expect(await screen.findByText("Request")).toBeInTheDocument();
+    expect((await screen.findAllByText("Request"))[0]).toBeInTheDocument();
     expect(screen.getByText("Rozwijanie")).toBeInTheDocument();
-    expect(screen.getByText("gpt-5.5")).toBeInTheDocument();
-    expect(screen.getByText("Medium")).toBeInTheDocument();
+    expect(screen.getAllByText("gpt-5.5")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Medium")[0]).toBeInTheDocument();
     expect(
       screen.getByText((_content, element) => {
         return (
@@ -76,10 +99,12 @@ describe("AiLogPage", () => {
         );
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("Response")).toBeInTheDocument();
+    expect(screen.getAllByText("Response")[0]).toBeInTheDocument();
     expect(screen.getByText("Narracja bliska bohaterce")).toBeInTheDocument();
     expect(screen.getByText("trzecia osoba ograniczona")).toBeInTheDocument();
     expect(screen.getByText("czas przeszły")).toBeInTheDocument();
     expect(screen.queryByText(/"values"/)).not.toBeInTheDocument();
+    expect(await screen.findByText("Element świata", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.queryByText("generate_world_element_field")).not.toBeInTheDocument();
   });
 });

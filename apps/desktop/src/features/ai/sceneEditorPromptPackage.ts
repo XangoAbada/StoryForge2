@@ -27,6 +27,7 @@ export type SceneEditorPromptPackage = {
     targetField: SceneEditorFieldKey;
     targetEntityId: string;
     insertMode: SceneEditorInsertMode;
+    targetWordCount: number | null;
     selectedText: string;
     currentTextWindow: string;
     customInstruction: string;
@@ -38,6 +39,11 @@ export type SceneEditorPromptPackage = {
       worldElements: WorldWorkspace["elements"];
       worldRules: WorldWorkspace["rules"];
     };
+    manualContextSnippets?: Array<{
+      key: string;
+      label: string;
+      content: string;
+    }>;
     contextControl?: PromptContextControl;
   };
   outputContract: {
@@ -78,6 +84,8 @@ export function buildSceneEditorPromptPackage({
   currentText,
   customInstruction,
   insertMode,
+  targetWordCount,
+  manualContextSnippets = [],
   contextControl
 }: {
   project: Project;
@@ -91,6 +99,8 @@ export function buildSceneEditorPromptPackage({
   currentText: string;
   customInstruction: string;
   insertMode: SceneEditorInsertMode;
+  targetWordCount?: number | null;
+  manualContextSnippets?: Array<{ key: string; label: string; content: string }>;
   contextControl?: PromptContextControl;
 }): SceneEditorPromptPackage {
   return {
@@ -104,6 +114,7 @@ export function buildSceneEditorPromptPackage({
       targetField: field,
       targetEntityId: sceneContext.scene.id,
       insertMode,
+      targetWordCount: targetWordCount ?? null,
       selectedText,
       currentTextWindow: trimTextWindow(currentText),
       customInstruction: customInstruction.trim(),
@@ -115,6 +126,7 @@ export function buildSceneEditorPromptPackage({
         worldElements: world.elements,
         worldRules: world.rules
       },
+      manualContextSnippets,
       contextControl
     },
     outputContract: {
@@ -147,6 +159,8 @@ ${promptPackage.userInstruction}
 - Nie komentuj procesu poza krótką sekcją "## Notes", jeśli jest naprawdę potrzebna.
 - Zachowaj ciągłość sceny, POV, wiedzę postaci, reguły świata i style guide.
 
+- Docelową długość sceny traktuj jako orientacyjny cel, nie twardy limit.
+
 ${authorPriority ? `# Author Priority\n${authorPriority}\n` : ""}
 # Book Context
 ${JSON.stringify(context.sceneContext.book, null, 2)}
@@ -157,8 +171,10 @@ ${JSON.stringify(context.sceneContext, null, 2)}
 # Relevant Story Bible
 ${JSON.stringify(context.storyBible, null, 2)}
 
+${context.manualContextSnippets?.length ? `# Additional Author Context\n${context.manualContextSnippets.map((snippet) => `## ${snippet.label}\n${snippet.content}`).join("\n\n")}\n` : ""}
 # Current Work
 Wybrany tryb wstawienia: ${context.insertMode}
+Docelowa długość sceny: ${context.targetWordCount ? `${context.targetWordCount} słów` : "brak"}
 Zaznaczony tekst:
 ${context.selectedText || "(brak zaznaczenia)"}
 
