@@ -61,6 +61,7 @@ export type PlanFieldKey =
   | "chapterConflict"
   | "chapterTurningPoint"
   | "sceneDraft"
+  | "allChapterSceneDrafts"
   | "sceneTitle"
   | "sceneSummary"
   | "sceneGoal"
@@ -68,6 +69,7 @@ export type PlanFieldKey =
   | "sceneOutcome"
   | "threadChapterDescription"
   | "chapterThreadSuggestions"
+  | "allChapterThreadSuggestions"
   | "chapterBeatSuggestions"
   | "planGaps";
 
@@ -286,6 +288,14 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     userInstruction:
       "Wygeneruj jedną kompletną propozycję nowej sceny dla wybranego rozdziału. Użyj kontekstu rozdziału, sąsiednich rozdziałów, beatów i wątków. Nie zmieniaj istniejących encji; zwróć tylko dane nowej sceny."
   },
+  allChapterSceneDrafts: {
+    key: "allChapterSceneDrafts",
+    label: "Sceny dla rozdziałów",
+    action: "generate_scene_field",
+    targetKind: "scene",
+    userInstruction:
+      "Wygeneruj po jednej kompletnej propozycji nowej sceny dla każdego istniejącego rozdziału. Użyj pełnego planu, beatów, wątków i istniejących scen jako kontekstu. Nie zmieniaj istniejących encji; zwróć tylko listę nowych scen z jednoznacznym wskazaniem rozdziału."
+  },
   sceneTitle: {
     key: "sceneTitle",
     label: "Tytuł sceny",
@@ -342,6 +352,14 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     userInstruction:
       "Zasugeruj tylko istniejace watki fabularne, ktore warto dopiac do wybranego rozdzialu. AI moze nie sugerowac zadnego watku, jesli nie ma to zastosowania w tym rozdziale. Nie tworz nowych watkow, nie sugeruj watkow spoza Current Plan i wyklucz watki juz przypisane do rozdzialu."
   },
+  allChapterThreadSuggestions: {
+    key: "allChapterThreadSuggestions",
+    label: "Wątki dla rozdziałów",
+    action: "suggest_chapter_relations",
+    targetKind: "chapter",
+    userInstruction:
+      "Zasugeruj przypisania istniejących wątków do wszystkich rozdziałów. Nie twórz nowych wątków, nie sugeruj wątków spoza Current Plan i nie duplikuj relacji już przypisanych do rozdziału."
+  },
   chapterBeatSuggestions: {
     key: "chapterBeatSuggestions",
     label: "Powiazane beaty",
@@ -379,6 +397,7 @@ const planContextSourceLabels: Record<PlanContextKey, string> = {
   chapterConflict: "Konflikt rozdzialu",
   chapterTurningPoint: "Punkt zwrotny",
   sceneDraft: "Nowa scena",
+  allChapterSceneDrafts: "Sceny dla rozdzialow",
   sceneTitle: "Tytuł sceny",
   sceneSummary: "Streszczenie sceny",
   sceneGoal: "Cel sceny",
@@ -386,6 +405,7 @@ const planContextSourceLabels: Record<PlanContextKey, string> = {
   sceneOutcome: "Wynik sceny",
   threadChapterDescription: "Opis watku w rozdziale",
   chapterThreadSuggestions: "Powiazane watki",
+  allChapterThreadSuggestions: "Watki dla rozdzialow",
   chapterBeatSuggestions: "Powiazane beaty",
   planGaps: "Luki planu",
   bookCore: "Rdzen koncepcji",
@@ -435,6 +455,7 @@ const planPromptContextDefaultKeys: Record<PlanFieldKey, PlanContextKey[]> = {
   chapterConflict: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   chapterTurningPoint: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   sceneDraft: ["bookCore", "styleGuide", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
+  allChapterSceneDrafts: ["bookCore", "styleGuide", "planAudit"],
   sceneTitle: ["bookCore", "styleGuide", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
   sceneSummary: ["bookCore", "styleGuide", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
   sceneGoal: ["bookCore", "targetScene", "sceneChapter", "assignedThreads", "assignedBeats"],
@@ -442,6 +463,7 @@ const planPromptContextDefaultKeys: Record<PlanFieldKey, PlanContextKey[]> = {
   sceneOutcome: ["bookCore", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
   threadChapterDescription: ["targetThreadChapter", "targetThread", "targetChapter", "threadNeighborChapters", "assignedBeats"],
   chapterThreadSuggestions: ["bookCore", "targetChapter", "assignedThreads", "allThreads", "assignedBeats", "neighborChapters"],
+  allChapterThreadSuggestions: ["bookCore", "planAudit"],
   chapterBeatSuggestions: ["bookCore", "targetChapter", "assignedBeats", "allBeats", "assignedThreads", "neighborChapters"],
   planGaps: ["bookCore", "styleGuide", "planAudit"]
 };
@@ -1495,10 +1517,42 @@ function planSuggestionSchema(field: PlanFieldKey): unknown {
     };
   }
 
+  if (field === "allChapterSceneDrafts") {
+    return {
+      ...base,
+      scenes: [
+        {
+          chapterNameOrId: "existing chapter id or exact chapter title",
+          title: "string",
+          summary: "string",
+          goal: "string",
+          conflict: "string",
+          outcome: "string",
+          targetWordCount: 1200,
+          relationHints: {
+            threadNamesOrIds: ["existing thread id or exact thread name"]
+          }
+        }
+      ]
+    };
+  }
+
   if (field === "chapterThreadSuggestions") {
     return {
       ...base,
       threadNamesOrIds: ["existing thread id or exact thread name"]
+    };
+  }
+
+  if (field === "allChapterThreadSuggestions") {
+    return {
+      ...base,
+      chapterThreads: [
+        {
+          chapterNameOrId: "existing chapter id or exact chapter title",
+          threadNamesOrIds: ["existing thread id or exact thread name"]
+        }
+      ]
     };
   }
 

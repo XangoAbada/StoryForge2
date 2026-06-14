@@ -127,6 +127,7 @@ type BeatSortMode = "order" | "name" | "role";
 type ThreadViewMode = "map" | "list" | "table";
 type ThreadSortMode = "order" | "name" | "status";
 type ThreadEditTarget = "new" | string | null;
+type BulkChapterGenerationField = "allChapterSceneDrafts" | "allChapterThreadSuggestions";
 type BeatBoardLane = {
   id: string;
   actId?: string | null;
@@ -595,7 +596,8 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
 
   function queuePlanGeneration(
     field: PlanFieldKey,
-    targetEntity?: PlanPromptEntity
+    targetEntity?: PlanPromptEntity,
+    options: { useActivePromptContext?: boolean } = {}
   ) {
     setErrorMessage("");
     if (!projectQuery.data || !bookId) {
@@ -608,7 +610,10 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
       field,
       targetEntity ? planPromptEntityId(targetEntity) : undefined
     );
-    const contextControl = promptContextControlForActiveTarget(targetId);
+    const useActivePromptContext = options.useActivePromptContext ?? true;
+    const contextControl = useActivePromptContext
+      ? promptContextControlForActiveTarget(targetId)
+      : undefined;
     const usedPromptContext = Boolean(contextControl);
     const promptPackage = buildPlanPromptPackage(
       projectQuery.data.project,
@@ -634,6 +639,50 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
     if (usedPromptContext) {
       closePromptContextTarget(targetId);
     }
+  }
+
+  function queueBulkChapterGeneration(field: BulkChapterGenerationField) {
+    setErrorMessage("");
+
+    if (!projectQuery.data || !bookId) {
+      setErrorMessage("Brak danych projektu.");
+      return;
+    }
+
+    const chapters = orderedChaptersForPlan(plan);
+    if (chapters.length === 0) {
+      setErrorMessage("Najpierw dodaj rozdziały.");
+      return;
+    }
+
+    if (field === "allChapterThreadSuggestions" && plan.threads.length === 0) {
+      setErrorMessage("Najpierw dodaj wątki.");
+      return;
+    }
+
+    const pendingBulkStatus = pendingProposalStatus(proposals, {
+      projectId,
+      bookId,
+      field,
+      scope: "bookPlan"
+    });
+
+    if (pendingBulkStatus) {
+      setErrorMessage(
+        field === "allChapterSceneDrafts"
+          ? "Generowanie scen dla rozdziałów jest już w kolejce."
+          : "Przypisywanie wątków do rozdziałów jest już w kolejce."
+      );
+      return;
+    }
+
+    queuePlanGeneration(field, undefined, { useActivePromptContext: false });
+
+    setMessage(
+      field === "allChapterSceneDrafts"
+        ? "Dodano do kolejki jedno zbiorcze generowanie scen dla rozdziałów."
+        : "Dodano do kolejki jedno zbiorcze przypisywanie wątków do rozdziałów."
+    );
   }
 
   function activatePlanPromptContext(
@@ -753,6 +802,7 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         onSetActivePlan={(planVersionId) => activePlanMutation.mutate(planVersionId)}
         onDeletePlanVersion={(planVersionId) => deletePlanVersionMutation.mutate(planVersionId)}
         onGenerate={activatePlanPromptContext}
+        onGenerateForAllChapters={() => queueBulkChapterGeneration("allChapterSceneDrafts")}
       />
     ) : activeStep === "beats" ? (
       <BeatsStep
@@ -779,6 +829,7 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         onSelect={setSelectedItem}
         onGenerate={activatePlanPromptContext}
         onActivatePrompt={activatePlanPromptContext}
+        onSuggestThreadsForAllChapters={() => queueBulkChapterGeneration("allChapterThreadSuggestions")}
       />
     );
 
@@ -927,7 +978,8 @@ function ScenesStep({
   onDuplicatePlan,
   onSetActivePlan,
   onDeletePlanVersion,
-  onGenerate
+  onGenerate,
+  onGenerateForAllChapters
 }: {
   bookId: string;
   plan: BookPlan;
@@ -941,8 +993,10 @@ function ScenesStep({
   onSetActivePlan: (planVersionId: string) => void;
   onDeletePlanVersion: (planVersionId: string) => void;
   onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+  onGenerateForAllChapters: () => void;
 }) {
   const chapters = orderedChaptersForPlan(plan);
+  const proposals = useProposalStore((state) => state.proposals);
   const lanes = [...chapters, null].map((chapter) => ({
     chapter,
     scenes: orderedScenesForChapter(plan, chapter?.id ?? null)
@@ -954,6 +1008,13 @@ function ScenesStep({
   const pickerScene = relationPicker
     ? plan.scenes.find((scene) => scene.id === relationPicker.sceneId)
     : undefined;
+  const bulkSceneGenerationPending = Boolean(
+    pendingProposalStatus(proposals, {
+      bookId,
+      field: "allChapterSceneDrafts",
+      scope: "bookPlan"
+    })
+  );
 
   return (
     <div className="scenes-step plan-grid-list">
@@ -961,10 +1022,28 @@ function ScenesStep({
         title="Warianty planu"
         icon={<GitBranch size={18} />}
         action={
-          <button type="button" className="secondary-button" onClick={onDuplicatePlan} disabled={saving}>
-            <Plus size={15} />
-            Duplikuj aktywny plan
-          </button>
+          <span className="scene-add-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onGenerateForAllChapters}
+              disabled={saving || chapters.length === 0 || bulkSceneGenerationPending}
+              title={
+                chapters.length === 0
+                  ? "Dodaj rozdziały, aby wygenerować sceny."
+                  : bulkSceneGenerationPending
+                    ? "Generowanie scen dla rozdziałów jest już w kolejce."
+                    : "Wygeneruj propozycje scen dla wszystkich rozdziałów."
+              }
+            >
+              <Sparkles size={15} />
+              Generuj sceny dla rozdziałów
+            </button>
+            <button type="button" className="secondary-button" onClick={onDuplicatePlan} disabled={saving}>
+              <Plus size={15} />
+              Duplikuj aktywny plan
+            </button>
+          </span>
         }
       >
         <div className="plan-chip-row">
@@ -2863,13 +2942,15 @@ function ThreadsStep({
   onDelete,
   onSelect,
   onGenerate,
-  onActivatePrompt
+  onActivatePrompt,
+  onSuggestThreadsForAllChapters
 }: StepProps & {
   onSave: (input: UpsertPlotThreadInput) => void;
   onSaveChapter: (input: UpsertChapterInput) => void;
   onSaveChapterThreadRelation: (input: UpsertChapterThreadInput) => void;
   onDelete: (item: SelectedPlanItem) => void;
   onSelect: (item: SelectedPlanItem) => void;
+  onSuggestThreadsForAllChapters: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -2880,6 +2961,15 @@ function ThreadsStep({
   );
   const [editingThreadId, setEditingThreadId] = useState<ThreadEditTarget>(null);
   const threadIdsKey = plan.threads.map((thread) => thread.id).join("|");
+  const proposals = useProposalStore((state) => state.proposals);
+  const chapters = orderedChaptersForPlan(plan);
+  const bulkThreadSuggestionsPending = Boolean(
+    pendingProposalStatus(proposals, {
+      bookId,
+      field: "allChapterThreadSuggestions",
+      scope: "bookPlan"
+    })
+  );
 
   useEffect(() => {
     if (plan.threads.length === 0) {
@@ -2980,6 +3070,29 @@ function ThreadsStep({
             onGenerate={() => onGenerate("plotThreads")}
             onActivatePrompt={() => onActivatePrompt("plotThreads")}
           />
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={onSuggestThreadsForAllChapters}
+            disabled={
+              saving ||
+              chapters.length === 0 ||
+              plan.threads.length === 0 ||
+              bulkThreadSuggestionsPending
+            }
+            title={
+              chapters.length === 0
+                ? "Dodaj rozdziały, aby przypisać wątki."
+                : plan.threads.length === 0
+                  ? "Dodaj wątki, aby przypisać je do rozdziałów."
+                  : bulkThreadSuggestionsPending
+                    ? "Przypisywanie wątków do rozdziałów jest już w kolejce."
+                    : "Wygeneruj propozycje przypisania wątków do wszystkich rozdziałów."
+            }
+          >
+            <Sparkles size={16} />
+            Przypisz wątki do rozdziałów
+          </button>
           <button type="button" className="primary-button" onClick={startNewThread}>
             <Plus size={16} />
             Dodaj wątek

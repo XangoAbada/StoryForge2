@@ -3,6 +3,7 @@
 ## Testing Policy
 
 - Do not run front-end tests, Playwright checks, or other automated UI verification. The user is the only person who performs front-end testing and UI verification.
+- Do not create new tests for project changes unless the user explicitly requests them.
 - Build commands and backend tests may be run when they are useful for validating non-UI changes.
 - After UI changes, describe what the user should inspect manually, especially awkward spacing, weak alignment, cramped or wasted space, poor proportions, visual imbalance, and overall layout coherence.
 

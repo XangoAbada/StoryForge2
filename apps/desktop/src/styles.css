@@ -4382,6 +4382,7 @@
   }
 
   .thread-header-actions .primary-button,
+  .thread-header-actions .secondary-button,
   .thread-editor-actions .primary-button,
   .thread-editor-actions .ghost-button {
     width: 100%;

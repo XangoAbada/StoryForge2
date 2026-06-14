@@ -73,8 +73,18 @@ export async function applyPlanProposalPayload(
     return;
   }
 
+  if (field === "allChapterSceneDrafts") {
+    await applyAllChapterSceneDrafts(record, context);
+    return;
+  }
+
   if (field === "chapterThreadSuggestions") {
     await applyChapterRelationSuggestions(record, scopedPackageContext, context, "threads");
+    return;
+  }
+
+  if (field === "allChapterThreadSuggestions") {
+    await applyAllChapterThreadSuggestions(record, context);
     return;
   }
 
@@ -306,6 +316,120 @@ async function applySceneDraft(
     elementIds: [],
     ruleIds: []
   });
+}
+
+async function applyAllChapterSceneDrafts(
+  record: Record<string, unknown>,
+  context: ApplyPlanContext
+) {
+  if (!Array.isArray(record.scenes)) {
+    return;
+  }
+  if (!context.saveScene || !context.setSceneRelations) {
+    throw new Error("Brak obsługi zapisu sceny dla propozycji AI.");
+  }
+
+  const createdByChapter = new Map<string, number>();
+
+  for (const item of record.scenes) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const sceneRecord = item as Record<string, unknown>;
+    const chapter = findByNameOrId(
+      context.plan.chapters,
+      textValue(sceneRecord.chapterNameOrId)
+    );
+    if (!chapter) {
+      continue;
+    }
+
+    const createdCount = createdByChapter.get(chapter.id) ?? 0;
+    createdByChapter.set(chapter.id, createdCount + 1);
+
+    const savedScene = await context.saveScene({
+      bookId: context.bookId,
+      chapterId: chapter.id,
+      orderIndex:
+        context.plan.scenes.filter((scene) => scene.chapterId === chapter.id).length +
+        createdCount,
+      title: textValue(sceneRecord.title) || "Nowa scena",
+      summary: textValue(sceneRecord.summary),
+      goal: textValue(sceneRecord.goal),
+      conflict: textValue(sceneRecord.conflict),
+      outcome: textValue(sceneRecord.outcome),
+      povCharacterId: null,
+      locationId: null,
+      targetWordCount: numberValue(sceneRecord.targetWordCount, 0) || null,
+      actualWordCount: null,
+      manuscriptContent: "",
+      status: "planned"
+    });
+
+    const relationHints =
+      sceneRecord.relationHints && typeof sceneRecord.relationHints === "object"
+        ? (sceneRecord.relationHints as Record<string, unknown>)
+        : {};
+
+    await context.setSceneRelations({
+      bookId: context.bookId,
+      sceneId: savedScene.id,
+      characterIds: [],
+      threadIds: namesToIds(context.plan.threads, relationHints.threadNamesOrIds),
+      elementIds: [],
+      ruleIds: []
+    });
+  }
+}
+
+async function applyAllChapterThreadSuggestions(
+  record: Record<string, unknown>,
+  context: ApplyPlanContext
+) {
+  if (!Array.isArray(record.chapterThreads)) {
+    return;
+  }
+
+  for (const item of record.chapterThreads) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const suggestion = item as Record<string, unknown>;
+    const chapter = findByNameOrId(
+      context.plan.chapters,
+      textValue(suggestion.chapterNameOrId)
+    );
+    if (!chapter) {
+      continue;
+    }
+
+    const currentThreadIds = context.plan.chapterThreads
+      .filter((relation) => relation.chapterId === chapter.id)
+      .map((relation) => relation.threadId);
+    const currentBeatIds = context.plan.chapterBeats
+      .filter((relation) => relation.chapterId === chapter.id)
+      .map((relation) => relation.beatId);
+    const suggestedThreadIds = namesToIds(
+      context.plan.threads,
+      suggestion.threadNamesOrIds
+    );
+    const nextThreadIds = uniqueOrderedIds([
+      ...currentThreadIds,
+      ...suggestedThreadIds
+    ]);
+
+    if (nextThreadIds.length === currentThreadIds.length) {
+      continue;
+    }
+
+    await context.saveChapter({
+      ...chapter,
+      threadIds: nextThreadIds,
+      beatIds: currentBeatIds
+    });
+  }
 }
 
 async function applySingleField(
