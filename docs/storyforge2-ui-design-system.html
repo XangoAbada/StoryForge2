@@ -1,0 +1,2501 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StoryForge2 - atlas UI i design system</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8f6;
+      --paper: #fffdf8;
+      --surface: #ffffff;
+      --surface-strong: #f2f4f1;
+      --ink: #152321;
+      --ink-soft: #64706b;
+      --line: #dfe4df;
+      --line-strong: #c8d0c9;
+      --green: #2f8067;
+      --green-dark: #246d59;
+      --green-soft: #e7f3ed;
+      --gold: #9b6a2f;
+      --gold-soft: #fff4df;
+      --blue: #304e7a;
+      --blue-soft: #eef5ff;
+      --red: #a14235;
+      --red-soft: #f8e4df;
+      --sidebar: #0e292e;
+      --sidebar-strong: #0a1d22;
+      --cyan: #337f86;
+      --violet: #6f5aa7;
+      --radius: 8px;
+      --shadow: 0 18px 45px rgba(24, 35, 31, 0.08);
+      --shadow-strong: 0 24px 70px rgba(14, 41, 46, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        linear-gradient(90deg, rgba(47, 128, 103, 0.055) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(48, 78, 122, 0.04) 1px, transparent 1px),
+        var(--bg);
+      background-size: 34px 34px;
+      color: var(--ink);
+      font-family: "Aptos", "Segoe UI", system-ui, sans-serif;
+      line-height: 1.5;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    p,
+    dl,
+    dd {
+      margin: 0;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fffefb;
+      color: var(--ink);
+      outline: none;
+    }
+
+    input,
+    select {
+      min-height: 38px;
+      padding: 0 11px;
+    }
+
+    textarea {
+      min-height: 96px;
+      padding: 11px;
+      line-height: 1.45;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus,
+    button:focus-visible,
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr) minmax(330px, 380px);
+      min-height: 100vh;
+    }
+
+    .rail,
+    .notes-panel {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+    }
+
+    .rail {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 18px;
+      padding: 22px 18px;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--sidebar);
+      color: #f7fbf8;
+    }
+
+    .brand {
+      display: grid;
+      gap: 12px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .brand img {
+      width: min(190px, 100%);
+      height: auto;
+    }
+
+    .brand strong {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .brand span {
+      color: rgba(247, 251, 248, 0.7);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .nav-list {
+      display: grid;
+      gap: 6px;
+      align-content: start;
+    }
+
+    .nav-list a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 36px;
+      padding: 0 10px;
+      border-radius: var(--radius);
+      color: rgba(247, 251, 248, 0.78);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .nav-list a:hover,
+    .nav-list a:focus-visible {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+
+    .nav-list small {
+      color: rgba(247, 251, 248, 0.48);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    .hero {
+      display: grid;
+      gap: 18px;
+      padding: 34px clamp(22px, 4vw, 54px) 28px;
+      background:
+        linear-gradient(135deg, rgba(14, 41, 46, 0.96), rgba(22, 56, 55, 0.92)),
+        var(--sidebar);
+      color: #ffffff;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 390px);
+      gap: 28px;
+      align-items: end;
+    }
+
+    .eyebrow {
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .hero .eyebrow {
+      color: #e8c57f;
+    }
+
+    h1 {
+      max-width: 940px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 42px;
+      line-height: 1.06;
+      font-weight: 700;
+    }
+
+    .hero p {
+      max-width: 820px;
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 16px;
+      font-weight: 650;
+    }
+
+    .hero-facts {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .hero-facts span {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .hero-facts strong {
+      color: #ffffff;
+      text-align: right;
+    }
+
+    .content {
+      display: grid;
+      gap: 42px;
+      padding: 34px clamp(22px, 4vw, 54px) 80px;
+    }
+
+    .section {
+      display: grid;
+      gap: 18px;
+      min-width: 0;
+      scroll-margin-top: 20px;
+    }
+
+    .section-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: end;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-header h2 {
+      margin-top: 4px;
+      font-size: 26px;
+      line-height: 1.14;
+    }
+
+    .section-header p {
+      max-width: 760px;
+      color: var(--ink-soft);
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .section-index {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .insight-grid,
+    .token-grid,
+    .spec-grid,
+    .screen-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .insight,
+    .token,
+    .specimen,
+    .screen-card,
+    .source-card {
+      display: grid;
+      gap: 11px;
+      min-width: 0;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 12px 30px rgba(23, 36, 32, 0.04);
+    }
+
+    .insight strong,
+    .token strong,
+    .specimen h3,
+    .screen-card h3,
+    .source-card strong {
+      color: #1d2b28;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+
+    .insight p,
+    .token p,
+    .specimen p,
+    .screen-card p,
+    .source-card p {
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .token-swatch {
+      height: 62px;
+      border: 1px solid rgba(21, 35, 33, 0.09);
+      border-radius: var(--radius);
+      background: var(--swatch);
+    }
+
+    .token-code {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    code,
+    .token-code span {
+      padding: 3px 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfb;
+      color: #3e4c47;
+      font-family: "Cascadia Mono", "Consolas", monospace;
+      font-size: 12px;
+    }
+
+    .specimen {
+      align-content: start;
+    }
+
+    .specimen-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .specimen-title {
+      display: grid;
+      gap: 4px;
+    }
+
+    .source {
+      color: var(--ink-soft);
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .sample {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid rgba(39, 63, 50, 0.1);
+      border-radius: var(--radius);
+      background: #fbfcfb;
+    }
+
+    .sample-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .button,
+    .primary-button,
+    .secondary-button,
+    .ghost-button,
+    .icon-button,
+    .danger-button,
+    .note-target {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 38px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .primary-button {
+      padding: 0 14px;
+      background: linear-gradient(135deg, var(--green), var(--green-dark));
+      color: #fffdf8;
+      box-shadow: 0 10px 22px rgba(47, 128, 103, 0.18);
+    }
+
+    .secondary-button {
+      padding: 0 14px;
+      border-color: #c59145;
+      background: var(--gold-soft);
+      color: #68420e;
+    }
+
+    .ghost-button {
+      padding: 0 12px;
+      border-color: var(--line);
+      background: #ffffff;
+      color: var(--ink);
+    }
+
+    .danger-button {
+      padding: 0 12px;
+      border-color: #d7afa7;
+      background: #fff2ee;
+      color: var(--red);
+    }
+
+    .icon-button {
+      width: 38px;
+      height: 38px;
+      min-height: 38px;
+      padding: 0;
+      border-color: var(--line);
+      background: #fffefb;
+      color: var(--ink);
+    }
+
+    .icon-button.strong {
+      border-color: var(--green);
+      background: var(--green);
+      color: #fffdf8;
+    }
+
+    .ai-field-button {
+      width: auto;
+      min-width: 58px;
+      height: 32px;
+      min-height: 32px;
+      padding: 0 9px;
+      border-color: #c59145;
+      background: var(--gold-soft);
+      color: #68420e;
+      font-size: 12px;
+    }
+
+    .ai-context-add-button {
+      width: 30px;
+      height: 30px;
+      min-height: 30px;
+      border-color: #d9c49c;
+      background: #fffdf6;
+      color: #8a6122;
+    }
+
+    .note-target {
+      min-height: 30px;
+      padding: 0 9px;
+      border-color: #bfd4c8;
+      background: #f7fbf8;
+      color: #24463e;
+      font-size: 12px;
+    }
+
+    .note-target:hover,
+    .note-target.active {
+      border-color: var(--green);
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .status-pill,
+    .chip,
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 26px;
+      padding: 0 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fffefb;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .status-pill.ready,
+    .chip.thread {
+      border-color: #9ac2ad;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .status-pill.warning,
+    .chip.warn {
+      border-color: #d9b77d;
+      background: #fff4d8;
+      color: #7a4b08;
+    }
+
+    .status-pill.muted,
+    .chip.danger {
+      border-color: #ecc1b7;
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .chip.beat {
+      border-color: #c9d8f0;
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .chip button,
+    .mini-remove {
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      min-height: 18px;
+      padding: 0;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.75);
+      color: inherit;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .relation-add {
+      min-height: 26px;
+      padding: 0 9px;
+      border: 1px solid #e2a684;
+      border-radius: 999px;
+      background: #fff0e7;
+      color: #9b3f18;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .field-label,
+    .field-shell {
+      display: grid;
+      gap: 7px;
+      color: var(--ink-soft);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .field-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .field-description {
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.4;
+    }
+
+    .inline-control,
+    .ai-field-row,
+    .folder-field-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: stretch;
+      width: 100%;
+    }
+
+    .ai-field-row,
+    .folder-field-row {
+      grid-template-columns: minmax(0, 1fr) 38px;
+    }
+
+    .choice-chip-list,
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .choice-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .choice-chip.selected {
+      border-color: #9ac2ad;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .choice-chip.custom {
+      border-style: dashed;
+      color: var(--gold);
+    }
+
+    .segmented-control,
+    .view-toggle,
+    .plan-header-actions {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      min-height: 42px;
+      padding: 4px;
+      border: 1px solid rgba(39, 63, 50, 0.12);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    .segmented-control button,
+    .view-toggle button,
+    .plan-mode-button {
+      min-height: 32px;
+      padding: 0 11px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .segmented-control button.active,
+    .view-toggle button.active,
+    .plan-mode-button.active {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .stage-track {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(92px, 1fr));
+      gap: 0;
+      min-width: 560px;
+    }
+
+    .stage-step {
+      position: relative;
+      display: grid;
+      justify-items: center;
+      gap: 7px;
+      min-height: 62px;
+      padding: 0 8px;
+      border: 0;
+      background: transparent;
+      color: var(--ink-soft);
+      text-align: center;
+    }
+
+    .stage-step::before {
+      position: absolute;
+      top: 13px;
+      left: calc(-50% + 18px);
+      right: calc(50% + 18px);
+      border-top: 1px dashed rgba(39, 63, 50, 0.22);
+      content: "";
+    }
+
+    .stage-step:first-child::before {
+      display: none;
+    }
+
+    .stage-number {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid rgba(39, 63, 50, 0.16);
+      border-radius: 999px;
+      background: #ffffff;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .stage-step.active {
+      color: var(--green);
+    }
+
+    .stage-step.active .stage-number {
+      border-color: transparent;
+      background: var(--green);
+      color: #ffffff;
+    }
+
+    .tab-list {
+      display: flex;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    .tab-list button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      min-width: 120px;
+      padding: 0 13px;
+      border: 0;
+      border-right: 1px solid var(--line);
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink-soft);
+      font-weight: 850;
+    }
+
+    .tab-list button:last-child {
+      border-right: 0;
+    }
+
+    .tab-list button.active {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .project-card,
+    .chapter-card,
+    .thread-card,
+    .character-card,
+    .world-card,
+    .export-file-card,
+    .proposal-card {
+      display: grid;
+      gap: 9px;
+      min-width: 0;
+      padding: 13px;
+      border: 1px solid rgba(39, 63, 50, 0.12);
+      border-radius: var(--radius);
+      background: #ffffff;
+      color: var(--ink);
+      box-shadow: 0 10px 24px rgba(24, 35, 31, 0.04);
+    }
+
+    .project-card {
+      grid-template-rows: 160px auto;
+      overflow: hidden;
+      padding: 0;
+      aspect-ratio: 2 / 3;
+      max-width: 180px;
+    }
+
+    .cover-art {
+      display: grid;
+      place-items: center;
+      background:
+        linear-gradient(145deg, rgba(47, 128, 103, 0.16), rgba(155, 106, 47, 0.12)),
+        #f1f4f1;
+    }
+
+    .cover-art span {
+      display: grid;
+      place-items: center;
+      width: 62px;
+      height: 62px;
+      border-radius: var(--radius);
+      background: #ffffff;
+      color: var(--green);
+      font-size: 24px;
+      font-weight: 900;
+      box-shadow: 0 12px 30px rgba(23, 36, 32, 0.08);
+    }
+
+    .project-card-copy {
+      display: grid;
+      gap: 5px;
+      padding: 12px;
+      border-top: 1px solid #edf1ee;
+    }
+
+    .project-card-copy small,
+    .chapter-card p,
+    .thread-card p,
+    .character-card p,
+    .world-card p,
+    .proposal-card p {
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .chapter-card {
+      min-height: 190px;
+      cursor: pointer;
+    }
+
+    .card-topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .number-badge {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius);
+      background: var(--green);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .card-field {
+      display: grid;
+      grid-template-columns: 82px minmax(0, 1fr);
+      gap: 8px;
+      padding-top: 7px;
+      border-top: 1px solid rgba(39, 63, 50, 0.08);
+      color: #33423d;
+      font-size: 12px;
+    }
+
+    .thread-card {
+      position: relative;
+      border-left: 4px solid var(--violet);
+    }
+
+    .thread-progress {
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--surface-strong);
+    }
+
+    .thread-progress span {
+      display: block;
+      width: 62%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--green);
+    }
+
+    .character-card {
+      grid-template-columns: 58px minmax(0, 1fr);
+      min-height: 126px;
+    }
+
+    .avatar {
+      display: grid;
+      place-items: center;
+      width: 58px;
+      height: 70px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #f1f4f1;
+      color: var(--green);
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .world-card {
+      grid-template-columns: 42px minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .world-icon {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius);
+      background: #24463e;
+      color: #fffdf8;
+      font-weight: 900;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(190px, 1fr));
+      gap: 12px;
+      min-width: 0;
+      overflow-x: auto;
+    }
+
+    .board-column {
+      display: grid;
+      gap: 10px;
+      min-height: 260px;
+      padding: 12px;
+      border: 1px solid rgba(39, 63, 50, 0.12);
+      border-radius: 10px;
+      background: #f8faf5;
+    }
+
+    .board-column h4 {
+      font-size: 14px;
+    }
+
+    .modal-demo {
+      position: relative;
+      display: grid;
+      min-height: 300px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #182621;
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(20, 29, 26, 0.56);
+    }
+
+    .modal-shell {
+      position: relative;
+      z-index: 1;
+      align-self: center;
+      justify-self: center;
+      display: grid;
+      width: min(520px, calc(100% - 28px));
+      max-height: calc(100% - 28px);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fffdf8;
+      box-shadow: var(--shadow-strong);
+    }
+
+    .modal-shell.small {
+      width: min(420px, calc(100% - 28px));
+    }
+
+    .modal-header,
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-body {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+      max-height: 260px;
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .modal-footer {
+      justify-content: flex-end;
+      border-top: 1px solid var(--line);
+      border-bottom: 0;
+    }
+
+    .relation-option {
+      display: grid;
+      gap: 4px;
+      padding: 10px;
+      border: 1px solid rgba(36, 70, 62, 0.12);
+      border-radius: var(--radius);
+      background: #fffdf8;
+      text-align: left;
+    }
+
+    .relation-option.selected {
+      border-color: rgba(63, 143, 107, 0.55);
+      background: rgba(239, 247, 240, 0.94);
+    }
+
+    .context-panel-demo {
+      display: grid;
+      gap: 12px;
+      max-width: 360px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    .context-source {
+      display: grid;
+      grid-template-columns: 16px minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 30px;
+      padding: 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fffefb;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .context-source.required {
+      border-color: #d9c49c;
+      background: #fff8ea;
+    }
+
+    .proposal-card.running {
+      border-color: #c59145;
+      background: #fff8ea;
+    }
+
+    .raw-output {
+      max-height: 120px;
+      overflow: auto;
+      padding: 10px;
+      border-radius: var(--radius);
+      background: #27231f;
+      color: #f7efe2;
+      font-family: "Cascadia Mono", "Consolas", monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    .scene-layout {
+      display: grid;
+      grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .scene-rail {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    .scene-list-item {
+      display: grid;
+      gap: 4px;
+      min-height: 68px;
+      padding: 10px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: #ffffff;
+      color: var(--ink);
+      text-align: left;
+    }
+
+    .scene-list-item.active {
+      border-color: rgba(47, 128, 103, 0.48);
+      background: #fbfefc;
+      box-shadow: 0 12px 28px rgba(47, 128, 103, 0.08);
+    }
+
+    .editor-frame {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-height: 330px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    .format-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      min-height: 50px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfb;
+    }
+
+    .format-toolbar button {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      min-height: 34px;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: #30413c;
+      font-weight: 900;
+    }
+
+    .format-toolbar button.active {
+      border-color: #cfe0d7;
+      background: #eef6f0;
+      color: var(--green);
+    }
+
+    .editor-surface {
+      min-height: 260px;
+      padding: 24px 32px;
+      color: #172622;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 16px;
+      line-height: 1.72;
+    }
+
+    .selection-popover {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      padding: 8px 10px;
+      border: 1px solid #cfe0d7;
+      border-radius: var(--radius);
+      background: #f7fbf8;
+      color: var(--ink-soft);
+      font-size: 12px;
+    }
+
+    .export-preview-page {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      min-height: 420px;
+      padding: 30px clamp(18px, 4vw, 48px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(90deg, rgba(39, 63, 50, 0.045) 0 1px, transparent 1px 100%),
+        #fffdf8;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    .preview-cover {
+      display: grid;
+      place-items: center;
+      justify-self: center;
+      width: min(100%, 220px);
+      aspect-ratio: 2 / 3;
+      margin: 0 auto 16px;
+      padding: 20px;
+      border: 1px solid #d9c6a5;
+      border-radius: 6px;
+      background: #f9f1df;
+      color: #2b2721;
+      text-align: center;
+      box-shadow: 0 18px 34px rgba(64, 48, 24, 0.14);
+    }
+
+    .preview-separator {
+      display: grid;
+      gap: 8px;
+      color: var(--gold);
+      text-align: center;
+    }
+
+    .preview-line {
+      height: 1px;
+      background: currentColor;
+      opacity: 0.35;
+    }
+
+    .preview-body {
+      max-width: 72ch;
+      margin: 8px auto;
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    .job-status {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    .job-status.success {
+      border-color: #9ac2ad;
+      background: #f4faf6;
+    }
+
+    .job-status.error {
+      border-color: #dfb8a8;
+      background: #fff7f3;
+    }
+
+    .progress-bar {
+      position: relative;
+      display: block;
+      height: 5px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #dce9e2;
+    }
+
+    .progress-bar::before {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 38%;
+      border-radius: inherit;
+      background: var(--green);
+      content: "";
+    }
+
+    .screen-card {
+      border-left: 4px solid var(--green);
+    }
+
+    .screen-card ul,
+    .source-card ul {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding-left: 18px;
+      color: var(--ink-soft);
+      font-size: 13px;
+    }
+
+    .notes-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 0;
+      border-left: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: -18px 0 45px rgba(24, 35, 31, 0.05);
+    }
+
+    .notes-header {
+      display: grid;
+      gap: 8px;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      background: #ffffff;
+    }
+
+    .notes-header h2 {
+      font-size: 18px;
+    }
+
+    .notes-header p {
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.42;
+    }
+
+    .note-workspace {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .note-form {
+      display: grid;
+      gap: 11px;
+    }
+
+    .note-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 110px;
+      gap: 9px;
+    }
+
+    .note-preview,
+    .notes-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .note-preview pre {
+      max-height: 190px;
+      overflow: auto;
+      margin: 0;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fbfcfb;
+      color: #33423d;
+      font-family: "Cascadia Mono", "Consolas", monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    .note-item {
+      display: grid;
+      gap: 7px;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fffefb;
+    }
+
+    .note-item header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .note-item strong {
+      font-size: 13px;
+    }
+
+    .note-item p {
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .note-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .delete-note {
+      width: 28px;
+      height: 28px;
+      min-height: 28px;
+      border-color: #ddb8b0;
+      background: #fff2ee;
+      color: var(--red);
+    }
+
+    .empty-note {
+      padding: 12px;
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius);
+      color: var(--ink-soft);
+      font-size: 13px;
+    }
+
+    .jump-note {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 20;
+      display: none;
+    }
+
+    @media (max-width: 1240px) {
+      .shell {
+        grid-template-columns: 220px minmax(0, 1fr);
+      }
+
+      .notes-panel {
+        position: static;
+        grid-column: 1 / -1;
+        height: auto;
+        border-top: 1px solid var(--line);
+        border-left: 0;
+      }
+
+      .jump-note {
+        display: inline-flex;
+      }
+    }
+
+    @media (max-width: 840px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        position: static;
+        height: auto;
+      }
+
+      .hero-grid,
+      .section-header,
+      .scene-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .board {
+        grid-template-columns: minmax(220px, 1fr);
+      }
+
+      .note-form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" aria-label="Nawigacja atlasu">
+      <div class="brand">
+        <img src="../apps/desktop/src/assets/storyforge-logo-full.png" alt="StoryForge2">
+        <strong>Atlas UI</strong>
+        <span>Design system oparty na komponentach znalezionych w aplikacji.</span>
+      </div>
+      <nav class="nav-list">
+        <a href="#diagnoza">Diagnoza <small>01</small></a>
+        <a href="#fundamenty">Fundamenty <small>02</small></a>
+        <a href="#komponenty">Komponenty <small>03</small></a>
+        <a href="#wzorce">Wzorce domenowe <small>04</small></a>
+        <a href="#ekrany">Ekrany <small>05</small></a>
+        <a href="#notatki">Notatki <small>06</small></a>
+        <a href="#zrodla">Źródła <small>07</small></a>
+      </nav>
+    </aside>
+
+    <main>
+      <header class="hero">
+        <div class="hero-grid">
+          <div>
+            <p class="eyebrow">StoryForge2 / design system</p>
+            <h1>Mapa wszystkich głównych elementów UI w jednym roboczym atlasie.</h1>
+            <p>
+              Ten plik porządkuje aktualny interfejs jako system: tokeny, komponenty bazowe,
+              wzorce AI, relacje planu, modale, edytor scen, eksport i ekrany robocze.
+              Każdy element można oznaczyć notatką redesignu w prawym panelu.
+            </p>
+          </div>
+          <div class="hero-facts" aria-label="Zakres analizy">
+            <span>Zakres <strong>React, Tauri, CSS aplikacji</strong></span>
+            <span>Ekrany <strong>Dashboard, Projekt, Plan, AI, Eksport</strong></span>
+            <span>Źródło <strong>apps/desktop/src</strong></span>
+            <span>Artefakt <strong>samodzielny HTML</strong></span>
+          </div>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="section" id="diagnoza">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Diagnoza</p>
+              <h2>Co powinien trzymać profesjonalny design system StoryForge2</h2>
+              <p>
+                Aplikacja ma już spójny charakter: spokojny warsztat pisarski, panele robocze,
+                dużo relacji i mocny wzorzec AI przy każdym polu. Design system powinien
+                zabezpieczać powtarzalność tych zachowań, nie tylko kolory.
+              </p>
+            </div>
+            <span class="section-index">01</span>
+          </header>
+
+          <div class="insight-grid">
+            <article class="insight">
+              <strong>Tokeny decyzji</strong>
+              <p>Kolory, typografia, promienie, cienie, focus, gęstość i wartości statusów muszą być nazwane semantycznie: akcja, AI, relacja, ostrzeżenie, gotowość.</p>
+            </article>
+            <article class="insight">
+              <strong>Komponenty z pełnymi stanami</strong>
+              <p>Każdy przycisk, chip, pole, karta i modal powinien mieć stany: domyślny, hover, focus, aktywny, disabled, loading, error i empty.</p>
+            </article>
+            <article class="insight">
+              <strong>Wzorce domenowe</strong>
+              <p>Najważniejsze są wzorce specyficzne dla aplikacji: AI przy polu, panel kontekstu promptu, propozycja/akceptacja, relacje `+/-`, kanban planu, edytor scen.</p>
+            </article>
+            <article class="insight">
+              <strong>Reguły dostępności</strong>
+              <p>System powinien wymagać `aria-label`, `role="dialog"`, `aria-modal`, zamykania Escape, czytelnych tytułów relacji i widocznych stanów focus.</p>
+            </article>
+            <article class="insight">
+              <strong>Treść UI po polsku</strong>
+              <p>Wszystkie etykiety, opisy, statusy, błędy i prompt labels powinny używać poprawnych polskich znaków oraz jednego tonu: rzeczowo, spokojnie, bez nadmiaru instrukcji.</p>
+            </article>
+            <article class="insight">
+              <strong>Dokumentowanie zmian</strong>
+              <p>Każdy redesign powinien zapisywać problem, miejsce w aplikacji, proponowany kierunek, priorytet i kryteria akceptacji. Panel po prawej tworzy taki zapis.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="fundamenty">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Fundamenty</p>
+              <h2>Tokeny i zasady bazowe</h2>
+              <p>Wyciąg z aktualnego `styles.css`: paleta, promienie, cienie, typografia i standardy gęstości interfejsu.</p>
+            </div>
+            <span class="section-index">02</span>
+          </header>
+
+          <div class="token-grid">
+            <article class="token" style="--swatch:#f7f8f6">
+              <div class="token-swatch"></div>
+              <strong>Tło aplikacji</strong>
+              <p>Neutralna baza dla długiej pracy pisarskiej.</p>
+              <div class="token-code"><span>--bg</span><span>#f7f8f6</span></div>
+            </article>
+            <article class="token" style="--swatch:#ffffff">
+              <div class="token-swatch"></div>
+              <strong>Powierzchnia</strong>
+              <p>Karty, panele, modale i listy robocze.</p>
+              <div class="token-code"><span>--surface</span><span>#ffffff</span></div>
+            </article>
+            <article class="token" style="--swatch:#152321">
+              <div class="token-swatch"></div>
+              <strong>Tekst podstawowy</strong>
+              <p>Główne nagłówki, mocne etykiety, treść kart.</p>
+              <div class="token-code"><span>--ink</span><span>#152321</span></div>
+            </article>
+            <article class="token" style="--swatch:#64706b">
+              <div class="token-swatch"></div>
+              <strong>Tekst pomocniczy</strong>
+              <p>Opisy pól, podtytuły, metadane i puste stany.</p>
+              <div class="token-code"><span>--ink-soft</span><span>#64706b</span></div>
+            </article>
+            <article class="token" style="--swatch:#2f8067">
+              <div class="token-swatch"></div>
+              <strong>Akcja i gotowość</strong>
+              <p>Akcje główne, aktywne stany, relacje wątku, sukces.</p>
+              <div class="token-code"><span>--green</span><span>#2f8067</span></div>
+            </article>
+            <article class="token" style="--swatch:#9b6a2f">
+              <div class="token-swatch"></div>
+              <strong>AI i akcent</strong>
+              <p>Przyciski generowania, eyebrow, akcenty ustawień.</p>
+              <div class="token-code"><span>--gold</span><span>#9b6a2f</span></div>
+            </article>
+            <article class="token" style="--swatch:#304e7a">
+              <div class="token-swatch"></div>
+              <strong>Focus i beaty</strong>
+              <p>Obrys focus, linki metadanych, chipy beatów.</p>
+              <div class="token-code"><span>--blue</span><span>#304e7a</span></div>
+            </article>
+            <article class="token" style="--swatch:#a14235">
+              <div class="token-swatch"></div>
+              <strong>Ryzyko i usuwanie</strong>
+              <p>Usuwanie, błędy, ostrzeżenia destrukcyjne.</p>
+              <div class="token-code"><span>--red</span><span>#a14235</span></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="komponenty">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Komponenty</p>
+              <h2>Elementy bazowe UI</h2>
+              <p>Komponenty widoczne wielokrotnie w aplikacji. Przy każdym znajduje się przycisk do utworzenia notatki redesignu.</p>
+            </div>
+            <span class="section-index">03</span>
+          </header>
+
+          <div class="spec-grid">
+            <article class="specimen" data-component="Przyciski akcji">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Przyciski akcji</h3>
+                  <span class="source">`primary-button`, `secondary-button`, `ghost-button`, `icon-button`</span>
+                </div>
+                <button class="note-target" data-note-target="Przyciski akcji" data-source="styles.css, wiele ekranów">Notatka</button>
+              </div>
+              <div class="sample">
+                <div class="sample-row">
+                  <button class="primary-button">Zapisz</button>
+                  <button class="secondary-button">Generuj AI</button>
+                  <button class="ghost-button">Anuluj</button>
+                  <button class="danger-button">Usuń</button>
+                  <button class="icon-button" aria-label="Zamknij">X</button>
+                  <button class="icon-button strong" aria-label="Dodaj">+</button>
+                </div>
+              </div>
+              <p>Używane w formularzach, modalach, dashboardzie, planie, scenach, świecie i eksporcie.</p>
+            </article>
+
+            <article class="specimen" data-component="Statusy i komunikaty">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Statusy i komunikaty</h3>
+                  <span class="source">`status-pill`, `autosave-status`, `warning-text`, `success-text`</span>
+                </div>
+                <button class="note-target" data-note-target="Statusy i komunikaty" data-source="ProjectShell, AiProposalPanel, ExportPage">Notatka</button>
+              </div>
+              <div class="sample">
+                <div class="sample-row">
+                  <span class="status-pill ready">Gotowy</span>
+                  <span class="status-pill">W kolejce</span>
+                  <span class="status-pill warning">Wymaga uwagi</span>
+                  <span class="status-pill muted">Błąd</span>
+                </div>
+                <p class="field-description">Zapisano automatycznie - 10:42</p>
+              </div>
+              <p>System powinien jasno odróżniać gotowość, ostrzeżenie, błąd i stan neutralny.</p>
+            </article>
+
+            <article class="specimen" data-component="Pola formularza z AI">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Pola formularza z AI</h3>
+                  <span class="source">`field-shell`, `ai-field-button`, `ai-context-add-button`</span>
+                </div>
+                <button class="note-target" data-note-target="Pola formularza z AI" data-source="BookConceptPage, BookPlanPage, CharactersPage, WorldPage, SceneEditorPage">Notatka</button>
+              </div>
+              <div class="sample">
+                <label class="field-shell">
+                  <span class="field-heading">
+                    <span>Tytuł sceny</span>
+                    <span class="sample-row">
+                      <button class="icon-button ai-field-button" aria-label="Generuj tytuł sceny">AI</button>
+                      <button class="icon-button ai-context-add-button" aria-label="Dodaj pole do kontekstu">+</button>
+                    </span>
+                  </span>
+                  <span class="field-description">Każde pole tekstowe ma lokalne generowanie oraz źródło kontekstu.</span>
+                  <input value="Spotkanie przy zamkniętej bramie">
+                </label>
+              </div>
+              <p>To najważniejszy wzorzec produktu: generowanie dotyczy tylko pola obok przycisku i przechodzi przez akceptację propozycji.</p>
+            </article>
+
+            <article class="specimen" data-component="Pola wyboru i przełączniki">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Pola wyboru i przełączniki</h3>
+                  <span class="source">`select`, `range`, `toggle-row`, `segmented-control`</span>
+                </div>
+                <button class="note-target" data-note-target="Pola wyboru i przełączniki" data-source="ProjectShell, ExportPage, BookPlanPage">Notatka</button>
+              </div>
+              <div class="sample">
+                <label class="field-label">Model
+                  <select>
+                    <option>GPT-5.5</option>
+                    <option>gpt-5.1</option>
+                  </select>
+                </label>
+                <label class="field-label">Stopień rozumowania
+                  <input type="range" min="0" max="3" value="2">
+                </label>
+                <div class="segmented-control" aria-label="Tryb eksportu">
+                  <button class="active">Manuskrypt</button>
+                  <button>Z podsumowaniami</button>
+                </div>
+              </div>
+              <p>Segmenty służą do małych zestawów opcji, select do list, range do reasoning effort, checkboxy do list rozdziałów i źródeł kontekstu.</p>
+            </article>
+
+            <article class="specimen" data-component="Chipy, relacje i tagi">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Chipy, relacje i tagi</h3>
+                  <span class="source">`chapter-chip`, `world-relation-chip`, `relation-chip`</span>
+                </div>
+                <button class="note-target" data-note-target="Chipy, relacje i tagi" data-source="BookPlanPage, ChapterEditModal, WorldPage, CharactersPage">Notatka</button>
+              </div>
+              <div class="sample">
+                <div class="chip-row">
+                  <span class="chip thread">Wątek: zdrada <button aria-label="Odepnij wątek">-</button></span>
+                  <span class="chip beat">Beat: midpoint <button aria-label="Odepnij beat">-</button></span>
+                  <span class="chip">Postać: Mira <button aria-label="Odepnij postać">-</button></span>
+                  <button class="relation-add">+ Dodaj relację</button>
+                </div>
+              </div>
+              <p>Chipy relacji odpinają wyłącznie relację. Nie usuwają encji kanonicznej: beatu, wątku, rozdziału, sceny, postaci ani elementu świata.</p>
+            </article>
+
+            <article class="specimen" data-component="Nawigacja etapów i zakładki">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Nawigacja etapów i zakładki</h3>
+                  <span class="source">`concept-stage-tab`, `plan-stage-step`, `character-tab`, `world-tab`</span>
+                </div>
+                <button class="note-target" data-note-target="Nawigacja etapów i zakładki" data-source="BookConceptPage, BookPlanPage, CharactersPage, WorldPage, SceneEditorPage">Notatka</button>
+              </div>
+              <div class="sample">
+                <div class="stage-track" aria-label="Kroki planu">
+                  <button class="stage-step active"><span class="stage-number">1</span><span>Struktura</span></button>
+                  <button class="stage-step"><span class="stage-number">2</span><span>Akty</span></button>
+                  <button class="stage-step"><span class="stage-number">3</span><span>Rozdziały</span></button>
+                  <button class="stage-step"><span class="stage-number">4</span><span>Wątki</span></button>
+                  <button class="stage-step"><span class="stage-number">5</span><span>Beaty</span></button>
+                  <button class="stage-step"><span class="stage-number">6</span><span>Sceny</span></button>
+                </div>
+                <div class="tab-list" role="tablist">
+                  <button class="active">Profil</button>
+                  <button>Relacje</button>
+                  <button>Wspomnienia</button>
+                  <button>Obraz</button>
+                </div>
+              </div>
+              <p>Etapy pokazują proces pracy, zakładki przełączają widoki jednej encji lub panelu.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="wzorce">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Wzorce domenowe</p>
+              <h2>Elementy specyficzne dla StoryForge2</h2>
+              <p>To są komponenty, których nie zastąpi zwykły zestaw UI kit. One opisują, jak autor pracuje z planem, kanonem i AI.</p>
+            </div>
+            <span class="section-index">04</span>
+          </header>
+
+          <div class="spec-grid">
+            <article class="specimen" data-component="Panel kontekstu promptu AI">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Panel kontekstu promptu AI</h3>
+                  <span class="source">`AiPromptContextPanel.tsx`</span>
+                </div>
+                <button class="note-target" data-note-target="Panel kontekstu promptu AI" data-source="AiPromptContextPanel.tsx">Notatka</button>
+              </div>
+              <div class="sample">
+                <section class="context-panel-demo">
+                  <div class="specimen-head">
+                    <div>
+                      <p class="eyebrow">Kontekst promptu</p>
+                      <strong>Scena: tytuł</strong>
+                    </div>
+                    <span class="status-pill">3/5</span>
+                  </div>
+                  <label class="context-source required"><input type="checkbox" checked disabled><span>Treść pola</span><em>wymagane</em></label>
+                  <label class="context-source"><input type="checkbox" checked><span>Opis rozdziału</span></label>
+                  <label class="context-source"><input type="checkbox"><span>Powiązane wątki</span></label>
+                  <label class="field-label">Komentarz autora<textarea rows="3" placeholder="Najważniejsza intencja dla najbliższego promptu"></textarea></label>
+                  <button class="secondary-button">Wyślij do AI</button>
+                </section>
+              </div>
+              <p>Panel aktywuje się po fokusie na polu AI. Wymagane źródła pozostają zaznaczone, a duplikaty źródeł są blokowane.</p>
+            </article>
+
+            <article class="specimen" data-component="Propozycje AI i kolejka">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Propozycje AI i kolejka</h3>
+                  <span class="source">`AiProposalPanel.tsx`</span>
+                </div>
+                <button class="note-target" data-note-target="Propozycje AI i kolejka" data-source="AiProposalPanel.tsx">Notatka</button>
+              </div>
+              <div class="sample">
+                <article class="proposal-card running">
+                  <div class="specimen-head">
+                    <strong>Rozwinięcie premisy</strong>
+                    <span class="status-pill warning">AI pracuje</span>
+                  </div>
+                  <p>Propozycja pojawi się tutaj po zakończeniu generowania.</p>
+                  <span class="progress-bar"></span>
+                </article>
+                <article class="proposal-card">
+                  <div class="specimen-head">
+                    <strong>Tytuł roboczy</strong>
+                    <span class="status-pill ready">Gotowe</span>
+                  </div>
+                  <textarea rows="3">Miasto pod drugim niebem</textarea>
+                  <div class="sample-row">
+                    <button class="primary-button">Akceptuj</button>
+                    <button class="ghost-button">Odrzuć</button>
+                  </div>
+                </article>
+              </div>
+              <p>AI nie zapisuje treści bez akceptacji. Wzorzec musi eksponować różnicę między propozycją, edycją i trwałym zapisem.</p>
+            </article>
+
+            <article class="specimen" data-component="Karty planu i kanban rozdziałów">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Karty planu i kanban rozdziałów</h3>
+                  <span class="source">`BookPlanPage.tsx`</span>
+                </div>
+                <button class="note-target" data-note-target="Karty planu i kanban rozdziałów" data-source="BookPlanPage.tsx">Notatka</button>
+              </div>
+              <div class="sample">
+                <div class="board">
+                  <section class="board-column">
+                    <h4>Akt I</h4>
+                    <article class="chapter-card">
+                      <div class="card-topline"><span class="number-badge">1</span><span>1 800 słów</span></div>
+                      <strong>Rozdział otwarcia</strong>
+                      <p>Bohater odkrywa problem, który narusza codzienny porządek.</p>
+                      <span class="card-field"><b>Konflikt</b><span>Ukryć prawdę czy pomóc świadkowi.</span></span>
+                      <div class="chip-row">
+                        <span class="chip beat">inciting incident <button>-</button></span>
+                        <span class="chip thread">tajemnica <button>-</button></span>
+                        <button class="relation-add">+</button>
+                      </div>
+                    </article>
+                  </section>
+                  <section class="board-column">
+                    <h4>Akt II</h4>
+                    <article class="chapter-card">
+                      <div class="card-topline"><span class="number-badge">8</span><span>cel: 2 400</span></div>
+                      <strong>Presja rośnie</strong>
+                      <p>Plan zawodzi, a decyzje z poprzedniego rozdziału wracają jako koszt.</p>
+                    </article>
+                  </section>
+                  <section class="board-column">
+                    <h4>Akt III</h4>
+                    <div class="empty-note">Przeciągnij rozdział lub dodaj nowy.</div>
+                  </section>
+                </div>
+              </div>
+              <p>Rozdział jest kontenerem decyzji: cel, konflikt, punkt zwrotny, beaty i wątki.</p>
+            </article>
+
+            <article class="specimen" data-component="Widoki wątków">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Widoki wątków</h3>
+                  <span class="source">`ThreadFlowMap`, `ThreadSummaryCard`, `ThreadTable`</span>
+                </div>
+                <button class="note-target" data-note-target="Widoki wątków" data-source="BookPlanPage.tsx">Notatka</button>
+              </div>
+              <div class="sample">
+                <div class="sample-row">
+                  <div class="view-toggle">
+                    <button class="active">Mapa</button>
+                    <button>Lista</button>
+                    <button>Tabela</button>
+                  </div>
+                  <span class="status-pill">4 wątki</span>
+                </div>
+                <article class="thread-card">
+                  <strong>Ukryta lojalność</strong>
+                  <p>Wątek przechodzi przez trzy rozdziały i zamyka się przed finałem.</p>
+                  <div class="thread-progress"><span></span></div>
+                  <div class="chip-row">
+                    <span class="chip">Rozdział 2 <button>-</button></span>
+                    <span class="chip">Rozdział 7 <button>-</button></span>
+                    <button class="relation-add">+ Rozdział</button>
+                  </div>
+                </article>
+              </div>
+              <p>System ma trzy reprezentacje tych samych danych: mapa przepływu, lista kart i tabela.</p>
+            </article>
+
+            <article class="specimen" data-component="Postacie i pamięć">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Postacie i pamięć</h3>
+                  <span class="source">`CharactersPage.tsx`</span>
+                </div>
+                <button class="note-target" data-note-target="Postacie i pamięć" data-source="CharactersPage.tsx">Notatka</button>
+              </div>
+              <div class="sample">
+                <article class="character-card">
+                  <span class="avatar">M</span>
+                  <span>
+                    <strong>Mira</strong>
+                    <p>Śledcza, która zna koszt zbyt późno wypowiedzianej prawdy.</p>
+                    <span class="chip-row">
+                      <span class="chip">relacja</span>
+                      <span class="chip">wspomnienie</span>
+                    </span>
+                  </span>
+                </article>
+                <article class="proposal-card">
+                  <strong>Wspomnienie</strong>
+                  <p>Wydarzenie z dzieciństwa, które zmienia sposób reagowania w scenach.</p>
+                </article>
+              </div>
+              <p>Postać ma profil, relacje, wspomnienia, linki pamięci i opis referencyjny do obrazu.</p>
+            </article>
+
+            <article class="specimen" data-component="Świat, reguły i połączenia">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Świat, reguły i połączenia</h3>
+                  <span class="source">`WorldPage.tsx`</span>
+                </div>
+                <button class="note-target" data-note-target="Świat, reguły i połączenia" data-source="WorldPage.tsx">Notatka</button>
+              </div>
+              <div class="sample">
+                <article class="world-card">
+                  <span class="world-icon">W</span>
+                  <span>
+                    <strong>Stara dzielnica</strong>
+                    <p>Lokacja o własnych ograniczeniach i powiązaniach z rozdziałami.</p>
+                    <span class="chip-row">
+                      <span class="chip">Postacie <button>-</button></span>
+                      <span class="chip">Sceny <button>-</button></span>
+                    </span>
+                  </span>
+                </article>
+                <div class="tab-list">
+                  <button class="active">Profil</button>
+                  <button>Reguły</button>
+                  <button>Połączenia</button>
+                  <button>Wizualia</button>
+                </div>
+              </div>
+              <p>Element świata i reguła mają podobny układ: lista po lewej, edycja po prawej, zakładki i pickery relacji.</p>
+            </article>
+
+            <article class="specimen" data-component="Edytor scen">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Edytor scen</h3>
+                  <span class="source">`SceneEditorPage.tsx`, Tiptap</span>
+                </div>
+                <button class="note-target" data-note-target="Edytor scen" data-source="SceneEditorPage.tsx">Notatka</button>
+              </div>
+              <div class="sample">
+                <div class="scene-layout">
+                  <aside class="scene-rail">
+                    <button class="scene-list-item active"><strong>Scena 1</strong><small>1 240 słów</small></button>
+                    <button class="scene-list-item"><strong>Scena 2</strong><small>szkic</small></button>
+                    <button class="ghost-button">+ Nowa scena</button>
+                  </aside>
+                  <section class="editor-frame">
+                    <div class="format-toolbar">
+                      <select aria-label="Styl akapitu"><option>Akapit</option><option>Nagłówek</option></select>
+                      <button class="active">B</button>
+                      <button>I</button>
+                      <button>•</button>
+                      <button disabled>Link</button>
+                    </div>
+                    <div class="editor-surface">
+                      <div class="selection-popover">AI dla zaznaczenia <button>Przepisz</button><button>Rozwiń</button><button>Dodaj napięcie</button></div>
+                      <p>Tekst sceny ma miejsce do pisania, licznik słów, warianty AI i tryb wstawiania propozycji.</p>
+                    </div>
+                  </section>
+                </div>
+              </div>
+              <p>To najbardziej złożony ekran roboczy: rail rozdziału, lista scen, toolbar, popover zaznaczenia, footer z AI i autosave.</p>
+            </article>
+
+            <article class="specimen" data-component="Modale i pickery relacji">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Modale i pickery relacji</h3>
+                  <span class="source">`ChapterEditModal`, `SceneEditModal`, `RelationPickerModal`</span>
+                </div>
+                <button class="note-target" data-note-target="Modale i pickery relacji" data-source="ChapterEditModal.tsx, SceneEditModal.tsx, BookPlanPage.tsx, WorldPage.tsx">Notatka</button>
+              </div>
+              <div class="sample">
+                <div class="modal-demo">
+                  <div class="modal-backdrop"></div>
+                  <section class="modal-shell small" role="dialog" aria-modal="true" aria-labelledby="modal-title-demo">
+                    <header class="modal-header">
+                      <div>
+                        <p class="eyebrow">Powiązania</p>
+                        <h3 id="modal-title-demo">Dodaj wątki do rozdziału</h3>
+                      </div>
+                      <button class="icon-button" aria-label="Zamknij">X</button>
+                    </header>
+                    <div class="modal-body">
+                      <button class="relation-option selected"><strong>Ukryta lojalność</strong><span>Wątek już wybrany.</span></button>
+                      <button class="relation-option"><strong>Fałszywy trop</strong><span>Wątek dostępny do dodania.</span></button>
+                    </div>
+                    <footer class="modal-footer">
+                      <button class="ghost-button">Anuluj</button>
+                      <button class="primary-button">Dodaj</button>
+                    </footer>
+                  </section>
+                </div>
+              </div>
+              <p>Duże modale edytują encje, małe pickery dobierają istniejące relacje. Backdrop, Escape i X zamykają modal.</p>
+            </article>
+
+            <article class="specimen" data-component="Eksport i podgląd książki">
+              <div class="specimen-head">
+                <div class="specimen-title">
+                  <h3>Eksport i podgląd książki</h3>
+                  <span class="source">`ExportPage.tsx`</span>
+                </div>
+                <button class="note-target" data-note-target="Eksport i podgląd książki" data-source="ExportPage.tsx">Notatka</button>
+              </div>
+              <div class="sample">
+                <div class="job-status success">
+                  <span class="world-icon">OK</span>
+                  <span><strong>Eksport zakończony</strong><br><small>DOCX zapisany w folderze projektu.</small></span>
+                  <button class="secondary-button">Otwórz</button>
+                </div>
+                <div class="sample-row">
+                  <button class="choice-chip selected">DOCX</button>
+                  <button class="choice-chip">Markdown</button>
+                  <button class="choice-chip">EPUB</button>
+                  <button class="choice-chip">TXT</button>
+                </div>
+                <section class="export-preview-page">
+                  <div class="preview-cover"><strong>Miasto pod drugim niebem</strong></div>
+                  <div class="preview-separator">Rozdział 1<span class="preview-line"></span></div>
+                  <p class="preview-body">Pierwszy akapit podglądu eksportu pokazuje rytm tekstu, separatory i styl okładki.</p>
+                </section>
+              </div>
+              <p>Eksport obejmuje formaty, folder zapisu, presety, listę rozdziałów, separatory, grafiki i historię plików.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="ekrany">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Ekrany</p>
+              <h2>Inwentarz ekranów i powierzchni UI</h2>
+              <p>Mapa tego, gdzie występują komponenty i jaką funkcję pełnią w przepływie aplikacji.</p>
+            </div>
+            <span class="section-index">05</span>
+          </header>
+
+          <div class="screen-grid">
+            <article class="screen-card">
+              <h3>Dashboard projektów</h3>
+              <p>Tworzenie projektu, lista książek, okładki, przyciski AI dla tytułu, usuwanie projektu, kompaktowy panel Codex i propozycje.</p>
+              <ul>
+                <li>`dashboard-header`, `new-project-form`, `project-card`</li>
+                <li>inline input + AI + kontekst + submit</li>
+                <li>puste stany i błąd backendu Tauri</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Project Shell</h3>
+              <p>Stała rama projektu: sidebar etapów, workspace header, prawy panel kontekstu, status projektu i menu modelu.</p>
+              <ul>
+                <li>`sidebar`, `nav-item`, `workspace`, `global-context-panel`</li>
+                <li>resize handle i footer akcji logu AI</li>
+                <li>status autosave oraz reasoning range</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Koncepcja książki</h3>
+              <p>Etapowy formularz pracy nad pomysłem, bohaterem, światem, konfliktem, gatunkiem, stylem i okładką.</p>
+              <ul>
+                <li>`concept-stage-tab`, `field-shell`, `choice-chip`</li>
+                <li>AI dla każdego pola i generator okładki</li>
+                <li>sticky save row oraz podgląd cover art</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Plan powieści</h3>
+              <p>Największy moduł: struktura, akty, rozdziały, wątki, beaty, sceny, modale edycji i pickery relacji.</p>
+              <ul>
+                <li>`plan-stage-step`, `chapter-board-card`, `beat-board-card`</li>
+                <li>kanban, tabela, mapa wątków, cockpit rozdziału</li>
+                <li>relacje `chapterBeats`, `chapterThreads`, relacje scen</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Postacie</h3>
+              <p>Lista postaci, edytor z zakładkami, grupy pól profilu, relacje, wspomnienia, linki pamięci i obraz postaci.</p>
+              <ul>
+                <li>`character-card`, `character-tab`, `memory-card`</li>
+                <li>modale relacji i wspomnień przez portal</li>
+                <li>AI dla profilu, relacji, pamięci i wizualiów</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Świat</h3>
+              <p>Elementy świata, reguły, powiązania z planem i postaciami, zakładki profilu, reguł, połączeń i wizualiów.</p>
+              <ul>
+                <li>`world-card`, `world-tab`, `world-relation-chip`</li>
+                <li>search, type filter, relation picker</li>
+                <li>AI dla pól elementu i reguły</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Edytor scen</h3>
+              <p>Pisanie prozy z Tiptap, nawigacja rozdziałów, lista scen, ustawienia sceny, AI dla zaznaczenia i warianty tekstu.</p>
+              <ul>
+                <li>`scene-chapter-rail`, `scene-editor-card`, `scene-tiptap-surface`</li>
+                <li>format toolbar, selection popover, insert mode</li>
+                <li>relacje sceny z postaciami, wątkami, światem i regułami</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Eksport</h3>
+              <p>Workbench eksportu książki: formaty, folder, zawartość, presety, separatory, podgląd i historia plików.</p>
+              <ul>
+                <li>`format-tile`, `segmented-control`, `export-preview-page`</li>
+                <li>status joba: running, success, error</li>
+                <li>edytor separatorów z kolorami, rozmiarem i grafiką AI</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>AI i log</h3>
+              <p>Konfiguracja Codex CLI, panel propozycji, kolejka, czytelny log promptów i odpowiedzi.</p>
+              <ul>
+                <li>`provider-panel`, `proposal-panel`, `ai-log-entry`</li>
+                <li>statusy providerów i retry/terminate</li>
+                <li>raw output i pola odpowiedzi AI</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="notatki">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Notatki</p>
+              <h2>Jak pracować z notatkami redesignu</h2>
+              <p>
+                Kliknij `Notatka` przy komponencie, opisz problem i wygeneruj zapis. Notatki są zapisywane lokalnie w przeglądarce,
+                więc możesz wracać do tego pliku i eksportować listę do Markdown albo JSON.
+              </p>
+            </div>
+            <span class="section-index">06</span>
+          </header>
+
+          <div class="insight-grid">
+            <article class="insight">
+              <strong>1. Wybierz element</strong>
+              <p>Przycisk przy komponencie wypełnia nazwę elementu i źródło. Możesz też wpisać własny element ręcznie w panelu.</p>
+            </article>
+            <article class="insight">
+              <strong>2. Nazwij problem</strong>
+              <p>Najlepsza notatka mówi, co boli: spacing, proporcje, hierarchia, stan disabled, copy, dostępność albo model interakcji.</p>
+            </article>
+            <article class="insight">
+              <strong>3. Dodaj kryteria akceptacji</strong>
+              <p>Zapisuj konkret: co ma być sprawdzalne po redesignie, na jakich ekranach i przy jakich stanach komponentu.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="zrodla">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Źródła</p>
+              <h2>Pliki użyte do mapowania UI</h2>
+              <p>Lista najważniejszych plików, które tworzą aktualne komponenty i wzorce pokazane w atlasie.</p>
+            </div>
+            <span class="section-index">07</span>
+          </header>
+
+          <div class="screen-grid">
+            <article class="source-card">
+              <strong>Rama aplikacji i style</strong>
+              <ul>
+                <li>`apps/desktop/src/styles.css`</li>
+                <li>`apps/desktop/src/app/ProjectShell.tsx`</li>
+                <li>`apps/desktop/src/app/router.tsx`</li>
+              </ul>
+            </article>
+            <article class="source-card">
+              <strong>Dashboard i koncepcja</strong>
+              <ul>
+                <li>`features/projects/DashboardPage.tsx`</li>
+                <li>`features/book/BookConceptPage.tsx`</li>
+                <li>`features/ai/CoverImageLightbox.tsx`</li>
+              </ul>
+            </article>
+            <article class="source-card">
+              <strong>Plan i relacje</strong>
+              <ul>
+                <li>`features/book/BookPlanPage.tsx`</li>
+                <li>`features/book/ChapterEditModal.tsx`</li>
+                <li>`features/scenes/SceneEditModal.tsx`</li>
+              </ul>
+            </article>
+            <article class="source-card">
+              <strong>Story Bible</strong>
+              <ul>
+                <li>`features/characters/CharactersPage.tsx`</li>
+                <li>`features/world/WorldPage.tsx`</li>
+              </ul>
+            </article>
+            <article class="source-card">
+              <strong>Edytor, eksport i AI</strong>
+              <ul>
+                <li>`features/scenes/SceneEditorPage.tsx`</li>
+                <li>`features/export/ExportPage.tsx`</li>
+                <li>`features/ai/AiPromptContextPanel.tsx`</li>
+                <li>`features/ai/AiProposalPanel.tsx`</li>
+                <li>`features/ai/CodexStatusPanel.tsx`</li>
+                <li>`features/ai/AiLogPage.tsx`</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <aside class="notes-panel" id="notes-panel" aria-label="Generator notatek redesignu">
+      <header class="notes-header">
+        <p class="eyebrow">Generator notatek</p>
+        <h2>Notatki redesignu</h2>
+        <p>Wybierz komponent z atlasu albo wypełnij ręcznie. Notatki zapisują się w `localStorage` tej przeglądarki.</p>
+      </header>
+
+      <div class="note-workspace">
+        <form class="note-form" id="note-form">
+          <label class="field-label">Element UI
+            <input id="note-component" placeholder="np. Karta rozdziału">
+          </label>
+
+          <div class="note-form-grid">
+            <label class="field-label">Obszar
+              <select id="note-category">
+                <option>Komponent</option>
+                <option>Layout</option>
+                <option>AI</option>
+                <option>Relacje</option>
+                <option>Modal</option>
+                <option>Copy</option>
+                <option>Dostępność</option>
+                <option>Stan pusty</option>
+              </select>
+            </label>
+            <label class="field-label">Priorytet
+              <select id="note-priority">
+                <option>P2</option>
+                <option>P0</option>
+                <option>P1</option>
+                <option>P3</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field-label">Źródło / ekran
+            <input id="note-source" placeholder="np. BookPlanPage.tsx, widok Rozdziały">
+          </label>
+
+          <label class="field-label">Problem do rozwiązania
+            <textarea id="note-problem" rows="4" placeholder="Co jest nieczytelne, ciasne, niespójne albo trudne do użycia?"></textarea>
+          </label>
+
+          <label class="field-label">Kierunek redesignu
+            <textarea id="note-direction" rows="4" placeholder="Jaki rezultat chcesz zobaczyć po zmianie?"></textarea>
+          </label>
+
+          <label class="field-label">Kryteria akceptacji
+            <textarea id="note-criteria" rows="3" placeholder="Po czym poznamy, że redesign działa?"></textarea>
+          </label>
+
+          <div class="note-actions">
+            <button class="primary-button" type="submit">Wygeneruj notatkę</button>
+            <button class="ghost-button" type="button" id="reset-note-form">Wyczyść formularz</button>
+          </div>
+        </form>
+
+        <section class="note-preview" aria-live="polite">
+          <div class="specimen-head">
+            <strong>Podgląd ostatniej notatki</strong>
+            <button class="note-target" type="button" id="copy-last-note">Kopiuj</button>
+          </div>
+          <pre id="note-preview">Brak notatki. Wybierz element i wygeneruj zapis.</pre>
+        </section>
+
+        <section class="notes-list">
+          <div class="specimen-head">
+            <strong>Zapisane notatki <span id="note-count" class="status-pill">0</span></strong>
+          </div>
+          <div class="note-actions">
+            <button class="secondary-button" type="button" id="export-md">Eksport Markdown</button>
+            <button class="ghost-button" type="button" id="export-json">Eksport JSON</button>
+            <button class="danger-button" type="button" id="clear-notes">Wyczyść listę</button>
+          </div>
+          <div id="notes-list"></div>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <a class="primary-button jump-note" href="#notes-panel">Notatki</a>
+
+  <script>
+    (function () {
+      const storageKey = "storyforge2-ui-design-system-notes-v1";
+      const form = document.getElementById("note-form");
+      const componentInput = document.getElementById("note-component");
+      const categoryInput = document.getElementById("note-category");
+      const priorityInput = document.getElementById("note-priority");
+      const sourceInput = document.getElementById("note-source");
+      const problemInput = document.getElementById("note-problem");
+      const directionInput = document.getElementById("note-direction");
+      const criteriaInput = document.getElementById("note-criteria");
+      const preview = document.getElementById("note-preview");
+      const list = document.getElementById("notes-list");
+      const count = document.getElementById("note-count");
+      const copyLastButton = document.getElementById("copy-last-note");
+      let lastNoteText = "";
+
+      function readNotes() {
+        try {
+          const raw = localStorage.getItem(storageKey);
+          return raw ? JSON.parse(raw) : [];
+        } catch (error) {
+          return [];
+        }
+      }
+
+      function writeNotes(notes) {
+        localStorage.setItem(storageKey, JSON.stringify(notes));
+      }
+
+      function noteToMarkdown(note) {
+        return [
+          "## " + note.priority + " - " + note.component,
+          "",
+          "- Obszar: " + note.category,
+          "- Źródło: " + (note.source || "brak"),
+          "- Data: " + note.createdAt,
+          "",
+          "### Problem",
+          note.problem || "Do uzupełnienia.",
+          "",
+          "### Kierunek redesignu",
+          note.direction || "Do uzupełnienia.",
+          "",
+          "### Kryteria akceptacji",
+          note.criteria || "Do uzupełnienia."
+        ].join("\n");
+      }
+
+      function renderNotes() {
+        const notes = readNotes();
+        count.textContent = String(notes.length);
+        if (notes.length === 0) {
+          list.innerHTML = '<p class="empty-note">Brak zapisanych notatek.</p>';
+          return;
+        }
+
+        list.innerHTML = notes.map((note) => {
+          return [
+            '<article class="note-item">',
+            '<header>',
+            '<strong>' + escapeHtml(note.component) + '</strong>',
+            '<button class="icon-button delete-note" type="button" data-delete-note="' + note.id + '" aria-label="Usuń notatkę">X</button>',
+            '</header>',
+            '<div class="sample-row"><span class="status-pill">' + escapeHtml(note.priority) + '</span><span class="status-pill ready">' + escapeHtml(note.category) + '</span></div>',
+            '<p><strong>Źródło:</strong> ' + escapeHtml(note.source || "brak") + '</p>',
+            '<p>' + escapeHtml(note.problem || "Brak opisu problemu.") + '</p>',
+            '</article>'
+          ].join("");
+        }).join("");
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function download(filename, content, type) {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      document.querySelectorAll("[data-note-target]").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll("[data-note-target]").forEach((item) => item.classList.remove("active"));
+          button.classList.add("active");
+          componentInput.value = button.dataset.noteTarget || "";
+          sourceInput.value = button.dataset.source || "";
+          problemInput.focus();
+          document.getElementById("notes-panel").scrollIntoView({ block: "start" });
+        });
+      });
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const note = {
+          id: String(Date.now()),
+          createdAt: new Date().toLocaleString("pl-PL"),
+          component: componentInput.value.trim() || "Nieopisany element UI",
+          category: categoryInput.value,
+          priority: priorityInput.value,
+          source: sourceInput.value.trim(),
+          problem: problemInput.value.trim(),
+          direction: directionInput.value.trim(),
+          criteria: criteriaInput.value.trim()
+        };
+        const notes = readNotes();
+        notes.unshift(note);
+        writeNotes(notes);
+        lastNoteText = noteToMarkdown(note);
+        preview.textContent = lastNoteText;
+        renderNotes();
+      });
+
+      document.getElementById("reset-note-form").addEventListener("click", () => {
+        componentInput.value = "";
+        sourceInput.value = "";
+        problemInput.value = "";
+        directionInput.value = "";
+        criteriaInput.value = "";
+      });
+
+      copyLastButton.addEventListener("click", async () => {
+        if (!lastNoteText) {
+          const notes = readNotes();
+          lastNoteText = notes[0] ? noteToMarkdown(notes[0]) : "";
+        }
+        if (!lastNoteText) {
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(lastNoteText);
+          copyLastButton.textContent = "Skopiowano";
+          setTimeout(() => {
+            copyLastButton.textContent = "Kopiuj";
+          }, 1200);
+        } catch (error) {
+          preview.textContent = lastNoteText;
+        }
+      });
+
+      document.getElementById("export-md").addEventListener("click", () => {
+        const notes = readNotes();
+        const content = notes.length
+          ? notes.map(noteToMarkdown).join("\n\n---\n\n")
+          : "# StoryForge2 - notatki redesignu\n\nBrak notatek.";
+        download("storyforge2-ui-redesign-notes.md", content, "text/markdown;charset=utf-8");
+      });
+
+      document.getElementById("export-json").addEventListener("click", () => {
+        download("storyforge2-ui-redesign-notes.json", JSON.stringify(readNotes(), null, 2), "application/json;charset=utf-8");
+      });
+
+      document.getElementById("clear-notes").addEventListener("click", () => {
+        if (confirm("Usunąć wszystkie notatki redesignu z tej przeglądarki?")) {
+          writeNotes([]);
+          lastNoteText = "";
+          preview.textContent = "Brak notatki. Wybierz element i wygeneruj zapis.";
+          renderNotes();
+        }
+      });
+
+      list.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-delete-note]");
+        if (!button) {
+          return;
+        }
+        const id = button.dataset.deleteNote;
+        writeNotes(readNotes().filter((note) => note.id !== id));
+        renderNotes();
+      });
+
+      renderNotes();
+    })();
+  </script>
+</body>
+</html>

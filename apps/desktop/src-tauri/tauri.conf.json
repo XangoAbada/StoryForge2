@@ -29,6 +29,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all"
+    "targets": "all",
+    "icon": [
+      "icons/storyforge-icon-32x32.png",
+      "icons/storyforge-icon-128x128.png",
+      "icons/storyforge-icon-128x128@2x.png",
+      "icons/storyforge-icon.ico"
+    ]
   }
 }
