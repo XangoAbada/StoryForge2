@@ -45,6 +45,7 @@ import {
   getWorldWorkspace,
   setSceneRelations,
   upsertChapter,
+  upsertChapterThreadRelation,
   upsertScene
 } from "../../shared/api/commands";
 import type {
@@ -71,6 +72,7 @@ import {
   buildPlanPromptPackage,
   planFieldConfigs,
   planPromptContextSource,
+  planStoryBibleContext,
   PlanFieldKey,
   renderPlanPromptPackage
 } from "../ai/planPromptPackage";
@@ -84,6 +86,7 @@ import {
 import type { PromptContextSource } from "../ai/promptPackage";
 import { pendingProposalStatus, useProposalStore } from "../ai/proposalStore";
 import { ChapterEditModal, type ChapterModalState } from "../book/ChapterEditModal";
+import { SceneEditModal as SharedSceneEditModal } from "./SceneEditModal";
 
 type SceneEditorPageProps = {
   projectId: string;
@@ -456,7 +459,8 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
         : plan,
       field,
       planEntity,
-      promptContextControlForActiveTarget(targetId)
+      promptContextControlForActiveTarget(targetId),
+      planStoryBibleContext(characters, world)
     );
 
     enqueueProposal({
@@ -806,20 +810,27 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
       </main>
 
       {sceneModal ? (
-        <SceneEditModal
+        <SharedSceneEditModal
           state={sceneModal}
           bookId={bookId ?? ""}
           plan={plan}
           characters={characters}
           world={world}
           saving={saveMutation.isPending}
-          projectId={projectId}
           selectedScene={selectedScene}
           onClose={() => setSceneModal(null)}
           onSave={saveSceneFromModal}
           onDelete={(sceneId) => sceneDeleteMutation.mutate(sceneId)}
           onGenerate={activateSceneFieldPromptContext}
           onActivatePrompt={activatePlanPromptContext}
+          onLinkThreadToChapter={(threadId, chapterId) =>
+            upsertChapterThreadRelation({
+              bookId: bookId ?? "",
+              threadId,
+              chapterId,
+              description: chapterThreadRelation(plan, threadId, chapterId)?.description ?? ""
+            })
+          }
         />
       ) : null}
 
@@ -1431,6 +1442,12 @@ function sceneRelationIds(plan: BookPlan, sceneId: string, kind: SceneRelationKi
   return sceneRuleIds(plan, sceneId);
 }
 
+function chapterThreadRelation(plan: BookPlan, threadId: string, chapterId: string) {
+  return plan.chapterThreads.find(
+    (relation) => relation.threadId === threadId && relation.chapterId === chapterId
+  );
+}
+
 function sceneRelationInputKey(kind: SceneRelationKind): keyof Omit<SetSceneRelationsInput, "bookId" | "sceneId"> {
   if (kind === "characters") return "characterIds";
   if (kind === "threads") return "threadIds";
@@ -1602,7 +1619,14 @@ function selectedVariantLabel(variants: SceneVariant[], selectedVariantId: strin
 }
 
 function isEntityField(field: PlanFieldKey): boolean {
-  return ["sceneTitle", "sceneSummary", "sceneGoal", "sceneConflict", "sceneOutcome"].includes(field);
+  return [
+    "sceneTitle",
+    "sceneSummary",
+    "sceneGoal",
+    "sceneConflict",
+    "sceneOutcome",
+    "sceneRelationSuggestions"
+  ].includes(field);
 }
 
 function toggleId(ids: string[], id: string): string[] {

@@ -87,6 +87,7 @@ import {
   buildPlanPromptPackage,
   planFieldConfigs,
   planPromptContextSource,
+  planStoryBibleContext,
   PlanFieldKey,
   renderPlanPromptPackage
 } from "../ai/planPromptPackage";
@@ -102,12 +103,13 @@ import {
 } from "../ai/planDraftFieldTargets";
 import { pendingProposalStatus, useProposalStore } from "../ai/proposalStore";
 import { ChapterEditModal, type ChapterModalState } from "./ChapterEditModal";
+import { SceneEditModal as SharedSceneEditModal } from "../scenes/SceneEditModal";
 
 type BookPlanPageProps = {
   projectId: string;
 };
 
-type PlanStep = "structure" | "acts" | "chapters" | "scenes" | "beats" | "threads";
+type PlanStep = "structure" | "acts" | "threads" | "beats" | "chapters" | "scenes";
 type PlanMode = "wizard" | "preview";
 type SelectedPlanItem =
   | { type: "structure"; id: string }
@@ -126,6 +128,11 @@ type SceneRelationKind = "characters" | "threads" | "elements" | "rules";
 type BeatSortMode = "order" | "name" | "role";
 type ThreadViewMode = "map" | "list" | "table";
 type ThreadSortMode = "order" | "name" | "status";
+type ChapterReadiness = {
+  percent: number;
+  label: string;
+  missing: string[];
+};
 type ThreadEditTarget = "new" | string | null;
 type BulkChapterGenerationField = "allChapterSceneDrafts" | "allChapterThreadSuggestions";
 type BeatBoardLane = {
@@ -147,10 +154,10 @@ type PlanPromptEntity = Act | Beat | PlotThread | Chapter | ChapterThread | Scen
 const planSteps: Array<{ key: PlanStep; label: string; icon: typeof Map }> = [
   { key: "structure", label: "Struktura", icon: Map },
   { key: "acts", label: "Akty", icon: Flag },
-  { key: "chapters", label: "Rozdziały", icon: FileText },
-  { key: "scenes", label: "Sceny", icon: ClipboardList },
+  { key: "threads", label: "Wątki", icon: GitBranch },
   { key: "beats", label: "Beaty", icon: Target },
-  { key: "threads", label: "Wątki", icon: GitBranch }
+  { key: "chapters", label: "Rozdziały", icon: FileText },
+  { key: "scenes", label: "Sceny", icon: ClipboardList }
 ];
 
 const actColors = ["#3f8f6b", "#4f8fd9", "#8b5cf6", "#f59e42", "#d94f8f"];
@@ -621,7 +628,8 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
       plan,
       field,
       targetEntity,
-      contextControl
+      contextControl,
+      planStoryBibleContext(characters, world)
     );
     const prompt = renderPlanPromptPackage(promptPackage);
 
@@ -774,10 +782,15 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
       <ChaptersStep
         bookId={bookId}
         plan={plan}
+        characters={characters}
+        world={world}
         saving={chapterMutation.isPending || chapterReorderMutation.isPending}
         onOpenChapter={openChapterModal}
         onCreateChapter={openNewChapterModal}
+        onCreateScene={(chapterId) => setSceneModal({ mode: "create", chapterId })}
+        onEditScene={(sceneId) => setSceneModal({ mode: "edit", sceneId })}
         onSaveChapter={(input) => chapterMutation.mutate(input)}
+        onSetSceneRelations={(input) => sceneRelationsMutation.mutate(input)}
         onReorderChapters={(inputs) => chapterReorderMutation.mutate(inputs)}
         onGenerate={activatePlanPromptContext}
         onActivatePrompt={activatePlanPromptContext}
@@ -927,7 +940,7 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         onGenerate={activatePlanPromptContext}
         onActivatePrompt={activatePlanPromptContext}
       />
-      <SceneEditModal
+      <SharedSceneEditModal
         state={sceneModal}
         bookId={bookId}
         plan={plan}
@@ -950,6 +963,14 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         onDelete={(sceneId) => sceneDeleteMutation.mutate(sceneId)}
         onGenerate={activatePlanPromptContext}
         onActivatePrompt={activatePlanPromptContext}
+        onLinkThreadToChapter={(threadId, chapterId) =>
+          chapterThreadMutation.mutate({
+            bookId,
+            threadId,
+            chapterId,
+            description: chapterThreadRelation(plan, threadId, chapterId)?.description ?? ""
+          })
+        }
       />
     </section>
   );
@@ -2323,7 +2344,6 @@ function BeatsStep({
             )}
           </div>
         </section>
-
         <div className="chapter-act-rail-card">
           <button
             type="button"
@@ -3995,18 +4015,29 @@ function ThreadDetailsPanel({
   );
 }
 function ChaptersStep({
+  bookId,
   plan,
+  characters,
+  world,
   saving,
   onOpenChapter,
   onCreateChapter,
+  onCreateScene,
+  onEditScene,
   onSaveChapter,
+  onSetSceneRelations,
   onReorderChapters,
   onGenerate,
   onActivatePrompt
 }: StepProps & {
+  characters: CharacterWorkspace;
+  world: WorldWorkspace;
   onOpenChapter: (chapter: Chapter) => void;
   onCreateChapter: (actId?: string | null) => void;
+  onCreateScene: (chapterId?: string | null) => void;
+  onEditScene: (sceneId: string) => void;
   onSaveChapter: (input: UpsertChapterInput) => void;
+  onSetSceneRelations: (input: SetSceneRelationsInput) => void;
   onReorderChapters: (inputs: UpsertChapterInput[]) => void;
 }) {
   const chapterActRailRef = useRef<HTMLDivElement>(null);
@@ -4018,10 +4049,37 @@ function ChaptersStep({
     kind: ChapterRelationKind;
     chapterId: string;
   } | null>(null);
+  const [sceneRelationPicker, setSceneRelationPicker] = useState<{
+    sceneId: string;
+    kind: SceneRelationKind;
+  } | null>(null);
+  const [viewMode, setViewMode] = useState<"cockpit" | "map">("cockpit");
+  const [activeChapterId, setActiveChapterId] = useState<string | null>(
+    orderedChaptersForPlan(plan)[0]?.id ?? null
+  );
   const lanes = chapterLanesForPlan(plan);
   const totalWords = plannedWordsForChapters(plan.chapters);
   const draggedChapterId = chapterDrag?.chapterId ?? null;
   const dropTarget = chapterDrag?.dropTarget ?? null;
+  const orderedChapters = orderedChaptersForPlan(plan);
+  const activeChapter =
+    orderedChapters.find((chapter) => chapter.id === activeChapterId) ??
+    orderedChapters[0] ??
+    null;
+  const pickerScene = sceneRelationPicker
+    ? plan.scenes.find((scene) => scene.id === sceneRelationPicker.sceneId)
+    : undefined;
+
+  useEffect(() => {
+    if (orderedChapters.length === 0) {
+      setActiveChapterId(null);
+      return;
+    }
+
+    if (!activeChapterId || !orderedChapters.some((chapter) => chapter.id === activeChapterId)) {
+      setActiveChapterId(orderedChapters[0].id);
+    }
+  }, [activeChapterId, orderedChapters]);
 
   function scrollActRail(direction: -1 | 1) {
     const rail = chapterActRailRef.current;
@@ -4165,7 +4223,7 @@ function ChaptersStep({
             </span>
             <div>
               <p className="eyebrow">Rozdziały</p>
-              <h3>Mapa rozdziałów według aktów</h3>
+              <h3>Kokpit rozdziału i mapa aktów</h3>
               <p>
                 {plan.chapters.length} rozdz. / {totalWords.toLocaleString("pl-PL")} słów
                 planowanych
@@ -4173,6 +4231,24 @@ function ChaptersStep({
             </div>
           </div>
           <div className="chapter-board-actions">
+            <div className="thread-view-toggle chapter-view-toggle" role="group" aria-label="Widok rozdziałów">
+              <button
+                type="button"
+                className={viewMode === "cockpit" ? "active" : ""}
+                onClick={() => setViewMode("cockpit")}
+              >
+                <LayoutList size={15} />
+                Kokpit
+              </button>
+              <button
+                type="button"
+                className={viewMode === "map" ? "active" : ""}
+                onClick={() => setViewMode("map")}
+              >
+                <Map size={15} />
+                Mapa aktów
+              </button>
+            </div>
             <button
               type="button"
               className="primary-button"
@@ -4189,6 +4265,8 @@ function ChaptersStep({
           </div>
         </div>
 
+        {viewMode === "map" ? (
+          <>
         <div className="chapter-act-rail-card">
           <button
             type="button"
@@ -4327,6 +4405,33 @@ function ChaptersStep({
             </section>
           ))}
         </div>
+          </>
+        ) : (
+          <ChapterCockpit
+            bookId={bookId}
+            plan={plan}
+            characters={characters}
+            world={world}
+            activeChapter={activeChapter}
+            activeChapterId={activeChapterId}
+            saving={saving}
+            onSelectChapter={setActiveChapterId}
+            onOpenChapter={onOpenChapter}
+            onCreateChapter={onCreateChapter}
+            onCreateScene={onCreateScene}
+            onEditScene={onEditScene}
+            onOpenRelationPicker={(kind, chapterId) => setRelationPicker({ kind, chapterId })}
+            onUpdateChapterRelations={(chapter, threadIds, beatIds) =>
+              onSaveChapter(chapterUpsertInputWithRelations(plan, chapter, threadIds, beatIds))
+            }
+            onSetSceneRelations={onSetSceneRelations}
+            onOpenSceneRelationPicker={(sceneId, kind) =>
+              setSceneRelationPicker({ sceneId, kind })
+            }
+            onGenerate={onGenerate}
+            onActivatePrompt={onActivatePrompt}
+          />
+        )}
       </div>
       {relationPicker ? (
         <ChapterRelationPickerModal
@@ -4360,6 +4465,30 @@ function ChaptersStep({
               )
             );
             setRelationPicker(null);
+          }}
+        />
+      ) : null}
+      {sceneRelationPicker && pickerScene ? (
+        <SceneRelationPickerModal
+          kind={sceneRelationPicker.kind}
+          plan={plan}
+          characters={characters}
+          world={world}
+          selectedIds={sceneRelationIds(plan, pickerScene.id, sceneRelationPicker.kind)}
+          onClose={() => setSceneRelationPicker(null)}
+          onAdd={(ids) => {
+            const current = sceneRelationSnapshot(plan, pickerScene.id);
+            const nextIds = uniqueOrderedIds([
+              ...sceneRelationIds(plan, pickerScene.id, sceneRelationPicker.kind),
+              ...ids
+            ]);
+            onSetSceneRelations({
+              bookId,
+              sceneId: pickerScene.id,
+              ...current,
+              [sceneRelationInputKey(sceneRelationPicker.kind)]: nextIds
+            });
+            setSceneRelationPicker(null);
           }}
         />
       ) : null}
@@ -4544,6 +4673,407 @@ function ChapterBoardCard({
         </button>
       </span>
     </article>
+  );
+}
+
+function ChapterCockpit({
+  bookId,
+  plan,
+  characters,
+  world,
+  activeChapter,
+  activeChapterId,
+  saving,
+  onSelectChapter,
+  onOpenChapter,
+  onCreateChapter,
+  onCreateScene,
+  onEditScene,
+  onOpenRelationPicker,
+  onUpdateChapterRelations,
+  onSetSceneRelations,
+  onOpenSceneRelationPicker,
+  onGenerate,
+  onActivatePrompt
+}: {
+  bookId: string;
+  plan: BookPlan;
+  characters: CharacterWorkspace;
+  world: WorldWorkspace;
+  activeChapter: Chapter | null;
+  activeChapterId: string | null;
+  saving: boolean;
+  onSelectChapter: (chapterId: string) => void;
+  onOpenChapter: (chapter: Chapter) => void;
+  onCreateChapter: (actId?: string | null) => void;
+  onCreateScene: (chapterId?: string | null) => void;
+  onEditScene: (sceneId: string) => void;
+  onOpenRelationPicker: (kind: ChapterRelationKind, chapterId: string) => void;
+  onUpdateChapterRelations: (chapter: Chapter, threadIds: string[], beatIds: string[]) => void;
+  onSetSceneRelations: (input: SetSceneRelationsInput) => void;
+  onOpenSceneRelationPicker: (sceneId: string, kind: SceneRelationKind) => void;
+  onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+  onActivatePrompt: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+}) {
+  const chapters = orderedChaptersForPlan(plan);
+
+  if (!activeChapter) {
+    return (
+      <div className="chapter-cockpit-empty">
+        <FileText size={22} />
+        <strong>Brak rozdziałów w aktywnym planie</strong>
+        <p>Dodaj pierwszy rozdział, żeby zacząć pracę nad kontraktem fabularnym.</p>
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => onCreateChapter(plan.acts[0]?.id ?? null)}
+        >
+          <Plus size={16} />
+          Dodaj rozdział
+        </button>
+      </div>
+    );
+  }
+
+  const scenes = orderedScenesForChapter(plan, activeChapter.id);
+  const beats = beatsForChapter(plan, activeChapter);
+  const threads = threadsForChapter(plan, activeChapter);
+  const beatIds = beats.map((beat) => beat.id);
+  const threadIds = threads.map((thread) => thread.id);
+  const readiness = chapterReadiness(plan, activeChapter);
+  const storyBibleNeeds = chapterStoryBibleNeeds(plan, scenes);
+
+  return (
+    <div className="chapter-cockpit">
+      <aside className="chapter-cockpit-rail" aria-label="Mapa rozdziałów">
+        <div className="chapter-cockpit-rail-header">
+          <span className="stage-heading-icon">
+            <FileText size={16} />
+          </span>
+          <div>
+            <p className="eyebrow">Mapa rozdziałów</p>
+            <h4>Aktywny rozdział</h4>
+          </div>
+        </div>
+        <div className="chapter-cockpit-chapter-list">
+          {chapters.map((chapter) => {
+            const chapterScenes = orderedScenesForChapter(plan, chapter.id);
+            const chapterBeats = chapterBeatIdsForChapter(plan, chapter.id);
+            const chapterThreads = chapterThreadIdsForChapter(plan, chapter.id);
+            const status = chapterReadiness(plan, chapter);
+            const act = plan.acts.find((item) => item.id === chapter.actId);
+            return (
+              <button
+                type="button"
+                key={chapter.id}
+                className={
+                  chapter.id === activeChapterId
+                    ? "chapter-cockpit-rail-item active"
+                    : "chapter-cockpit-rail-item"
+                }
+                onClick={() => onSelectChapter(chapter.id)}
+              >
+                <span className="chapter-rail-number">{dynamicChapterNumber(plan, chapter.id)}</span>
+                <span className="chapter-rail-copy">
+                  <strong>{chapter.workingTitle || "Bez tytułu"}</strong>
+                  <small>{act?.name ?? "Bez aktu"} · {status.label}</small>
+                  <em>
+                    {chapterScenes.length} scen · {chapterBeats.length} beatów · {chapterThreads.length} wątków
+                  </em>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      <main className="chapter-cockpit-main">
+        <section className="chapter-cockpit-hero">
+          <div>
+            <p className="eyebrow">Kokpit rozdziału</p>
+            <h3>
+              Rozdział {dynamicChapterNumber(plan, activeChapter.id)}:{" "}
+              {activeChapter.workingTitle || "Bez tytułu"}
+            </h3>
+            <span
+              className={
+                readiness.percent >= 80
+                  ? "chapter-status-pill ready"
+                  : readiness.percent >= 45
+                    ? "chapter-status-pill active"
+                    : "chapter-status-pill"
+              }
+            >
+              <Circle size={10} />
+              {readiness.label}
+            </span>
+          </div>
+          <div className="chapter-cockpit-actions">
+            <PlanAiActions
+              field="prepareChapterForScenes"
+              targetEntity={activeChapter}
+              generateLabel="Sprawdź gotowość"
+              generateTitle="Sprawdź, co blokuje przejście rozdziału do scen"
+              hideContextButton
+              onGenerate={() => onGenerate("prepareChapterForScenes", activeChapter)}
+              onActivatePrompt={() => onActivatePrompt("prepareChapterForScenes", activeChapter)}
+            />
+            <PlanAiActions
+              field="chapterSceneBreakdown"
+              targetEntity={activeChapter}
+              generateLabel="Rozbij na sceny"
+              generateTitle="Wygeneruj 2-5 scen wykonujących kontrakt rozdziału"
+              hideContextButton
+              onGenerate={() => onGenerate("chapterSceneBreakdown", activeChapter)}
+              onActivatePrompt={() => onActivatePrompt("chapterSceneBreakdown", activeChapter)}
+            />
+            <button type="button" className="secondary-button" onClick={() => onOpenChapter(activeChapter)}>
+              <Pencil size={15} />
+              Edytuj rozdział
+            </button>
+          </div>
+        </section>
+
+        <section className="chapter-cockpit-contract">
+          <ChapterCockpitField label="Cel" value={activeChapter.purpose} />
+          <ChapterCockpitField label="Konflikt" value={activeChapter.conflict} />
+          <ChapterCockpitField label="Punkt zwrotny" value={activeChapter.turningPoint} />
+          <ChapterCockpitField label="Target słów" value={formatWordCount(activeChapter.targetWordCount)} />
+        </section>
+
+        <section className="chapter-cockpit-relations">
+          <ChapterCockpitRelationGroup
+            title="Beaty rozdziału"
+            kind="beats"
+            items={beats.map((beat) => ({ id: beat.id, label: beat.name, title: beatPreviewText(beat) }))}
+            emptyText="Brak beatów przypiętych do rozdziału."
+            onAdd={() => onOpenRelationPicker("beats", activeChapter.id)}
+            onRemove={(id) =>
+              onUpdateChapterRelations(
+                activeChapter,
+                threadIds,
+                beatIds.filter((beatId) => beatId !== id)
+              )
+            }
+          />
+          <ChapterCockpitRelationGroup
+            title="Wątki rozdziału"
+            kind="threads"
+            items={threads.map((thread) => ({
+              id: thread.id,
+              label: thread.name,
+              title: chapterThreadRelation(plan, thread.id, activeChapter.id)?.description || thread.description
+            }))}
+            emptyText="Brak wątków przypiętych do rozdziału."
+            onAdd={() => onOpenRelationPicker("threads", activeChapter.id)}
+            onRemove={(id) =>
+              onUpdateChapterRelations(
+                activeChapter,
+                threadIds.filter((threadId) => threadId !== id),
+                beatIds
+              )
+            }
+          />
+        </section>
+
+        <section className="chapter-cockpit-scenes">
+          <div className="chapter-cockpit-section-heading">
+            <div>
+              <p className="eyebrow">Wykonanie rozdziału</p>
+              <h4>Sceny</h4>
+            </div>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => onCreateScene(activeChapter.id)}
+              disabled={saving}
+            >
+              <Plus size={16} />
+              Dodaj scenę
+            </button>
+          </div>
+          <div className="chapter-cockpit-scene-list">
+            {scenes.length > 0 ? (
+              scenes.map((scene, index) => (
+                <article
+                  className="chapter-board-card plan-scene-card chapter-cockpit-scene-card"
+                  key={scene.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onEditScene(scene.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onEditScene(scene.id);
+                    }
+                  }}
+                >
+                  <span className="chapter-card-topline">
+                    <span className="chapter-number-badge">{index + 1}</span>
+                    <span>{sceneStatusLabel(scene.status)}</span>
+                    <span>{scene.targetWordCount ? `${scene.targetWordCount.toLocaleString("pl-PL")} słów` : "Brak celu"}</span>
+                  </span>
+                  <strong>{scene.title || "Scena bez tytułu"}</strong>
+                  <p>{scene.summary || "Brak streszczenia sceny."}</p>
+                  <div className="chapter-cockpit-scene-meta">
+                    <span><b>POV</b>{characterLabel(characters, scene.povCharacterId)}</span>
+                    <span><b>Lokacja</b>{worldElementLabel(world, scene.locationId)}</span>
+                    <span><b>Wynik</b>{scene.outcome || "Nie opisano"}</span>
+                  </div>
+                  <SceneRelationChips
+                    bookId={bookId}
+                    scene={scene}
+                    plan={plan}
+                    characters={characters}
+                    world={world}
+                    onSetRelations={onSetSceneRelations}
+                    onOpenPicker={(kind) => onOpenSceneRelationPicker(scene.id, kind)}
+                  />
+                </article>
+              ))
+            ) : (
+              <p className="muted-text">Rozdział nie ma jeszcze scen. Rozbij go na sceny albo dodaj pierwszą ręcznie.</p>
+            )}
+          </div>
+        </section>
+      </main>
+
+      <aside className="chapter-cockpit-sidebar" aria-label="Pokrycie rozdziału">
+        <section className="chapter-cockpit-side-panel">
+          <div className="chapter-cockpit-section-heading compact">
+            <h4>Pokrycie beatów</h4>
+            <span>{beats.length}</span>
+          </div>
+          <div className="chapter-coverage-list">
+            {beats.length > 0 ? (
+              beats.map((beat) => {
+                const covered = chapterBeatLikelyCoveredByScenes(beat, scenes);
+                return (
+                  <span className={covered ? "chapter-coverage-item covered" : "chapter-coverage-item"} key={beat.id}>
+                    <CheckCircle2 size={14} />
+                    <b>{beat.name}</b>
+                    <em>{covered ? "Widać w scenach" : "Do sprawdzenia w scenach"}</em>
+                  </span>
+                );
+              })
+            ) : (
+              <p className="muted-text">Brak beatów do pokrycia.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="chapter-cockpit-side-panel">
+          <div className="chapter-cockpit-section-heading compact">
+            <h4>Przebieg wątków</h4>
+            <span>{threads.length}</span>
+          </div>
+          <div className="chapter-thread-flow-list">
+            {threads.length > 0 ? (
+              threads.map((thread) => {
+                const relation = chapterThreadRelation(plan, thread.id, activeChapter.id);
+                return (
+                  <div className="chapter-thread-flow-item" key={thread.id}>
+                    <strong>{thread.name}</strong>
+                    <p>{relation?.description || "Brak opisu przebiegu w tym rozdziale."}</p>
+                    {relation ? (
+                      <PlanAiActions
+                        field="threadChapterDescription"
+                        targetEntity={relation}
+                        onGenerate={() => onGenerate("threadChapterDescription", relation)}
+                        onActivatePrompt={() => onActivatePrompt("threadChapterDescription", relation)}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })
+            ) : (
+              <p className="muted-text">Brak wątków w kontrakcie rozdziału.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="chapter-cockpit-side-panel">
+          <div className="chapter-cockpit-section-heading compact">
+            <h4>Braki przed pisaniem</h4>
+            <span>{storyBibleNeeds.length + readiness.missing.length}</span>
+          </div>
+          <ul className="chapter-readiness-list">
+            {[...readiness.missing, ...storyBibleNeeds].map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+            {readiness.missing.length === 0 && storyBibleNeeds.length === 0 ? (
+              <li>Rozdział wygląda gotowo do pisania.</li>
+            ) : null}
+          </ul>
+        </section>
+      </aside>
+    </div>
+  );
+}
+
+function ChapterCockpitField({ label, value }: { label: string; value: string | number | null }) {
+  return (
+    <div className="chapter-cockpit-field">
+      <b>{label}</b>
+      <span>{value || "Brak"}</span>
+    </div>
+  );
+}
+
+function ChapterCockpitRelationGroup({
+  title,
+  kind,
+  items,
+  emptyText,
+  onAdd,
+  onRemove
+}: {
+  title: string;
+  kind: ChapterRelationKind;
+  items: Array<{ id: string; label: string; title?: string }>;
+  emptyText: string;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <div className="chapter-cockpit-relation-group">
+      <div className="chapter-cockpit-section-heading compact">
+        <h4>{title}</h4>
+        <button
+          type="button"
+          className="chapter-card-relation-add-button"
+          onClick={onAdd}
+          aria-label={`Dodaj ${kind === "beats" ? "beat" : "wątek"} do rozdziału`}
+          title={`Dodaj ${kind === "beats" ? "beat" : "wątek"}`}
+        >
+          <Plus size={13} />
+          <span>{kind === "beats" ? "Beat" : "Wątek"}</span>
+        </button>
+      </div>
+      <div className="chapter-chip-row">
+        {items.length > 0 ? (
+          items.map((item) => (
+            <span className={`chapter-chip ${kind === "beats" ? "beat" : "thread"}`} key={item.id} title={item.title}>
+              {item.label}
+              <button
+                type="button"
+                className="chapter-chip-remove"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRemove(item.id);
+                }}
+                aria-label={`Odepnij ${item.label}`}
+                title={`Odepnij ${item.label}`}
+              >
+                -
+              </button>
+            </span>
+          ))
+        ) : (
+          <span className="chapter-side-empty">{emptyText}</span>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -4798,11 +5328,19 @@ function PlanInlineField({
 function PlanAiActions({
   field,
   targetEntity,
+  generateLabel,
+  generateTitle,
+  contextLabel,
+  hideContextButton = false,
   onGenerate,
   onActivatePrompt
 }: {
   field: PlanFieldKey;
   targetEntity?: PlanPromptEntity;
+  generateLabel?: string;
+  generateTitle?: string;
+  contextLabel?: string;
+  hideContextButton?: boolean;
   onGenerate: () => void;
   onActivatePrompt: () => void;
 }) {
@@ -4828,16 +5366,21 @@ function PlanAiActions({
       (source) => source.key === field || source.key === promptContextSource.key
     )
   );
+  const visibleGenerateLabel = running ? "Generuje" : queued ? "W kolejce" : generateLabel ?? "AI";
+  const aiButtonClassName = generateLabel ? "icon-button ai-field-button labeled" : "icon-button ai-field-button";
+  const contextButtonClassName = contextLabel
+    ? "icon-button ai-context-add-button labeled"
+    : "icon-button ai-context-add-button";
 
   return (
     <span className="ai-field-actions plan-ai-actions">
       <button
         type="button"
-        className="icon-button ai-field-button"
+        className={aiButtonClassName}
         onClick={onGenerate}
         disabled={queued || running || (targetEntity === undefined && isEntityField(field))}
-        title={`Generuj ${planFieldConfigs[field].label} z AI`}
-        aria-label={`Generuj ${planFieldConfigs[field].label} z AI`}
+        title={generateTitle ?? `Generuj ${planFieldConfigs[field].label} z AI`}
+        aria-label={generateTitle ?? `Generuj ${planFieldConfigs[field].label} z AI`}
       >
         {running ? (
           <Loader2 size={15} className="spin-icon" />
@@ -4846,24 +5389,27 @@ function PlanAiActions({
         ) : (
           <Sparkles size={15} />
         )}
-        <span>{running ? "Generuje" : queued ? "W kolejce" : "AI"}</span>
+        <span>{visibleGenerateLabel}</span>
       </button>
-      <button
-        type="button"
-        className="icon-button ai-context-add-button"
-        onMouseDown={(event) => {
-          event.preventDefault();
-        }}
-        onClick={(event) => {
-          event.stopPropagation();
-          addContextSourceToActiveTarget(promptContextSource);
-        }}
-        disabled={!activeTarget || fieldAlreadyInContext}
-        title="Dodaj pole planu do aktywnego kontekstu promptu."
-        aria-label={`Dodaj ${planFieldConfigs[field].label} do kontekstu promptu`}
-      >
-        <Plus size={14} />
-      </button>
+      {hideContextButton ? null : (
+        <button
+          type="button"
+          className={contextButtonClassName}
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            addContextSourceToActiveTarget(promptContextSource);
+          }}
+          disabled={!activeTarget || fieldAlreadyInContext}
+          title={`Dodaj ${planFieldConfigs[field].label} do aktywnego kontekstu promptu`}
+          aria-label={`Dodaj ${planFieldConfigs[field].label} do kontekstu promptu`}
+        >
+          <Plus size={14} />
+          {contextLabel ? <span>{contextLabel}</span> : null}
+        </button>
+      )}
     </span>
   );
 }
@@ -5681,6 +6227,110 @@ function formatWordCount(value: number | null): string {
   return value ? `${value.toLocaleString("pl-PL")} słów` : "Brak celu";
 }
 
+function chapterReadiness(plan: BookPlan, chapter: Chapter): ChapterReadiness {
+  const checks = [
+    {
+      ok: Boolean(chapter.purpose.trim()),
+      missing: "Uzupełnij cel rozdziału."
+    },
+    {
+      ok: Boolean(chapter.conflict.trim()),
+      missing: "Uzupełnij konflikt rozdziału."
+    },
+    {
+      ok: Boolean(chapter.turningPoint.trim()),
+      missing: "Uzupełnij punkt zwrotny rozdziału."
+    },
+    {
+      ok: Boolean(chapter.targetWordCount && chapter.targetWordCount > 0),
+      missing: "Ustal target słów dla rozdziału."
+    },
+    {
+      ok: chapterBeatIdsForChapter(plan, chapter.id).length > 0,
+      missing: "Dopnij przynajmniej jeden beat do rozdziału."
+    },
+    {
+      ok: chapterThreadIdsForChapter(plan, chapter.id).length > 0,
+      missing: "Dopnij przynajmniej jeden wątek do rozdziału."
+    },
+    {
+      ok: orderedScenesForChapter(plan, chapter.id).length > 0,
+      missing: "Rozbij rozdział na sceny."
+    }
+  ];
+  const missing = checks.filter((check) => !check.ok).map((check) => check.missing);
+  const percent = Math.round(((checks.length - missing.length) / checks.length) * 100);
+  const label =
+    percent >= 80
+      ? "Gotowy do scen"
+      : percent >= 45
+        ? "Wymaga dopracowania"
+        : "Szkic kontraktu";
+
+  return { percent, label, missing };
+}
+
+function chapterStoryBibleNeeds(plan: BookPlan, scenes: Scene[]): string[] {
+  const needs: string[] = [];
+  const scenesWithoutPov = scenes.filter((scene) => !scene.povCharacterId);
+  const scenesWithoutLocation = scenes.filter((scene) => !scene.locationId);
+  const scenesWithoutCharacters = scenes.filter((scene) => sceneCharacterIds(plan, scene.id).length === 0);
+  const scenesWithoutThreads = scenes.filter((scene) => sceneThreadIds(plan, scene.id).length === 0);
+
+  if (scenesWithoutPov.length > 0) {
+    needs.push(`Uzupełnij POV w scenach: ${sceneListPreview(scenesWithoutPov)}.`);
+  }
+
+  if (scenesWithoutLocation.length > 0) {
+    needs.push(`Uzupełnij lokację w scenach: ${sceneListPreview(scenesWithoutLocation)}.`);
+  }
+
+  if (scenesWithoutCharacters.length > 0) {
+    needs.push(`Dopnij postacie do scen: ${sceneListPreview(scenesWithoutCharacters)}.`);
+  }
+
+  if (scenesWithoutThreads.length > 0) {
+    needs.push(`Dopnij wątki do scen: ${sceneListPreview(scenesWithoutThreads)}.`);
+  }
+
+  return needs;
+}
+
+function sceneListPreview(scenes: Scene[]): string {
+  return scenes
+    .slice(0, 3)
+    .map((scene) => scene.title || "Scena bez tytułu")
+    .join(", ") + (scenes.length > 3 ? ` +${scenes.length - 3}` : "");
+}
+
+function chapterBeatLikelyCoveredByScenes(beat: Beat, scenes: Scene[]): boolean {
+  const sceneText = normalizeSearchText(
+    scenes
+      .flatMap((scene) => [scene.title, scene.summary, scene.goal, scene.conflict, scene.outcome])
+      .join(" ")
+  );
+  const beatTerms = [beat.name, beat.role, beat.description]
+    .flatMap((value) => normalizeSearchText(value).split(/\s+/))
+    .filter((value) => value.length >= 4);
+  const uniqueTerms = uniqueOrderedIds(beatTerms);
+
+  if (!sceneText || uniqueTerms.length === 0) {
+    return false;
+  }
+
+  return uniqueTerms.some((term) => sceneText.includes(term));
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .toLocaleLowerCase("pl-PL")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{Letter}\p{Number}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function defaultChapterActId(initialActId: string | null | undefined, plan: BookPlan): string {
   if (initialActId !== undefined) {
     return initialActId ?? "";
@@ -6366,6 +7016,9 @@ function isEntityField(field: PlanFieldKey): boolean {
     "sceneConflict",
     "sceneOutcome",
     "threadChapterDescription",
+    "prepareChapterForScenes",
+    "chapterSceneBreakdown",
+    "sceneRelationSuggestions",
     "chapterThreadSuggestions",
     "chapterBeatSuggestions"
   ].includes(field);

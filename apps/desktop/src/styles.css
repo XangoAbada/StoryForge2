@@ -4172,6 +4172,443 @@
   border-bottom: 0;
 }
 
+.chapter-cockpit {
+  display: grid;
+  grid-template-columns: minmax(230px, 270px) minmax(0, 1fr) minmax(280px, 320px);
+  gap: 16px;
+  min-width: 0;
+  padding: 18px;
+  background: #fbfcfa;
+}
+
+.chapter-cockpit-empty {
+  display: grid;
+  gap: 10px;
+  place-items: center;
+  min-height: 360px;
+  padding: 28px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.chapter-cockpit-empty svg {
+  color: var(--green);
+}
+
+.chapter-cockpit-empty strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.chapter-cockpit-empty p {
+  max-width: 360px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chapter-cockpit-rail,
+.chapter-cockpit-main,
+.chapter-cockpit-sidebar {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  align-content: start;
+}
+
+.chapter-cockpit-rail,
+.chapter-cockpit-side-panel,
+.chapter-cockpit-hero,
+.chapter-cockpit-contract,
+.chapter-cockpit-relations,
+.chapter-cockpit-scenes {
+  border: 1px solid rgba(39, 63, 50, 0.12);
+  border-radius: 8px;
+  background: #fffefb;
+  box-shadow: 0 10px 26px rgba(24, 35, 31, 0.035);
+}
+
+.chapter-cockpit-rail {
+  overflow: hidden;
+}
+
+.chapter-cockpit-rail-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chapter-cockpit-rail-header h4,
+.chapter-cockpit-section-heading h4,
+.chapter-cockpit-hero h3 {
+  margin: 0;
+  min-width: 0;
+  color: var(--ink);
+}
+
+.chapter-cockpit-chapter-list {
+  display: grid;
+  gap: 6px;
+  max-height: 680px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.chapter-cockpit-rail-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  width: 100%;
+  padding: 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.chapter-cockpit-rail-item:hover,
+.chapter-cockpit-rail-item:focus-visible,
+.chapter-cockpit-rail-item.active {
+  border-color: rgba(47, 128, 103, 0.28);
+  background: #f3faf5;
+}
+
+.chapter-rail-number {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--green);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.chapter-rail-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chapter-rail-copy strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.chapter-rail-copy small,
+.chapter-rail-copy em {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.chapter-cockpit-hero {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.chapter-cockpit-hero > div:first-child {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chapter-cockpit-hero h3 {
+  overflow-wrap: anywhere;
+  font-size: 20px;
+  line-height: 1.18;
+}
+
+.chapter-cockpit-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.chapter-cockpit-contract {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.chapter-cockpit-field {
+  display: grid;
+  gap: 5px;
+  min-height: 72px;
+  align-content: start;
+  padding: 10px;
+  border: 1px solid rgba(39, 63, 50, 0.1);
+  border-radius: 8px;
+  background: #f8faf5;
+}
+
+.chapter-cockpit-field b {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.chapter-cockpit-field span {
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chapter-cockpit-relations,
+.chapter-cockpit-scenes,
+.chapter-cockpit-side-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.chapter-cockpit-relations {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chapter-cockpit-relation-group {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  align-content: start;
+}
+
+.chapter-cockpit-section-heading {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.chapter-cockpit-section-heading.compact {
+  align-items: flex-start;
+}
+
+.chapter-cockpit-section-heading.compact h4 {
+  font-size: 14px;
+}
+
+.chapter-cockpit-section-heading > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.chapter-cockpit-section-heading > span {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.chapter-cockpit-scene-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.chapter-cockpit-scene-card {
+  min-height: 0;
+  cursor: pointer;
+}
+
+.chapter-cockpit-scene-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.chapter-cockpit-scene-meta span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: #f7f6f1;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.chapter-cockpit-scene-meta b {
+  color: var(--ink);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.chapter-coverage-list,
+.chapter-thread-flow-list {
+  display: grid;
+  gap: 8px;
+}
+
+.chapter-coverage-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 2px 8px;
+  align-items: start;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.chapter-coverage-item svg {
+  grid-row: span 2;
+  margin-top: 2px;
+  color: #aab3ad;
+}
+
+.chapter-coverage-item.covered {
+  border-color: #b7dacb;
+  background: var(--green-soft);
+}
+
+.chapter-coverage-item.covered svg {
+  color: var(--green);
+}
+
+.chapter-coverage-item b {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.chapter-coverage-item em {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.chapter-thread-flow-item {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid rgba(39, 63, 50, 0.1);
+  border-radius: 8px;
+  background: #f8faf5;
+}
+
+.chapter-thread-flow-item strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.chapter-thread-flow-item p {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.chapter-readiness-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chapter-readiness-list li {
+  padding: 9px;
+  border: 1px dashed rgba(39, 63, 50, 0.18);
+  border-radius: 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.chapter-view-toggle {
+  min-width: min(260px, 100%);
+}
+
+.chapter-inheritance-section {
+  padding-bottom: 14px;
+  background: #fbf8ff;
+}
+
+.scene-inheritance-block {
+  display: grid;
+  gap: 7px;
+}
+
+.scene-inheritance-label {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.scene-inherited-chip {
+  cursor: pointer;
+}
+
+.scene-inherited-chip:hover,
+.scene-inherited-chip:focus-visible {
+  border-color: rgba(47, 128, 103, 0.42);
+  background: #ecf7ef;
+}
+
+.scene-inheritance-footnote {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.scene-thread-chapter-sync-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 10px;
+  border: 1px dashed rgba(47, 128, 103, 0.32);
+  border-radius: 8px;
+  background: #f3faf5;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.scene-thread-chapter-sync-option input {
+  margin-top: 2px;
+}
+
+.scene-relation-picker-footer {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 14px 16px;
+  border-top: 1px solid var(--line);
+  background: #fffefb;
+}
+
 .chapter-edit-footer {
   display: flex;
   gap: 16px;
@@ -4230,6 +4667,15 @@
     --chapter-act-width: max(320px, calc((100% - 18px) / 2));
   }
 
+  .chapter-cockpit {
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  }
+
+  .chapter-cockpit-sidebar {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .plan-details-panel,
   .plan-preview-sidebar {
     position: static;
@@ -4284,6 +4730,24 @@
   .chapter-edit-content-grid {
     grid-template-columns: 1fr;
     padding-inline: 18px;
+  }
+
+  .chapter-cockpit {
+    grid-template-columns: 1fr;
+  }
+
+  .chapter-cockpit-chapter-list {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    max-height: none;
+  }
+
+  .chapter-cockpit-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .chapter-cockpit-contract,
+  .chapter-cockpit-relations {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .chapter-edit-sidebar {
@@ -4406,6 +4870,47 @@
 
   .chapter-act-column {
     min-height: 520px;
+  }
+
+  .chapter-cockpit {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .chapter-cockpit-hero,
+  .chapter-cockpit-section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chapter-cockpit-actions {
+    justify-content: flex-start;
+  }
+
+  .chapter-cockpit-actions .primary-button,
+  .chapter-cockpit-actions .secondary-button,
+  .chapter-cockpit-actions .ghost-button {
+    width: 100%;
+  }
+
+  .chapter-cockpit-contract,
+  .chapter-cockpit-relations,
+  .chapter-cockpit-scene-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .chapter-cockpit-chapter-list {
+    grid-template-columns: 1fr;
+  }
+
+  .scene-relation-picker-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .scene-relation-picker-footer .primary-button,
+  .scene-relation-picker-footer .ghost-button {
+    width: 100%;
   }
 
   .chapter-edit-modal {
@@ -7195,22 +7700,207 @@ button.nav-item {
   height: 38px;
   min-height: 38px;
   padding: 0;
-  border-color: var(--line);
-  background: #ffffff;
-  color: #25322f;
+  border-color: #b98539;
+  background: #fff0cc;
+  color: #5c3809;
+  box-shadow: 0 8px 18px rgba(126, 82, 18, 0.14);
 }
 
 .ai-field-button span {
   display: none;
 }
 
+.ai-field-button:hover:not(:disabled) {
+  border-color: #8d5b1f;
+  background: #ffe4a3;
+  color: #3f2706;
+}
+
+.ai-field-button:disabled {
+  border-color: #d8c8a4;
+  background: #f4eee0;
+  color: #8a806d;
+  opacity: 1;
+  box-shadow: none;
+}
+
 .ai-context-add-button {
   width: 38px;
   height: 38px;
   min-height: 38px;
-  border-color: var(--line);
-  background: #ffffff;
+  border-color: #8fbca9;
+  background: #edf8f2;
+  color: #1f5f4c;
+  box-shadow: 0 8px 18px rgba(47, 128, 103, 0.12);
+}
+
+.ai-context-add-button:hover:not(:disabled) {
+  border-color: var(--green);
+  background: #dff2e8;
+  color: #174a3b;
+}
+
+.ai-context-add-button:disabled {
+  border-color: #ccd3cd;
+  background: #f1f4f1;
+  color: #78837e;
+  opacity: 1;
+  box-shadow: none;
+}
+
+:is(
+  .chapter-relation-add-button,
+  .chapter-card-relation-add-button,
+  .thread-card-relation-add-button,
+  .world-relation-add-button,
+  .scene-context-add-button,
+  .scene-context-add-rail-button
+) {
+  border: 1px solid #8fbca9;
+  background: #edf8f2;
+  color: #1f5f4c;
+  box-shadow: 0 8px 18px rgba(47, 128, 103, 0.12);
+}
+
+:is(
+  .chapter-relation-add-button,
+  .chapter-card-relation-add-button,
+  .thread-card-relation-add-button,
+  .world-relation-add-button,
+  .scene-context-add-button,
+  .scene-context-add-rail-button
+):hover:not(:disabled) {
+  border-color: var(--green);
+  background: #dff2e8;
+  color: #174a3b;
+}
+
+:is(
+  .chapter-relation-add-button,
+  .chapter-card-relation-add-button,
+  .thread-card-relation-add-button,
+  .world-relation-add-button,
+  .scene-context-add-button,
+  .scene-context-add-rail-button
+):disabled {
+  border-color: #ccd3cd;
+  background: #f1f4f1;
+  color: #78837e;
+  opacity: 1;
+  box-shadow: none;
+}
+
+.chapter-edit-modal:has(.thread-editor-form) .chapter-edit-header .icon-button,
+.thread-editor-form .chapter-footer-actions .ghost-button {
+  border-color: var(--line-strong);
+  background: #fffdf8;
+  color: #1d2e2a;
+  box-shadow: 0 8px 18px rgba(23, 36, 32, 0.12);
+}
+
+.chapter-edit-modal:has(.thread-editor-form) .chapter-edit-header .icon-button:hover:not(:disabled),
+.thread-editor-form .chapter-footer-actions .ghost-button:hover:not(:disabled) {
+  border-color: rgba(47, 128, 103, 0.48);
+  background: #f4faf6;
+  color: var(--green);
+}
+
+.thread-editor-form .plan-ai-actions {
+  gap: 6px;
+}
+
+.thread-editor-form.chapter-edit-form {
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0;
+}
+
+.thread-editor-form .chapter-side-heading .chapter-relation-add-button {
+  position: static;
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+}
+
+.thread-editor-form .chapter-side-chip-remove {
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  border-color: #25322f;
+  background: #fffdf8;
   color: #25322f;
+  box-shadow: 0 6px 14px rgba(23, 36, 32, 0.1);
+}
+
+.thread-editor-form .chapter-side-chip-remove:hover {
+  border-color: var(--red);
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.thread-editor-form .chapter-footer-actions .chapter-delete-button {
+  border-color: #d7afa7;
+  background: #fff2ee;
+  color: var(--red);
+}
+
+.thread-editor-form .chapter-footer-actions .primary-button {
+  box-shadow: 0 10px 22px rgba(47, 128, 103, 0.2);
+}
+
+.chapter-cockpit-actions .plan-ai-actions {
+  gap: 6px;
+}
+
+.chapter-cockpit-actions .ai-field-button.labeled,
+.chapter-cockpit-actions .ai-context-add-button.labeled {
+  display: inline-flex;
+  width: auto;
+  min-width: 0;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 12px;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.chapter-cockpit-actions .ai-field-button.labeled {
+  border-color: #b98539;
+  background: #fff0cc;
+  color: #5c3809;
+  font-weight: 900;
+}
+
+.chapter-cockpit-actions .ai-field-button.labeled span,
+.chapter-cockpit-actions .ai-context-add-button.labeled span {
+  display: inline;
+}
+
+.chapter-cockpit-actions .ai-context-add-button.labeled {
+  border-color: #8fbca9;
+  background: #edf8f2;
+  color: #1f5f4c;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.chapter-cockpit-actions .ai-context-add-button.labeled:disabled span {
+  color: #78837e;
+}
+
+@media (max-width: 760px) {
+  .chapter-cockpit-actions .plan-ai-actions {
+    width: 100%;
+  }
+
+  .chapter-cockpit-actions .ai-field-button.labeled,
+  .chapter-cockpit-actions .ai-context-add-button.labeled {
+    flex: 1 1 0;
+    white-space: normal;
+  }
 }
 
 .concept-save-row {

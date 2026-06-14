@@ -1,0 +1,1313 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StoryForge2 - audyt przepływu planu</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f6f8f3;
+      --ink: #1d2720;
+      --muted: #647066;
+      --line: #d7ded2;
+      --panel: #ffffff;
+      --panel-soft: #eef4ec;
+      --green: #2f7d5b;
+      --green-dark: #245f47;
+      --coral: #c85c4a;
+      --gold: #b98222;
+      --cyan: #337f86;
+      --violet: #7061a8;
+      --shadow: 0 16px 38px rgba(29, 39, 32, 0.10);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(47, 125, 91, 0.08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(47, 125, 91, 0.08) 1px, transparent 1px),
+        var(--paper);
+      background-size: 32px 32px;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      line-height: 1.52;
+    }
+
+    a {
+      color: var(--green-dark);
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 32px 0 64px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin: 0 calc(50% - 50vw) 28px;
+      padding: 14px max(20px, calc((100vw - 1180px) / 2));
+      border-bottom: 1px solid rgba(215, 222, 210, 0.88);
+      background: rgba(246, 248, 243, 0.92);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar strong {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 18px;
+    }
+
+    .topbar nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .topbar a {
+      display: inline-flex;
+      min-height: 32px;
+      align-items: center;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+      gap: 28px;
+      align-items: stretch;
+      margin-bottom: 30px;
+    }
+
+    .hero-copy {
+      padding: 26px 0;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--green-dark);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: Georgia, "Times New Roman", serif;
+      line-height: 1.08;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 780px;
+      font-size: clamp(42px, 6vw, 76px);
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: clamp(28px, 3vw, 42px);
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    .lead {
+      max-width: 740px;
+      margin-top: 20px;
+      color: #3f4b42;
+      font-size: 19px;
+    }
+
+    .hero-panel {
+      display: grid;
+      align-content: start;
+      gap: 14px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: var(--shadow);
+    }
+
+    .verdict {
+      padding: 14px;
+      border-left: 5px solid var(--coral);
+      background: #fff8f5;
+    }
+
+    .verdict strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .mini-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .metric {
+      min-height: 96px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .metric b {
+      display: block;
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .section {
+      margin-top: 34px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+    }
+
+    .section-intro {
+      display: grid;
+      grid-template-columns: minmax(0, 0.75fr) minmax(260px, 0.25fr);
+      gap: 24px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+
+    .section-intro p {
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .tag-stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .tag,
+    .small-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .flow-strip {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .flow-node {
+      position: relative;
+      min-height: 132px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .flow-node::after {
+      content: "";
+      position: absolute;
+      top: 48px;
+      right: -10px;
+      width: 10px;
+      height: 2px;
+      background: var(--green);
+    }
+
+    .flow-node:last-child::after {
+      display: none;
+    }
+
+    .flow-node .num {
+      display: inline-grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      margin-bottom: 10px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .flow-node strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 16px;
+    }
+
+    .flow-node span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .current-flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .problem-card {
+      min-height: 180px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .problem-card b {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      margin-bottom: 12px;
+      padding: 3px 8px;
+      border-radius: 8px;
+      background: #f7e9e5;
+      color: #8f382d;
+      font-size: 12px;
+    }
+
+    .problem-card strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .problem-card p {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .decision-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .decision-card h3 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .dot.coral {
+      background: var(--coral);
+    }
+
+    .dot.gold {
+      background: var(--gold);
+    }
+
+    .dot.cyan {
+      background: var(--cyan);
+    }
+
+    .decision-card p {
+      color: var(--muted);
+    }
+
+    .relation-table {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 14px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--panel-soft);
+      color: var(--green-dark);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td {
+      font-size: 14px;
+    }
+
+    td strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    td span {
+      color: var(--muted);
+    }
+
+    .source-badge {
+      display: inline-flex;
+      min-height: 24px;
+      align-items: center;
+      padding: 3px 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .chapter-cockpit {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr) 280px;
+      gap: 12px;
+      min-height: 520px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #eaf1e7;
+      box-shadow: var(--shadow);
+    }
+
+    .mock-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .mock-panel header {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfa;
+    }
+
+    .mock-panel header strong {
+      display: block;
+    }
+
+    .mock-panel header span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .rail-list,
+    .coverage-list,
+    .scene-stack {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .rail-item,
+    .coverage-item,
+    .scene-item {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .rail-item.active {
+      border-color: var(--green);
+      box-shadow: inset 4px 0 0 var(--green);
+    }
+
+    .rail-item strong,
+    .scene-item strong,
+    .coverage-item strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .rail-item span,
+    .scene-item span,
+    .coverage-item span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .scene-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .scene-number {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--panel-soft);
+      color: var(--green-dark);
+      font-weight: 800;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .chip.beat {
+      background: var(--gold);
+    }
+
+    .chip.thread {
+      background: var(--green);
+    }
+
+    .chip.character {
+      background: var(--coral);
+    }
+
+    .chip.world {
+      background: var(--cyan);
+    }
+
+    .ai-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .ai-card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .ai-card h3 {
+      min-height: 48px;
+      margin-bottom: 10px;
+    }
+
+    .ai-card p {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .ai-card code,
+    .code-pill {
+      display: inline-flex;
+      margin-bottom: 10px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      background: #edf2ef;
+      color: #275944;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .when-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .when-card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .when-card strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .when-card p {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .note {
+      padding: 16px;
+      border: 1px solid #e5c1b9;
+      border-radius: 8px;
+      background: #fff8f5;
+      color: #683127;
+    }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .check-item {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr);
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .check-item b {
+      display: grid;
+      width: 26px;
+      height: 26px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      font-size: 13px;
+    }
+
+    .check-item strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .check-item span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .footer {
+      margin-top: 44px;
+      padding: 20px 0 0;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1040px) {
+      .hero,
+      .section-intro,
+      .chapter-cockpit {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-strip,
+      .current-flow,
+      .ai-grid,
+      .when-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .page {
+        width: min(100% - 24px, 1180px);
+        padding-top: 16px;
+      }
+
+      .topbar {
+        position: static;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .topbar nav,
+      .tag-stack {
+        justify-content: flex-start;
+      }
+
+      .flow-strip,
+      .current-flow,
+      .decision-grid,
+      .ai-grid,
+      .when-grid,
+      .checklist,
+      .mini-metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-node::after {
+        display: none;
+      }
+
+      .relation-table {
+        overflow-x: auto;
+      }
+
+      table {
+        min-width: 760px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <strong>StoryForge2 · Plan flow</strong>
+    <nav aria-label="Sekcje raportu">
+      <a href="#diagnoza">Diagnoza</a>
+      <a href="#nowy-flow">Nowy flow</a>
+      <a href="#relacje">Relacje</a>
+      <a href="#ai">AI</a>
+      <a href="#wdrozenie">Wdrożenie</a>
+    </nav>
+  </div>
+
+  <main class="page">
+    <section class="hero" aria-labelledby="title">
+      <div class="hero-copy">
+        <p class="eyebrow">Audyt przepływu · 14 czerwca 2026</p>
+        <h1 id="title">Mniej przeskakiwania, więcej pracy z aktywnym rozdziałem</h1>
+        <p class="lead">
+          Największy zysk UX nie wynika z dodania kolejnych widoków, tylko z jasnego podziału:
+          rozdział jest miejscem planowania decyzji fabularnych, scena jest miejscem wykonania,
+          a Story Bible dostaje propozycje wtedy, gdy plan lub tekst ujawni realną potrzebę.
+        </p>
+      </div>
+
+      <aside class="hero-panel" aria-label="Najkrótszy wniosek">
+        <div class="verdict">
+          <strong>Wniosek główny</strong>
+          Obecny model danych jest blisko dobrego kierunku, ale UI pozwala zmieniać te same relacje
+          w kilku miejscach. To tworzy wrażenie skakania między Planem, Scenami, Beatami, Wątkami,
+          Postaciami i Światem.
+        </div>
+        <div class="mini-metrics">
+          <div class="metric">
+            <b>1</b>
+            <span>główny ekran roboczy: aktywny rozdział</span>
+          </div>
+          <div class="metric">
+            <b>3</b>
+            <span>warstwy relacji: rozdział, scena, Story Bible</span>
+          </div>
+          <div class="metric">
+            <b>0</b>
+            <span>automatycznego zapisu kanonu bez akceptacji</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section" id="diagnoza">
+      <div class="section-intro">
+        <div>
+          <p class="eyebrow">Diagnoza obecnego stanu</p>
+          <h2>Co dziś powoduje tarcie</h2>
+          <p>
+            Przepływ jest rozbity na kroki: struktura, akty, rozdziały, sceny, beaty, wątki.
+            Dane są sensowne, ale kolejność i miejsca edycji zachęcają do wracania w kółko.
+          </p>
+        </div>
+        <div class="tag-stack">
+          <span class="tag">BookPlanPage</span>
+          <span class="tag">SceneEditorPage</span>
+          <span class="tag">planPromptPackage</span>
+          <span class="tag">Story Bible</span>
+        </div>
+      </div>
+
+      <div class="current-flow">
+        <article class="problem-card">
+          <b>P1</b>
+          <strong>Sceny są przed beatami i wątkami</strong>
+          <p>W kreatorze można przejść do scen zanim autor domknie beaty i przebieg wątków, więc scena nie ma jeszcze dobrego “kontraktu” fabularnego.</p>
+        </article>
+        <article class="problem-card">
+          <b>P2</b>
+          <strong>Te same relacje żyją w kilku miejscach</strong>
+          <p>Wątki można dopinać z rozdziału, mapy wątków i edytora wątku. Sceny mają ustawienia w Planie oraz w Edytorze.</p>
+        </article>
+        <article class="problem-card">
+          <b>P3</b>
+          <strong>Scena nie dziedziczy decyzji rozdziału w UI</strong>
+          <p>Model promptu zna rozdziałowe wątki i reguły, ale interfejs sceny traktuje relacje jak puste ręczne listy do uzupełnienia.</p>
+        </article>
+        <article class="problem-card">
+          <b>P4</b>
+          <strong>AI jest mocne per pole, słabsze jako przewodnik przepływu</strong>
+          <p>Mamy generowanie pól i propozycje scen, ale brakuje akcji “przygotuj rozdział do scen” oraz “zasiej relacje sceny”.</p>
+        </article>
+        <article class="problem-card">
+          <b>P5</b>
+          <strong>Story Bible pojawia się za wcześnie albo za późno</strong>
+          <p>Postacie i świat są osobnymi ekranami. Plan nie pomaga zdecydować, kiedy brak encji blokuje scenę, a kiedy to tylko notatka na później.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="nowy-flow">
+      <div class="section-intro">
+        <div>
+          <p class="eyebrow">Proponowany przepływ</p>
+          <h2>Najpierw kontrakt rozdziału, potem sceny</h2>
+          <p>
+            Autor powinien móc pracować z jednym aktywnym rozdziałem: widzieć jego cel,
+            przypięte beaty i wątki, rozbić go na sceny, a dopiero potem doprecyzować lokalne
+            postacie, lokację i reguły świata.
+          </p>
+        </div>
+        <div class="tag-stack">
+          <span class="small-tag">zalecane</span>
+          <span class="small-tag">bez rewolucji danych</span>
+          <span class="small-tag">mniej widoków</span>
+        </div>
+      </div>
+
+      <div class="flow-strip" aria-label="Nowy flow planowania">
+        <article class="flow-node">
+          <span class="num">1</span>
+          <strong>Struktura i akty</strong>
+          <span>Wybór kręgosłupa historii oraz zakresów aktów. Bez scen.</span>
+        </article>
+        <article class="flow-node">
+          <span class="num">2</span>
+          <strong>Wątki główne</strong>
+          <span>Lista napięć, pytań dramatycznych i łuków, które mają przejść przez rozdziały.</span>
+        </article>
+        <article class="flow-node">
+          <span class="num">3</span>
+          <strong>Beaty</strong>
+          <span>Obowiązki strukturalne. Beat ma odpowiadać na pytanie: co musi się wydarzyć?</span>
+        </article>
+        <article class="flow-node">
+          <span class="num">4</span>
+          <strong>Rozdziały</strong>
+          <span>Kontener decyzji: cel, konflikt, punkt zwrotny, przypięte beaty i wątki.</span>
+        </article>
+        <article class="flow-node">
+          <span class="num">5</span>
+          <strong>Sceny</strong>
+          <span>Wykonanie rozdziału: kto, gdzie, jaki lokalny konflikt i jaki wynik.</span>
+        </article>
+        <article class="flow-node">
+          <span class="num">6</span>
+          <strong>Pisanie i ekstrakcja</strong>
+          <span>Edytor prozy, a po akceptacji tekstu propozycje faktów, postaci i świata.</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-intro">
+        <div>
+          <p class="eyebrow">Projekt docelowego widoku</p>
+          <h2>Rozdział jako kokpit planowania</h2>
+          <p>
+            Zamiast osobno “Rozdziały”, “Sceny”, “Beaty”, “Wątki”, najważniejsza praca może dziać się
+            wokół aktywnego rozdziału. Osobne ekrany zostają jako mapy i menedżery, ale nie jako
+            jedyne miejsce decyzyjne.
+          </p>
+        </div>
+      </div>
+
+      <div class="chapter-cockpit" aria-label="Makieta kokpitu rozdziału">
+        <aside class="mock-panel">
+          <header>
+            <strong>Mapa rozdziałów</strong>
+            <span>akty, kolejność, status gotowości</span>
+          </header>
+          <div class="rail-list">
+            <div class="rail-item">
+              <strong>R1 · Wejście w konflikt</strong>
+              <span>2 sceny · 1 beat · 2 wątki</span>
+            </div>
+            <div class="rail-item active">
+              <strong>R2 · Pierwszy koszt</strong>
+              <span>3 sceny · 2 beaty · 3 wątki</span>
+            </div>
+            <div class="rail-item">
+              <strong>R3 · Decyzja bez odwrotu</strong>
+              <span>brak scen · 1 beat · 2 wątki</span>
+            </div>
+          </div>
+        </aside>
+
+        <section class="mock-panel">
+          <header>
+            <strong>Aktywny rozdział: Pierwszy koszt</strong>
+            <span>cel, konflikt i rozbicie na sceny w jednym miejscu</span>
+          </header>
+          <div class="scene-stack">
+            <article class="scene-item">
+              <span class="scene-number">1</span>
+              <div>
+                <strong>Scena negocjacji</strong>
+                <span>POV: Mira · lokacja: magazyn portowy · wynik: fałszywy sojusz</span>
+                <div class="chip-row">
+                  <span class="chip thread">Wątek: przemyt</span>
+                  <span class="chip beat">Beat: odmowa wezwania</span>
+                  <span class="chip character">Mira</span>
+                  <span class="chip world">Port</span>
+                </div>
+              </div>
+            </article>
+            <article class="scene-item">
+              <span class="scene-number">2</span>
+              <div>
+                <strong>Scena konsekwencji</strong>
+                <span>POV: Jan · lokacja: komisariat · wynik: bohater traci alibi</span>
+                <div class="chip-row">
+                  <span class="chip thread">Wątek: śledztwo</span>
+                  <span class="chip beat">Beat: pierwszy koszt</span>
+                  <span class="chip character">Jan</span>
+                </div>
+              </div>
+            </article>
+            <article class="scene-item">
+              <span class="scene-number">+</span>
+              <div>
+                <strong>Rozbij rozdział na kolejną scenę</strong>
+                <span>AI korzysta z celu rozdziału, przypiętych beatów i przebiegu wątków.</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <aside class="mock-panel">
+          <header>
+            <strong>Pokrycie rozdziału</strong>
+            <span>co musi być obsłużone przed pisaniem</span>
+          </header>
+          <div class="coverage-list">
+            <div class="coverage-item">
+              <strong>Beaty</strong>
+              <span>2 przypięte · 2 pokryte scenami</span>
+              <div class="chip-row">
+                <span class="chip beat">Pierwszy koszt</span>
+                <span class="chip beat">Fałszywy sojusz</span>
+              </div>
+            </div>
+            <div class="coverage-item">
+              <strong>Wątki rozdziału</strong>
+              <span>3 aktywne · każdy ma opis “co tu się zmienia”</span>
+              <div class="chip-row">
+                <span class="chip thread">Śledztwo</span>
+                <span class="chip thread">Przemyt</span>
+              </div>
+            </div>
+            <div class="coverage-item">
+              <strong>Story Bible</strong>
+              <span>1 brakująca lokacja i 1 brakująca postać do decyzji autora</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section" id="relacje">
+      <div class="section-intro">
+        <div>
+          <p class="eyebrow">Źródła prawdy</p>
+          <h2>Gdzie powinna mieszkać każda relacja</h2>
+          <p>
+            Zasada: każda relacja ma jedno kanoniczne miejsce edycji. Inne widoki mogą pokazywać chipy,
+            podpowiadać i prowadzić do decyzji, ale nie powinny sprawiać wrażenia osobnych źródeł prawdy.
+          </p>
+        </div>
+      </div>
+
+      <div class="relation-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Relacja</th>
+              <th>Kanoniczne miejsce decyzji</th>
+              <th>Jak pokazywać gdzie indziej</th>
+              <th>Rekomendacja</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Rozdział → akt</strong><span>jeden rozdział należy do jednego aktu</span></td>
+              <td><span class="source-badge">Mapa rozdziałów</span></td>
+              <td>Kolumna aktu, kolor aktu, rail aktów.</td>
+              <td>Zostawić. To dobra relacja do przeciągania i sortowania.</td>
+            </tr>
+            <tr>
+              <td><strong>Scena → rozdział</strong><span>scena powinna mieć jeden rozdział albo świadomie być w “inboxie”</span></td>
+              <td><span class="source-badge">Kokpit rozdziału</span></td>
+              <td>W Edytorze jako wybór rozdziału, ale z ostrzeżeniem przy zmianie.</td>
+              <td>Tworzenie sceny domyślnie z aktywnego rozdziału. “Bez rozdziału” tylko jako roboczy parking.</td>
+            </tr>
+            <tr>
+              <td><strong>Beat → rozdział</strong><span>obowiązek strukturalny rozdziału</span></td>
+              <td><span class="source-badge">Kokpit rozdziału</span></td>
+              <td>Tablica beatów jako narzędzie porządkowania i przenoszenia.</td>
+              <td>Utrzymać beat jako rozdziałowy kontrakt. Nie zmuszać do przypinania beatu do sceny w V1.</td>
+            </tr>
+            <tr>
+              <td><strong>Wątek → rozdział</strong><span>co dzieje się z wątkiem w rozdziale</span></td>
+              <td><span class="source-badge">Kokpit rozdziału</span></td>
+              <td>Mapa wątków pokazuje pokrycie i pozwala szybko dodać relację, ale edycja opisu wraca do rozdziału.</td>
+              <td>Wymagać krótkiego opisu relacji: setup, rozwój, komplikacja, payoff albo pauza.</td>
+            </tr>
+            <tr>
+              <td><strong>Wątek → scena</strong><span>lokalny subset aktywnych wątków</span></td>
+              <td><span class="source-badge">Ustawienia sceny</span></td>
+              <td>Na karcie sceny jako chipy dziedziczone i ręcznie wybrane.</td>
+              <td>Scena dostaje sugestie z wątków rozdziału. Jeśli autor doda nowy wątek do sceny, UI pyta: “dopiąć też do rozdziału?”.</td>
+            </tr>
+            <tr>
+              <td><strong>Postać → scena</strong><span>kto fizycznie lub informacyjnie uczestniczy</span></td>
+              <td><span class="source-badge">Ustawienia sceny</span></td>
+              <td>W rozdziale jako podsumowanie obsady scen.</td>
+              <td>POV to pole sceny, obecne postacie to relacje sceny. Postacie rozdziału wyliczać z jego scen.</td>
+            </tr>
+            <tr>
+              <td><strong>Świat → scena</strong><span>lokacja, elementy, reguły aktywne w scenie</span></td>
+              <td><span class="source-badge">Ustawienia sceny</span></td>
+              <td>W Świecie jako odwrócona mapa użycia elementu/reguły.</td>
+              <td>Lokacja jako jedno pole sceny. Pozostałe elementy i reguły jako jawne chipy tylko, gdy są naprawdę potrzebne w promptach.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-intro">
+        <div>
+          <p class="eyebrow">Co przypinać do scen</p>
+          <h2>Scena nie powinna nieść całej struktury książki</h2>
+          <p>
+            Scena ma być lekka: cel, konflikt, wynik, POV, lokacja, uczestnicy, aktywne wątki i istotne reguły.
+            Rozdział trzyma beaty i wątki jako kontrakt. Scena wybiera z tego tylko to, co faktycznie gra w danym fragmencie.
+          </p>
+        </div>
+      </div>
+
+      <div class="decision-grid">
+        <article class="decision-card">
+          <h3><span class="dot"></span>Przypinamy do sceny zawsze lub prawie zawsze</h3>
+          <p>POV, lokacja, postacie obecne, aktywne wątki sceny, cel, konflikt, wynik, target słów i status.</p>
+        </article>
+        <article class="decision-card">
+          <h3><span class="dot gold"></span>Dziedziczymy z rozdziału jako sugestię</h3>
+          <p>Beaty rozdziału, wątki rozdziału, opis tego, co ma się zmienić w rozdziale, sąsiednie rozdziały i sąsiednie sceny.</p>
+        </article>
+        <article class="decision-card">
+          <h3><span class="dot cyan"></span>Przypinamy tylko, gdy wpływa na pisanie</h3>
+          <p>Reguły świata, elementy świata poza lokacją, relacje postaci, fakty kanoniczne, ograniczenia wiedzy postaci.</p>
+        </article>
+        <article class="decision-card">
+          <h3><span class="dot coral"></span>Nie zapisujemy automatycznie</h3>
+          <p>Nowe postacie, nowy świat, nowe reguły i fakty z tekstu powinny przejść przez propozycję i akceptację autora.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-intro">
+        <div>
+          <p class="eyebrow">Postacie i świat</p>
+          <h2>Kiedy dobry moment na generowanie Story Bible</h2>
+          <p>
+            Największy błąd to generować pełną encyklopedię zanim wiadomo, czego potrzebuje scena.
+            Drugi błąd to czekać aż do pisania, gdy brakuje POV, głosu albo reguły świata.
+          </p>
+        </div>
+      </div>
+
+      <div class="when-grid">
+        <article class="when-card">
+          <strong>Po koncepcji</strong>
+          <p>Wygenerować tylko rdzeń: protagonistę, siłę przeciwną, 2-4 główne role i szkic settingu. Bez detali scenicznych.</p>
+        </article>
+        <article class="when-card">
+          <strong>Po przypięciu wątków i beatów do rozdziału</strong>
+          <p>AI może wskazać brakujące role, lokacje i reguły potrzebne w aktywnym rozdziale. To najlepszy moment na kandydatów.</p>
+        </article>
+        <article class="when-card">
+          <strong>Podczas rozbijania rozdziału na sceny</strong>
+          <p>Generować lokalną obsadę, POV, lokację i reguły dla scen. Jeśli czegoś nie ma w Story Bible, pokazać “utwórz kandydat”.</p>
+        </article>
+        <article class="when-card">
+          <strong>Po napisaniu sceny</strong>
+          <p>Uruchomić analizę fragmentu: nowe fakty, wspomnienia, relacje, elementy świata i reguły. Wszystko jako propozycje.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="ai">
+      <div class="section-intro">
+        <div>
+          <p class="eyebrow">Nowe zapytania AI</p>
+          <h2>AI jako przewodnik przez przejście poziomów</h2>
+          <p>
+            Obecne prompty dobrze obsługują pojedyncze pola. Brakuje promptów, które pomagają przejść
+            z poziomu rozdziału do sceny oraz z planu do Story Bible.
+          </p>
+        </div>
+      </div>
+
+      <div class="ai-grid">
+        <article class="ai-card">
+          <code>prepare_chapter_for_scenes</code>
+          <h3>Przygotuj rozdział do rozbicia</h3>
+          <p>Audytuje cel, konflikt, punkt zwrotny, przypięte beaty i wątki. Zwraca braki blokujące sceny oraz pytania do autora.</p>
+        </article>
+        <article class="ai-card">
+          <code>generate_chapter_scene_breakdown</code>
+          <h3>Rozbij rozdział na sceny</h3>
+          <p>Tworzy 2-5 propozycji scen z tytułem, celem, konfliktem, wynikiem, sugerowanymi wątkami, beatami i potrzebami Story Bible.</p>
+        </article>
+        <article class="ai-card">
+          <code>suggest_scene_relations</code>
+          <h3>Zasiej relacje sceny</h3>
+          <p>Dla istniejącej sceny proponuje postacie, POV, lokację, elementy świata, reguły i lokalne wątki. Zwraca istniejące ID oraz powody.</p>
+        </article>
+        <article class="ai-card">
+          <code>suggest_chapter_story_bible_needs</code>
+          <h3>Wskaż braki w Story Bible</h3>
+          <p>Na podstawie rozdziału i scen sugeruje brakujące postacie, lokacje, frakcje, obiekty lub reguły. Niczego nie zapisuje.</p>
+        </article>
+        <article class="ai-card">
+          <code>audit_chapter_coverage</code>
+          <h3>Sprawdź pokrycie rozdziału</h3>
+          <p>Porównuje sceny z beatami i wątkami rozdziału: co jest pokryte, co jest nadmiarowe, gdzie brakuje payoffu lub napięcia.</p>
+        </article>
+        <article class="ai-card">
+          <code>audit_thread_payoff_map</code>
+          <h3>Mapa setupu i payoffu wątków</h3>
+          <p>Patrzy przez całą książkę: gdzie wątek startuje, gdzie eskaluje, gdzie pauzuje i czy ma sensowne domknięcie.</p>
+        </article>
+        <article class="ai-card">
+          <code>promote_scene_discoveries</code>
+          <h3>Po scenie: kandydaci do kanonu</h3>
+          <p>Rozszerzenie istniejącej analizy sceny: grupuje kandydatów według “zapisz teraz”, “pytanie do autora”, “zignoruj”.</p>
+        </article>
+        <article class="ai-card">
+          <code>repair_plan_navigation</code>
+          <h3>Asystent porządkowania planu</h3>
+          <p>Proponuje kolejny najlepszy krok: uzupełnij wątki, dopnij beaty, rozbij rozdział, dodaj POV albo przejdź do pisania.</p>
+        </article>
+        <article class="ai-card">
+          <code>inherit_chapter_context_to_scene</code>
+          <h3>Dziedziczenie kontekstu</h3>
+          <p>Nie generuje nowej treści, tylko sugeruje, które chipy rozdziału powinny wejść do aktywnej sceny.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="wdrozenie">
+      <div class="section-intro">
+        <div>
+          <p class="eyebrow">Priorytety wdrożenia</p>
+          <h2>Najkrótsza droga do mniejszego chaosu</h2>
+          <p>
+            To nie musi zaczynać się od migracji. Najpierw można uporządkować UI i prompty wokół
+            aktywnego rozdziału, wykorzystując istniejące `chapterThreads`, `chapterBeats`,
+            `sceneThreads`, `sceneCharacters`, `sceneWorldElements` i `sceneWorldRules`.
+          </p>
+        </div>
+      </div>
+
+      <div class="checklist">
+        <div class="check-item">
+          <b>1</b>
+          <div>
+            <strong>Przestawić narrację kreatora</strong>
+            <span>W UI prowadzić: wątki i beaty przed scenami. Same zakładki mogą zostać, ale CTA powinny sugerować właściwą kolejność.</span>
+          </div>
+        </div>
+        <div class="check-item">
+          <b>2</b>
+          <div>
+            <strong>Zrobić kokpit aktywnego rozdziału</strong>
+            <span>Jedno miejsce: cel, konflikt, punkt zwrotny, beaty, wątki, sceny i gotowość do pisania.</span>
+          </div>
+        </div>
+        <div class="check-item">
+          <b>3</b>
+          <div>
+            <strong>Traktować tablice jako mapy, nie osobne źródła prawdy</strong>
+            <span>Beat board i thread map są świetne do przeglądu, ale edycja szczegółu powinna wracać do aktywnego rozdziału.</span>
+          </div>
+        </div>
+        <div class="check-item">
+          <b>4</b>
+          <div>
+            <strong>Dodać sugestie dziedziczenia dla scen</strong>
+            <span>Przy tworzeniu sceny pokazać wątki i beaty rozdziału jako kandydatów z przyciskiem “użyj w scenie”.</span>
+          </div>
+        </div>
+        <div class="check-item">
+          <b>5</b>
+          <div>
+            <strong>Rozszerzyć AI o prompty przejścia</strong>
+            <span>Najpierw `prepare_chapter_for_scenes`, `generate_chapter_scene_breakdown`, `suggest_scene_relations`.</span>
+          </div>
+        </div>
+        <div class="check-item">
+          <b>6</b>
+          <div>
+            <strong>Ujednolicić modale scen</strong>
+            <span>Plan i Edytor mają bardzo podobne modale sceny. Jeden wspólny komponent zmniejszy rozjazdy.</span>
+          </div>
+        </div>
+        <div class="check-item">
+          <b>7</b>
+          <div>
+            <strong>Naprawiać polskie znaki przy dotykanych obszarach</strong>
+            <span>W kodzie Plan page i części promptów widać mojibake. Każda przyszła zmiana UI powinna naprawiać pobliskie etykiety.</span>
+          </div>
+        </div>
+        <div class="check-item">
+          <b>8</b>
+          <div>
+            <strong>Nie dodawać `sceneBeats` od razu</strong>
+            <span>Najpierw wystarczy “pokrycie beatów przez sceny” jako sugestia/audyt. Relacja scena-beat ma sens dopiero, gdy autor realnie potrzebuje raportu pokrycia.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="note" style="margin-top: 16px;">
+        <strong>Uwaga o migracjach:</strong>
+        jeśli kiedyś zdecydujemy się dodać relację `sceneBeats`, powinna powstać nowa migracja.
+        Nie należy poprawiać istniejących migracji, które mogły już zostać użyte lokalnie.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-intro">
+        <div>
+          <p class="eyebrow">Proponowana semantyka ekranów</p>
+          <h2>Co zostawić na którym ekranie</h2>
+          <p>
+            To jest praktyczny podział odpowiedzialności, żeby autor wiedział, gdzie wrócić,
+            gdy chce zmienić daną decyzję.
+          </p>
+        </div>
+      </div>
+
+      <div class="relation-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Ekran</th>
+              <th>Rola</th>
+              <th>Nie powinien być głównym miejscem</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Plan</strong></td>
+              <td>Projektowanie struktury, rozdziałów, scen jako planu, przypięcie beatów i wątków do rozdziału.</td>
+              <td>Pełne profile postaci, pełna encyklopedia świata, pisanie prozy.</td>
+            </tr>
+            <tr>
+              <td><strong>Edytor</strong></td>
+              <td>Pisanie scen, szybka korekta ustawień sceny, AI dla tekstu i ekstrakcja faktów po akceptacji.</td>
+              <td>Projektowanie całej mapy wątków lub beat sheet.</td>
+            </tr>
+            <tr>
+              <td><strong>Postacie</strong></td>
+              <td>Kanon profilu, głos, wiedza, relacje i wspomnienia.</td>
+              <td>Decydowanie, w których scenach postać występuje. To wynika ze scen.</td>
+            </tr>
+            <tr>
+              <td><strong>Świat</strong></td>
+              <td>Kanon lokacji, elementów świata, reguł i konsekwencji.</td>
+              <td>Ręczne planowanie każdej sceny. Świat pokazuje odwróconą mapę użycia.</td>
+            </tr>
+            <tr>
+              <td><strong>Log/propozycje AI</strong></td>
+              <td>Akceptacja, edycja, odrzucanie i audyt tego, co AI zaproponowało.</td>
+              <td>Ukryte automatyczne zmiany. Autor musi zatwierdzić trwałe dane.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>
+        Oparte o szybki przegląd: `BookPlanPage.tsx`, `ChapterEditModal.tsx`,
+        `SceneEditorPage.tsx`, `planPromptPackage.ts`, `planProposalApplication.ts`,
+        `scenePromptContext.ts`, blueprinty faz 3-7 oraz zasady z `AGENTS.md`.
+        Nie uruchamiano testów ani automatycznej weryfikacji UI.
+      </p>
+    </footer>
+  </main>
+</body>
+</html>

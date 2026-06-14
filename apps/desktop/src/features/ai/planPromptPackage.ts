@@ -6,9 +6,11 @@ import type {
   BookPlan,
   Chapter,
   ChapterThread,
+  CharacterWorkspace,
   PlotThread,
   Project,
-  Scene
+  Scene,
+  WorldWorkspace
 } from "../../shared/api/types";
 import type { PromptContextControl, PromptContextSource } from "./promptPackage";
 
@@ -40,6 +42,9 @@ type PlanContextKey =
   | "threadActs"
   | "targetThreadChapter"
   | "threadNeighborChapters"
+  | "allCharacters"
+  | "allWorldElements"
+  | "allWorldRules"
   | "planAudit";
 
 export type PlanFieldKey =
@@ -71,7 +76,35 @@ export type PlanFieldKey =
   | "chapterThreadSuggestions"
   | "allChapterThreadSuggestions"
   | "chapterBeatSuggestions"
+  | "prepareChapterForScenes"
+  | "chapterSceneBreakdown"
+  | "sceneRelationSuggestions"
   | "planGaps";
+
+type PlanStoryBibleContext = {
+  characters: Array<{
+    id: string;
+    name: string;
+    role: string;
+    shortDescription: string;
+    arcSummary: string;
+    voiceNotes: string;
+    knowledgeNotes: string;
+  }>;
+  worldElements: Array<{
+    id: string;
+    name: string;
+    elementType: string;
+    summary: string;
+    details: string;
+  }>;
+  worldRules: Array<{
+    id: string;
+    name: string;
+    description: string;
+    violationConsequences: string;
+  }>;
+};
 
 export type PlanFieldConfig = {
   key: PlanFieldKey;
@@ -129,6 +162,7 @@ export type PlanPromptPackage = {
       sceneWorldElements: BookPlan["sceneWorldElements"];
       sceneWorldRules: BookPlan["sceneWorldRules"];
     };
+    storyBible: PlanStoryBibleContext;
     generationMode: "generate" | "expand";
     targetFieldCurrentValue: string;
     contextControl?: PromptContextControl;
@@ -250,27 +284,27 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
   },
   chapterSummary: {
     key: "chapterSummary",
-    label: "Streszczenie rozdzialu",
+    label: "Streszczenie rozdziału",
     action: "generate_chapter_field",
     targetKind: "chapter",
     userInstruction:
-      "Wygeneruj tylko wartosc pola streszczenia wybranego rozdzialu. Nie zmieniaj innych pol ani encji."
+      "Wygeneruj tylko wartość pola streszczenia wybranego rozdziału. Nie zmieniaj innych pól ani encji."
   },
   chapterPurpose: {
     key: "chapterPurpose",
-    label: "Cel rozdzialu",
+    label: "Cel rozdziału",
     action: "generate_chapter_field",
     targetKind: "chapter",
     userInstruction:
-      "Wygeneruj tylko wartosc pola celu fabularnego wybranego rozdzialu. Nie zmieniaj innych pol ani encji."
+      "Wygeneruj tylko wartość pola celu fabularnego wybranego rozdziału. Nie zmieniaj innych pól ani encji."
   },
   chapterConflict: {
     key: "chapterConflict",
-    label: "Konflikt rozdzialu",
+    label: "Konflikt rozdziału",
     action: "generate_chapter_field",
     targetKind: "chapter",
     userInstruction:
-      "Wygeneruj tylko wartosc pola konfliktu wybranego rozdzialu. Nie zmieniaj innych pol ani encji."
+      "Wygeneruj tylko wartość pola konfliktu wybranego rozdziału. Nie zmieniaj innych pól ani encji."
   },
   chapterTurningPoint: {
     key: "chapterTurningPoint",
@@ -278,7 +312,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_chapter_field",
     targetKind: "chapter",
     userInstruction:
-      "Wygeneruj tylko wartosc pola punktu zwrotnego wybranego rozdzialu. Nie zmieniaj innych pol ani encji."
+      "Wygeneruj tylko wartość pola punktu zwrotnego wybranego rozdziału. Nie zmieniaj innych pól ani encji."
   },
   sceneDraft: {
     key: "sceneDraft",
@@ -295,6 +329,22 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     targetKind: "scene",
     userInstruction:
       "Wygeneruj po jednej kompletnej propozycji nowej sceny dla każdego istniejącego rozdziału. Użyj pełnego planu, beatów, wątków i istniejących scen jako kontekstu. Nie zmieniaj istniejących encji; zwróć tylko listę nowych scen z jednoznacznym wskazaniem rozdziału."
+  },
+  prepareChapterForScenes: {
+    key: "prepareChapterForScenes",
+    label: "Przygotowanie rozdziału",
+    action: "prepare_chapter_for_scenes",
+    targetKind: "chapter",
+    userInstruction:
+      "Przeaudytuj wybrany rozdział przed rozbiciem na sceny. Oceń cel, konflikt, punkt zwrotny, przypięte beaty, przypięte wątki i sąsiednie rozdziały. Nie zapisuj zmian; zwróć blokery, pytania do autora, ostrzeżenia i jeden najlepszy następny krok."
+  },
+  chapterSceneBreakdown: {
+    key: "chapterSceneBreakdown",
+    label: "Rozbicie rozdziału na sceny",
+    action: "generate_chapter_scene_breakdown",
+    targetKind: "scene",
+    userInstruction:
+      "Rozbij wybrany rozdział na 2-5 propozycji scen. Każda scena ma mieć tytuł, streszczenie, cel, konflikt, wynik, target słów, sugerowane istniejące relacje oraz informację, który beat lub obowiązek rozdziału obsługuje. Nie twórz postaci ani świata; brakujące elementy zwróć jako kandydatów Story Bible."
   },
   sceneTitle: {
     key: "sceneTitle",
@@ -338,19 +388,19 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
   },
   threadChapterDescription: {
     key: "threadChapterDescription",
-    label: "Opis watku w rozdziale",
+    label: "Opis wątku w rozdziale",
     action: "generate_thread_chapter_field",
     targetKind: "thread",
     userInstruction:
-      "Wygeneruj tylko opis tego, co dzieje sie z wybranym watkiem w wybranym rozdziale. Uwzglednij ogolny opis watku, tresc rozdzialu i sasiednie rozdzialy tego samego watku. Nie zmieniaj listy relacji ani innych pol planu."
+      "Wygeneruj tylko opis tego, co dzieje się z wybranym wątkiem w wybranym rozdziale. Uwzględnij ogólny opis wątku, treść rozdziału i sąsiednie rozdziały tego samego wątku. Nie zmieniaj listy relacji ani innych pól planu."
   },
   chapterThreadSuggestions: {
     key: "chapterThreadSuggestions",
-    label: "Powiazane watki",
+    label: "Powiązane wątki",
     action: "suggest_chapter_relations",
     targetKind: "chapter",
     userInstruction:
-      "Zasugeruj tylko istniejace watki fabularne, ktore warto dopiac do wybranego rozdzialu. AI moze nie sugerowac zadnego watku, jesli nie ma to zastosowania w tym rozdziale. Nie tworz nowych watkow, nie sugeruj watkow spoza Current Plan i wyklucz watki juz przypisane do rozdzialu."
+      "Zasugeruj tylko istniejące wątki fabularne, które warto dopiąć do wybranego rozdziału. AI może nie sugerować żadnego wątku, jeśli nie ma to zastosowania w tym rozdziale. Nie twórz nowych wątków, nie sugeruj wątków spoza Current Plan i wyklucz wątki już przypisane do rozdziału."
   },
   allChapterThreadSuggestions: {
     key: "allChapterThreadSuggestions",
@@ -362,11 +412,19 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
   },
   chapterBeatSuggestions: {
     key: "chapterBeatSuggestions",
-    label: "Powiazane beaty",
+    label: "Powiązane beaty",
     action: "suggest_chapter_relations",
     targetKind: "chapter",
     userInstruction:
-      "Zasugeruj tylko istniejace beaty, ktore warto dopiac do wybranego rozdzialu. AI moze nie sugerowac zadnego beatu, jesli nie ma to zastosowania w tym rozdziale. Nie tworz nowych beatow, nie sugeruj beatow spoza Current Plan i wyklucz beaty juz przypisane do rozdzialu."
+      "Zasugeruj tylko istniejące beaty, które warto dopiąć do wybranego rozdziału. AI może nie sugerować żadnego beatu, jeśli nie ma to zastosowania w tym rozdziale. Nie twórz nowych beatów, nie sugeruj beatów spoza Current Plan i wyklucz beaty już przypisane do rozdziału."
+  },
+  sceneRelationSuggestions: {
+    key: "sceneRelationSuggestions",
+    label: "Relacje sceny",
+    action: "suggest_scene_relations",
+    targetKind: "scene",
+    userInstruction:
+      "Zaproponuj relacje dla wybranej istniejącej sceny: postacie, POV, lokację, elementy świata, reguły świata i lokalne wątki. Używaj wyłącznie istniejących ID albo dokładnych nazw z kontekstu. Jeśli czegoś brakuje, zwróć to jako kandydat Story Bible, bez udawania, że encja istnieje."
   },
   planGaps: {
     key: "planGaps",
@@ -398,6 +456,8 @@ const planContextSourceLabels: Record<PlanContextKey, string> = {
   chapterTurningPoint: "Punkt zwrotny",
   sceneDraft: "Nowa scena",
   allChapterSceneDrafts: "Sceny dla rozdzialow",
+  prepareChapterForScenes: "Przygotowanie rozdziału",
+  chapterSceneBreakdown: "Rozbicie rozdziału na sceny",
   sceneTitle: "Tytuł sceny",
   sceneSummary: "Streszczenie sceny",
   sceneGoal: "Cel sceny",
@@ -407,6 +467,7 @@ const planContextSourceLabels: Record<PlanContextKey, string> = {
   chapterThreadSuggestions: "Powiazane watki",
   allChapterThreadSuggestions: "Watki dla rozdzialow",
   chapterBeatSuggestions: "Powiazane beaty",
+  sceneRelationSuggestions: "Relacje sceny",
   planGaps: "Luki planu",
   bookCore: "Rdzen koncepcji",
   styleGuide: "Style guide",
@@ -433,6 +494,9 @@ const planContextSourceLabels: Record<PlanContextKey, string> = {
   threadActs: "Akty watku",
   targetThreadChapter: "Relacja watku z rozdzialem",
   threadNeighborChapters: "Sasiednie rozdzialy watku",
+  allCharacters: "Istniejące postacie",
+  allWorldElements: "Istniejące elementy świata",
+  allWorldRules: "Istniejące reguły świata",
   planAudit: "Pelny plan"
 };
 
@@ -456,6 +520,8 @@ const planPromptContextDefaultKeys: Record<PlanFieldKey, PlanContextKey[]> = {
   chapterTurningPoint: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   sceneDraft: ["bookCore", "styleGuide", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   allChapterSceneDrafts: ["bookCore", "styleGuide", "planAudit"],
+  prepareChapterForScenes: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
+  chapterSceneBreakdown: ["bookCore", "styleGuide", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters", "allCharacters", "allWorldElements", "allWorldRules"],
   sceneTitle: ["bookCore", "styleGuide", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
   sceneSummary: ["bookCore", "styleGuide", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
   sceneGoal: ["bookCore", "targetScene", "sceneChapter", "assignedThreads", "assignedBeats"],
@@ -465,6 +531,7 @@ const planPromptContextDefaultKeys: Record<PlanFieldKey, PlanContextKey[]> = {
   chapterThreadSuggestions: ["bookCore", "targetChapter", "assignedThreads", "allThreads", "assignedBeats", "neighborChapters"],
   allChapterThreadSuggestions: ["bookCore", "planAudit"],
   chapterBeatSuggestions: ["bookCore", "targetChapter", "assignedBeats", "allBeats", "assignedThreads", "neighborChapters"],
+  sceneRelationSuggestions: ["bookCore", "targetScene", "sceneChapter", "assignedThreads", "allThreads", "neighborScenes", "allCharacters", "allWorldElements", "allWorldRules"],
   planGaps: ["bookCore", "styleGuide", "planAudit"]
 };
 
@@ -474,7 +541,8 @@ export function buildPlanPromptPackage(
   plan: BookPlan,
   field: PlanFieldKey,
   targetEntity?: Act | Beat | PlotThread | Chapter | ChapterThread | Scene,
-  contextControl?: PromptContextControl
+  contextControl?: PromptContextControl,
+  storyBible: PlanStoryBibleContext = emptyPlanStoryBibleContext()
 ): PlanPromptPackage {
   const config = planFieldConfigs[field];
   const targetFieldCurrentValue = currentPlanFieldValue(plan, field, targetEntity);
@@ -510,6 +578,7 @@ export function buildPlanPromptPackage(
         sceneWorldElements: plan.sceneWorldElements,
         sceneWorldRules: plan.sceneWorldRules
       },
+      storyBible,
       generationMode,
       targetFieldCurrentValue,
       contextControl: effectiveContextControl
@@ -568,6 +637,9 @@ ${renderPlanContext(
   promptPackage.context.contextControl
 )}
 
+# Existing Story Bible
+${renderStoryBibleContext(promptPackage.context.storyBible, promptPackage.context.contextControl)}
+
 # Current Work
 Docelowe pole: ${promptPackage.context.targetField} (${config.label}).
 Docelowy element: ${promptPackage.context.targetEntityLabel ?? "(brak)"}
@@ -607,6 +679,44 @@ export function planPromptContextSource(
     key: `field:${field}:${entityId}`,
     label: `Pole: ${planFieldConfigs[field].label}`,
     required: false
+  };
+}
+
+export function planStoryBibleContext(
+  characters: CharacterWorkspace,
+  world: WorldWorkspace
+): PlanStoryBibleContext {
+  return {
+    characters: characters.characters.map((character) => ({
+      id: character.id,
+      name: character.name,
+      role: character.role,
+      shortDescription: character.shortDescription,
+      arcSummary: character.arcSummary,
+      voiceNotes: character.voiceNotes,
+      knowledgeNotes: character.knowledgeNotes
+    })),
+    worldElements: world.elements.map((element) => ({
+      id: element.id,
+      name: element.name,
+      elementType: element.elementType,
+      summary: element.summary,
+      details: element.details
+    })),
+    worldRules: world.rules.map((rule) => ({
+      id: rule.id,
+      name: rule.name,
+      description: rule.description,
+      violationConsequences: rule.violationConsequences
+    }))
+  };
+}
+
+function emptyPlanStoryBibleContext(): PlanStoryBibleContext {
+  return {
+    characters: [],
+    worldElements: [],
+    worldRules: []
   };
 }
 
@@ -778,6 +888,27 @@ function renderPlanContext(
   ].filter(Boolean);
 
   return sections.length ? sections.join("\n") : "(brak wybranego kontekstu planu)";
+}
+
+function renderStoryBibleContext(
+  storyBible: PlanStoryBibleContext,
+  contextControl?: PromptContextControl
+): string {
+  const sections = [
+    isContextKeyIncluded("allCharacters", contextControl)
+      ? `Istniejące postacie: ${JSON.stringify(storyBible.characters)}`
+      : "",
+    isContextKeyIncluded("allWorldElements", contextControl)
+      ? `Istniejące elementy świata: ${JSON.stringify(storyBible.worldElements)}`
+      : "",
+    isContextKeyIncluded("allWorldRules", contextControl)
+      ? `Istniejące reguły świata: ${JSON.stringify(storyBible.worldRules)}`
+      : ""
+  ].filter(Boolean);
+
+  return sections.length
+    ? sections.join("\n")
+    : "(brak wybranego kontekstu Story Bible)";
 }
 
 function targetEntityForPlanContext(
@@ -1492,6 +1623,70 @@ function planSuggestionSchema(field: PlanFieldKey): unknown {
           beatNamesOrIds: ["string"],
           threadNamesOrIds: ["string"],
           targetWordCount: 2500
+        }
+      ]
+    };
+  }
+
+  if (field === "prepareChapterForScenes") {
+    return {
+      ...base,
+      readiness: {
+        blockers: ["string"],
+        questionsForAuthor: ["string"],
+        warnings: ["string"],
+        nextStep: "string"
+      }
+    };
+  }
+
+  if (field === "chapterSceneBreakdown") {
+    return {
+      ...base,
+      scenes: [
+        {
+          title: "string",
+          summary: "string",
+          goal: "string",
+          conflict: "string",
+          outcome: "string",
+          targetWordCount: 1200,
+          handledBeatOrDuty: "string",
+          relationHints: {
+            characterNamesOrIds: ["existing character id or exact character name"],
+            threadNamesOrIds: ["existing thread id or exact thread name"],
+            elementNamesOrIds: ["existing world element id or exact world element name"],
+            ruleNamesOrIds: ["existing world rule id or exact world rule name"]
+          },
+          storyBibleNeeds: [
+            {
+              kind: "character | location | faction | object | rule | relation",
+              label: "string",
+              reason: "string"
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  if (field === "sceneRelationSuggestions") {
+    return {
+      ...base,
+      relationHints: {
+        povCharacterNameOrId: "existing character id or exact character name",
+        locationNameOrId: "existing world element id or exact world element name",
+        characterNamesOrIds: ["existing character id or exact character name"],
+        threadNamesOrIds: ["existing thread id or exact thread name"],
+        elementNamesOrIds: ["existing world element id or exact world element name"],
+        ruleNamesOrIds: ["existing world rule id or exact world rule name"]
+      },
+      storyBibleCandidates: [
+        {
+          kind: "character | location | faction | object | rule | relation",
+          label: "string",
+          reason: "string",
+          similarExistingNameOrId: "string"
         }
       ]
     };

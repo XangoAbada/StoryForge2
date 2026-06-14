@@ -232,6 +232,10 @@ export async function applyAiProposal(
 
   if (proposal.scope === "bookPlan") {
     let plan = await getBookPlan(proposal.bookId);
+    const [characters, world] = await Promise.all([
+      getCharacterWorkspace(proposal.projectId),
+      getWorldWorkspace(proposal.projectId)
+    ]);
     const payload = planPayloadFromEditableValue(proposal);
     const packageContext =
       "context" in proposal.promptPackageJson
@@ -289,7 +293,9 @@ export async function applyAiProposal(
       saveChapter: upsertChapter,
       saveChapterThreadRelation: upsertChapterThreadRelation,
       saveScene: upsertScene,
-      setSceneRelations
+      setSceneRelations,
+      characters,
+      world
     });
     return null;
   }
@@ -574,6 +580,10 @@ export function AiProposalPanel({
 
       if (proposal.scope === "bookPlan") {
         let plan = await getBookPlan(proposal.bookId);
+        const [characters, world] = await Promise.all([
+          getCharacterWorkspace(proposal.projectId),
+          getWorldWorkspace(proposal.projectId)
+        ]);
         const payload = planPayloadFromEditableValue(proposal);
         const packageContext =
           "context" in proposal.promptPackageJson
@@ -637,7 +647,9 @@ export function AiProposalPanel({
             saveChapter: upsertChapter,
             saveChapterThreadRelation: upsertChapterThreadRelation,
             saveScene: upsertScene,
-            setSceneRelations
+            setSceneRelations,
+            characters,
+            world
           }
         );
         return null;
@@ -2592,6 +2604,9 @@ function isPlanAction(action: string): boolean {
     "generate_chapter_field",
     "generate_scene_field",
     "suggest_chapter_relations",
+    "prepare_chapter_for_scenes",
+    "generate_chapter_scene_breakdown",
+    "suggest_scene_relations",
     "find_plan_gaps"
   ].includes(action);
 }
