@@ -8,12 +8,12 @@ import {
   Loader2,
   Plus,
   Save,
-  Sparkles,
-  X
+  Sparkles
 } from "lucide-react";
 import {
   createContext,
   FormEvent,
+  Fragment,
   ReactNode,
   useContext,
   useEffect,
@@ -21,6 +21,7 @@ import {
   useRef,
   useState
 } from "react";
+import { Button, Chip, Field, StatusPill } from "../../shared/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   checkCodexCli,
@@ -624,7 +625,7 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
       ) : null}
 
           <form className="concept-form" onSubmit={handleSubmit}>
-            <div className="concept-stage-card">
+            <div className="concept-stage-card ui-card">
               <button
                 type="button"
                 className="stage-scroll-button previous"
@@ -636,32 +637,44 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
               </button>
               <div
                 ref={stageTabsRef}
-                className="concept-stage-tabs"
+                className="concept-steps"
                 role="tablist"
                 aria-label="Etapy koncepcji"
               >
           {conceptStages.map((stage, index) => {
             const completion = stageCompletion(stage, form);
             const selected = stage.key === activeStageConfig.key;
+            const done = completion.complete === completion.total;
+            const className = [
+              "concept-step",
+              selected ? "active" : "",
+              done ? "done" : ""
+            ]
+              .filter(Boolean)
+              .join(" ");
             return (
-              <button
-                key={stage.key}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                className={selected ? "concept-stage-tab active" : "concept-stage-tab"}
-                onClick={() =>
-                  setProjectViewState(projectId, "conceptStage", stage.key)
-                }
-              >
-                <span className="stage-number">{index + 1}</span>
-                <span className="stage-copy">
-                  <strong>{stage.title}</strong>
-                  <span>
+              <Fragment key={stage.key}>
+                {index > 0 ? (
+                  <span className="concept-step-sep" aria-hidden="true" />
+                ) : null}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  className={className}
+                  onClick={() =>
+                    setProjectViewState(projectId, "conceptStage", stage.key)
+                  }
+                >
+                  <span className="concept-step-n" aria-hidden="true">
+                    {done ? "✓" : index + 1}
+                  </span>
+                  <span className="concept-step-label">{stage.title}</span>
+                  <span className="ui-tab-badge">
                     {completion.complete}/{completion.total}
                   </span>
-                </span>
-              </button>
+                </button>
+              </Fragment>
             );
           })}
               </div>
@@ -676,7 +689,7 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
               </button>
         </div>
 
-            <div className="concept-editor-card">
+            <div className="concept-editor-card ui-card">
               <div className="concept-stage-heading">
                 <span className="stage-heading-icon">
                   <Sparkles size={18} />
@@ -1010,10 +1023,11 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    className="secondary-button cover-generate-button"
+                  <Button
+                    variant="ai"
+                    className="cover-generate-button"
                     onClick={generateCover}
+                    busy={coverRunning}
                     disabled={
                       coverPending ||
                       !projectQuery.data ||
@@ -1021,19 +1035,17 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
                     }
                     title="Utwórz okładkę na podstawie danych z widoku koncepcji"
                   >
-                    {coverRunning ? (
-                      <Loader2 size={16} className="spin-icon" />
-                    ) : coverQueued ? (
-                      <Clock3 size={16} />
-                    ) : (
-                      <Sparkles size={16} />
+                    {coverQueued ? (
+                      <Clock3 size={16} aria-hidden />
+                    ) : coverRunning ? null : (
+                      <Sparkles size={16} aria-hidden />
                     )}
                     {coverRunning
                       ? "Tworzę"
                       : coverQueued
                         ? "W kolejce"
                         : "Utwórz okładkę"}
-                  </button>
+                  </Button>
 
                   {coverProgressText ? (
                     <div
@@ -1063,35 +1075,33 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
 
             </div>
 
-            <div className="concept-save-row">
-              <div className="button-row">
-                <button
+            <div className="concept-save-row ui-card">
+              <div className="concept-save-actions">
+                <Button
                   type="submit"
-                  className="primary-button"
-                  disabled={saveMutation.isPending || !projectQuery.data}
+                  variant="primary"
+                  busy={saveMutation.isPending}
+                  disabled={!projectQuery.data}
                 >
-                  <Save size={16} />
+                  {saveMutation.isPending ? null : <Save size={16} aria-hidden />}
                   {saveMutation.isPending ? "Zapisuję" : "Zapisz zmiany"}
-                </button>
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={goToNextStage}
-                  disabled={!nextStage}
-                >
+                </Button>
+                <Button variant="secondary" onClick={goToNextStage} disabled={!nextStage}>
                   Następny etap
-                  <ArrowRight size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="ghost-button plan-view-button"
+                  <ArrowRight size={16} aria-hidden />
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="concept-plan-link"
                   disabled
                   title="Widok planu będzie dostępny w kolejnej fazie."
                 >
-                  <ListChecks size={16} />
+                  <ListChecks size={16} aria-hidden />
                   Przejdź do widoku planu
-                </button>
-                {saveMessage ? <span className="success-text">{saveMessage}</span> : null}
+                </Button>
+                {saveMessage ? (
+                  <StatusPill tone="success">{saveMessage}</StatusPill>
+                ) : null}
                 {validationMessage ? (
                   <span className="warning-text">{validationMessage}</span>
                 ) : null}
@@ -1158,87 +1168,44 @@ function TextField({
   onChange,
   onGenerate
 }: TextFieldProps) {
-  return (
-    <FieldFrame
-      label={label}
-      field={field}
-      disabled={disabled}
-      loading={loading}
-      onGenerate={onGenerate}
-    >
-      {rows ? (
-        <textarea
-          className={field === "styleGuide" ? "style-guide-textarea" : undefined}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          title={fieldHints[field]}
-          aria-label={label}
-          aria-describedby={`${field}-description`}
-          rows={rows}
-        />
-      ) : (
-        <input
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          title={fieldHints[field]}
-          aria-label={label}
-          aria-describedby={`${field}-description`}
-        />
-      )}
-    </FieldFrame>
-  );
-}
-
-type FieldFrameProps = {
-  label: string;
-  field: ConceptFieldKey;
-  children: ReactNode;
-  disabled: boolean;
-  loading: AiProposalStatus | null;
-  onGenerate: (field: ConceptFieldKey) => void;
-};
-
-function FieldFrame({
-  label,
-  field,
-  children,
-  disabled,
-  loading,
-  onGenerate
-}: FieldFrameProps) {
   const activatePromptContext = useContext(ConceptPromptContext);
+  const activate = () => activatePromptContext(field);
 
   return (
-    <div
-      className="field-shell"
-      title={fieldHints[field]}
-      onClick={(event) => {
-        if (isEditablePromptTarget(event.target)) {
-          activatePromptContext(field);
-        }
-      }}
-      onFocusCapture={(event) => {
-        if (isEditablePromptTarget(event.target)) {
-          activatePromptContext(field);
-        }
-      }}
-    >
-      <div className="field-heading">
-        <span className="field-label-text">{label}</span>
+    <Field
+      label={label}
+      hint={fieldHints[field]}
+      actions={
         <AiFieldActions
           field={field}
           disabled={disabled}
           loading={loading}
           onGenerate={onGenerate}
         />
-      </div>
-      <p className="field-description" id={`${field}-description`}>
-        {fieldHints[field]}
-      </p>
-      {children}
-    </div>
+      }
+    >
+      {rows ? (
+        <textarea
+          className={field === "styleGuide" ? "style-guide-textarea" : undefined}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onFocus={activate}
+          onClick={activate}
+          placeholder={placeholder}
+          aria-label={label}
+          rows={rows}
+        />
+      ) : (
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onFocus={activate}
+          onClick={activate}
+          placeholder={placeholder}
+          aria-label={label}
+        />
+      )}
+    </Field>
   );
 }
 
@@ -1272,11 +1239,14 @@ function AiFieldActions({
   const addDisabled = !activeTarget || fieldAlreadyInContext;
 
   return (
-    <div className="ai-field-actions">
-      <button
-        type="button"
-        className="icon-button ai-field-button"
-        onClick={() => onGenerate(field)}
+    <>
+      <Button
+        variant="ai"
+        size="sm"
+        onClick={(event) => {
+          event.stopPropagation();
+          onGenerate(field);
+        }}
         disabled={disabled || queued || running}
         title={
           queued
@@ -1288,17 +1258,17 @@ function AiFieldActions({
         aria-label={`Generuj ${config.label} z AI`}
       >
         {running ? (
-          <Loader2 size={15} className="spin-icon" />
+          <Loader2 size={14} className="ui-spin" aria-hidden />
         ) : queued ? (
-          <Clock3 size={15} />
+          <Clock3 size={14} aria-hidden />
         ) : (
-          <Sparkles size={15} />
+          <Sparkles size={14} aria-hidden />
         )}
-        <span>{label}</span>
-      </button>
-      <button
-        type="button"
-        className="icon-button ai-context-add-button"
+        {label}
+      </Button>
+      <Button
+        variant="icon"
+        onMouseDown={(event) => event.preventDefault()}
         onClick={(event) => {
           event.stopPropagation();
           addContextSourceToActiveTarget(conceptPromptContextSource(field));
@@ -1313,52 +1283,10 @@ function AiFieldActions({
         }
         aria-label={`Dodaj ${config.label} do kontekstu promptu`}
       >
-        <Plus size={14} />
-      </button>
-    </div>
+        <Plus size={14} aria-hidden />
+      </Button>
+    </>
   );
-}
-
-function AiFieldButton({
-  field,
-  disabled,
-  loading,
-  onGenerate
-}: AiFieldButtonProps) {
-  const config = conceptFieldConfigs[field];
-  const running = loading === "running";
-  const queued = loading === "queued";
-  const label = running ? "Generuje" : queued ? "W kolejce" : "AI";
-
-  return (
-    <button
-      type="button"
-      className="icon-button ai-field-button"
-      onClick={() => onGenerate(field)}
-      disabled={disabled || queued || running}
-      title={
-        queued
-          ? `Pole "${config.label}" czeka w kolejce AI.`
-          : running
-            ? `Pole "${config.label}" jest generowane.`
-            : `Generuj pole "${config.label}" z AI. Prompt uwzględni pozostałe pola koncepcji.`
-      }
-      aria-label={`Generuj ${config.label} z AI`}
-    >
-      {running ? (
-        <Loader2 size={15} className="spin-icon" />
-      ) : queued ? (
-        <Clock3 size={15} />
-      ) : (
-        <Sparkles size={15} />
-      )}
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function isEditablePromptTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
 
 type MultiChoiceFieldProps = {
@@ -1413,71 +1341,69 @@ function MultiChoiceField({
     setCustomValue("");
   }
 
+  const activatePromptContext = useContext(ConceptPromptContext);
+
   return (
-    <FieldFrame
+    <Field
       label={label}
-      field={field}
-      disabled={disabled}
-      loading={loading}
-      onGenerate={onGenerate}
+      hint={fieldHints[field]}
+      actions={
+        <AiFieldActions
+          field={field}
+          disabled={disabled}
+          loading={loading}
+          onGenerate={onGenerate}
+        />
+      }
     >
-      <div className="choice-field" aria-label={label}>
-        <div className="choice-chip-list">
-          {options.map((option) => {
-            const selected = selectedValues.includes(option.value);
-            return (
-              <button
-                type="button"
-                key={option.value}
-                className={selected ? "choice-chip selected" : "choice-chip"}
-                onClick={() => toggleChoice(option.value)}
-                title={`${option.value}: ${option.hint}`}
-                aria-pressed={selected}
-              >
-                {option.value}
-              </button>
-            );
-          })}
-          {customSelectedValues.map((selected) => (
-            <button
-              type="button"
-              key={selected}
-              className="choice-chip selected custom"
-              onClick={() => toggleChoice(selected)}
-              title={`Własna opcja: ${selected}. Kliknij, aby usunąć.`}
-              aria-pressed
-            >
-              {selected}
-              <X size={12} />
-            </button>
-          ))}
-        </div>
-        <div className="choice-custom-row">
-          <input
-            value={customValue}
-            onChange={(event) => setCustomValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                addCustomValue();
-              }
-            }}
-            placeholder="Własna opcja"
-            title={`Dopisz własną wartość dla pola ${label}.`}
-            aria-label={`Własna opcja ${label}`}
-          />
-          <button
-            type="button"
-            className="icon-button"
-            onClick={addCustomValue}
-            title={`Dodaj własną opcję do pola ${label}`}
-            aria-label={`Dodaj własną opcję ${label}`}
+      <div className="concept-chip-list" role="group" aria-label={label}>
+        {options.map((option) => (
+          <Chip
+            key={option.value}
+            pressed={selectedValues.includes(option.value)}
+            onClick={() => toggleChoice(option.value)}
+            title={`${option.value}: ${option.hint}`}
           >
-            <Plus size={15} />
-          </button>
-        </div>
+            {option.value}
+          </Chip>
+        ))}
+        {customSelectedValues.map((selected) => (
+          <Chip
+            key={selected}
+            tone="accent"
+            onRemove={() => toggleChoice(selected)}
+            removeLabel={`Usuń własną opcję ${selected}`}
+            title={`Własna opcja: ${selected}`}
+          >
+            {selected}
+          </Chip>
+        ))}
       </div>
-    </FieldFrame>
+      <div className="concept-chip-custom">
+        <input
+          value={customValue}
+          onChange={(event) => setCustomValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              addCustomValue();
+            }
+          }}
+          onFocus={() => activatePromptContext(field)}
+          placeholder="Własna opcja"
+          title={`Dopisz własną wartość dla pola ${label}.`}
+          aria-label={`Własna opcja ${label}`}
+        />
+        <Button
+          variant="icon"
+          onClick={addCustomValue}
+          title={`Dodaj własną opcję do pola ${label}`}
+          aria-label={`Dodaj własną opcję ${label}`}
+        >
+          <Plus size={15} aria-hidden />
+        </Button>
+      </div>
+    </Field>
   );
 }
 

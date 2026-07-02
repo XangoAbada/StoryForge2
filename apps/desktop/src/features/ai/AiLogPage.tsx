@@ -1,5 +1,6 @@
 import { Check, FileJson, History, Loader2 } from "lucide-react";
 import { ReactNode } from "react";
+import { Button, Chip, StatusPill } from "../../shared/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listAiRuns, markAiProposalAccepted } from "../../shared/api/commands";
 import type { AiLogEntry } from "../../shared/api/types";
@@ -118,54 +119,39 @@ function AiLogEntryDetails({
     Boolean(proposal);
 
   return (
-    <details className="ai-log-entry">
+    <details className="ai-log-entry ui-card">
       <summary>
         <span>
           <strong>{summary.title}</strong>
           <small>{formatLocalDateTime(entry.createdAt)}</small>
         </span>
-        <span className={generationStatusClassName(entry.status)}>
+        <StatusPill tone={generationStatusTone(entry.status)}>
           {generationStatusLabel(entry.status)}
-        </span>
+        </StatusPill>
       </summary>
 
       <div className="ai-log-entry-body">
         <section className="ai-log-readable-block">
           <h3>Request</h3>
-          <dl className="ai-log-meta">
-            <div>
-              <dt>Akcja</dt>
-              <dd>{summary.actionLabel}</dd>
-            </div>
-            {summary.fieldLabel ? (
-              <div>
-                <dt>Pole</dt>
-                <dd>{summary.fieldLabel}</dd>
-              </div>
-            ) : null}
+          <div className="ai-log-meta">
+            <Chip tone="accent" title="Akcja">
+              {summary.actionLabel}
+            </Chip>
+            {summary.fieldLabel ? <Chip title="Pole">{summary.fieldLabel}</Chip> : null}
             {summary.mode ? (
-              <div>
-                <dt>Tryb</dt>
-                <dd>{summary.mode === "expand" ? "Rozwijanie" : "Generowanie"}</dd>
-              </div>
+              <Chip title="Tryb generowania">
+                {summary.mode === "expand" ? "Rozwijanie" : "Generowanie"}
+              </Chip>
             ) : null}
-            <div>
-              <dt>Status decyzji</dt>
-              <dd>{decisionStatusLabel(entry.decisionStatus)}</dd>
-            </div>
-            <div>
-              <dt>Provider</dt>
-              <dd>{entry.providerId}</dd>
-            </div>
-            <div>
-              <dt>Model</dt>
-              <dd>{entry.model?.trim() || "Nie zapisano"}</dd>
-            </div>
-            <div>
-              <dt>Reasoning</dt>
-              <dd>{reasoningLabel(entry.reasoningEffort)}</dd>
-            </div>
-          </dl>
+            <StatusPill tone={decisionStatusTone(entry.decisionStatus)} title="Status decyzji">
+              {decisionStatusLabel(entry.decisionStatus)}
+            </StatusPill>
+            <Chip title="Provider">{entry.providerId}</Chip>
+            <Chip title="Model">{entry.model?.trim() || "Nie zapisano"}</Chip>
+            <Chip tone="ai" title="Stopień rozumowania">
+              {reasoningLabel(entry.reasoningEffort)}
+            </Chip>
+          </div>
           <div className="ai-log-prompt">
             <h4>Prompt</h4>
             <pre>{entry.prompt || "Brak zapisanego promptu dla starszego wpisu."}</pre>
@@ -179,18 +165,17 @@ function AiLogEntryDetails({
           ) : null}
           <ReadableResponse rawOutput={entry.rawOutput} />
           {canApply && proposal ? (
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={applying}
+            <Button
+              variant="primary"
+              busy={applying}
               onClick={(event) => {
                 event.stopPropagation();
                 onApply(proposal);
               }}
             >
-              {applying ? <Loader2 size={15} className="spin-icon" /> : <Check size={15} />}
+              {applying ? null : <Check size={15} />}
               {applying ? "Zapisuję" : "Zastosuj i zaakceptuj"}
-            </button>
+            </Button>
           ) : null}
           {applyErrorMessage ? (
             <p className="warning-text">{applyErrorMessage}</p>
@@ -272,16 +257,28 @@ function generationStatusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
-function generationStatusClassName(status: string): string {
+function generationStatusTone(status: string): "success" | "danger" | "muted" {
   if (status === "success") {
-    return "status-pill ready";
+    return "success";
   }
 
   if (status === "error" || status === "timeout" || status === "terminated") {
-    return "status-pill warning";
+    return "danger";
   }
 
-  return "status-pill muted";
+  return "muted";
+}
+
+function decisionStatusTone(status?: string | null): "success" | "danger" | "muted" {
+  if (status === "accepted") {
+    return "success";
+  }
+
+  if (status === "rejected") {
+    return "danger";
+  }
+
+  return "muted";
 }
 
 function decisionStatusLabel(status?: string | null): string {

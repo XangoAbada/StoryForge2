@@ -9,6 +9,7 @@ import {
   isSourceSelected,
   useAiPromptContextStore
 } from "./aiPromptContextStore";
+import { Button } from "../../shared/ui";
 
 export function AiPromptContextPanel() {
   const activeTargetId = useAiPromptContextStore((state) => state.activeTargetId);
@@ -56,24 +57,24 @@ export function AiPromptContextPanel() {
             <SlidersHorizontal size={14} aria-hidden="true" />
             {selectedCount}/{target.sources.length}
           </span>
-          <button
-            type="button"
-            className="icon-button prompt-context-reset"
+          <Button
+            variant="icon"
+            className="prompt-context-reset"
             onClick={() => resetDraft(activeTargetId)}
             title={"Przywr\u00f3\u0107 domy\u015blny kontekst promptu"}
             aria-label={"Przywr\u00f3\u0107 domy\u015blny kontekst promptu"}
           >
             <RotateCcw size={15} />
-          </button>
-          <button
-            type="button"
-            className="icon-button prompt-context-close"
+          </Button>
+          <Button
+            variant="icon"
+            className="prompt-context-close"
             onClick={closeActiveTarget}
             title="Zamknij kontekst promptu"
             aria-label="Zamknij kontekst promptu"
           >
             <X size={15} />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -122,9 +123,10 @@ export function AiPromptContextPanel() {
       </label>
 
       <div className="prompt-context-command-row">
-        <button
-          type="button"
-          className="secondary-button prompt-context-submit"
+        <Button
+          variant="primary"
+          block
+          className="prompt-context-submit"
           onClick={submitActiveTarget}
           disabled={target.submitDisabled || !target.onSubmit}
           title={
@@ -135,7 +137,7 @@ export function AiPromptContextPanel() {
         >
           <Send size={15} aria-hidden="true" />
           {target.submitLabel ?? "Wy\u015blij do AI"}
-        </button>
+        </Button>
       </div>
     </section>
   );

@@ -3,6 +3,11 @@ import ReactDOM from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { router } from "./app/router";
+import "@fontsource-variable/fraunces";
+import "@fontsource-variable/schibsted-grotesk";
+import "@fontsource-variable/source-serif-4";
+import "./styles/tokens.css";
+import "./styles/components.css";
 import "./styles.css";
 
 declare module "@tanstack/react-router" {

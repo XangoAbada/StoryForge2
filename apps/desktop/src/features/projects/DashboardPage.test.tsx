@@ -190,7 +190,7 @@ describe("DashboardPage", () => {
     const rendered = renderDashboard();
 
     expect(await screen.findByText("Roboczy tytuł")).toBeInTheDocument();
-    expect(rendered.container.querySelector(".project-cover-art img")).toBeTruthy();
+    expect(rendered.container.querySelector(".book .cover img")).toBeTruthy();
 
     fireEvent.click(
       screen.getByRole("button", {

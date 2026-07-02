@@ -1,4 +1,5 @@
-import { createRootRoute, createRoute, createRouter, Outlet, useParams } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, Link, Outlet, useParams } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
 import { DashboardPage } from "../features/projects/DashboardPage";
 import { ProjectShell } from "./ProjectShell";
 import { BookConceptPage } from "../features/book/BookConceptPage";
@@ -168,8 +169,14 @@ function ProjectAiRoute() {
 
 function SettingsRoute() {
   return (
-    <main className="app-shell">
-      <AiSettingsPage />
+    <main className="settings-route">
+      <div className="settings-route-inner">
+        <Link to="/" className="settings-route-back">
+          <ArrowLeft size={16} aria-hidden="true" />
+          Wróć do projektów
+        </Link>
+        <AiSettingsPage />
+      </div>
     </main>
   );
 }

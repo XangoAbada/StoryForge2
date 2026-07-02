@@ -1,0 +1,88 @@
+/* ============================================================
+   StoryForge2 — tokeny design systemu „redakcyjny jasny"
+   Źródło wizualne: docs/ui-redesign-mockup.html
+   Zasada: jeden kolor = jedno znaczenie.
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+  font-family: var(--font-ui);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  /* --- typografia --- */
+  --font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
+  --font-ui: "Schibsted Grotesk Variable", "Segoe UI", system-ui, sans-serif;
+  --font-prose: "Source Serif 4 Variable", Georgia, serif;
+
+  /* --- papier i powierzchnie --- */
+  --paper: #f7f3ec;          /* tło aplikacji */
+  --surface: #fffdf9;        /* karty, panele */
+  --surface-sunken: #f1ece2; /* wgłębienia, hover, nieaktywne */
+
+  /* --- atrament --- */
+  --text: #211d16;
+  --text-soft: #6e6558;
+  --text-faint: #8d8270; /* dekoracje i metadane; 3.4:1 na papierze */
+
+  /* --- linie --- */
+  --border: #e4dccd;
+  --border-strong: #cfc4b0;
+
+  /* --- akcenty (jeden kolor = jedno znaczenie) --- */
+  --accent: #1f5d57;         /* akcja główna, aktywne, fokus */
+  --accent-deep: #14443f;
+  --accent-wash: #e7efec;
+  --ai: #8f5e0f;             /* wyłącznie działania AI (ochra); 4.8:1 na ai-wash */
+  --ai-wash: #f7edd9;
+  --ai-border: #e5d3a8;
+  --success: #2e6b3f;        /* ukończone, zapisane */
+  --success-wash: #e6efe4;
+  --danger: #96372a;         /* destrukcja, błędy */
+  --danger-wash: #f6e5e0;
+
+  /* --- geometria --- */
+  --radius: 6px;
+  --shadow: 0 1px 2px rgba(33, 29, 22, 0.05), 0 8px 28px rgba(33, 29, 22, 0.07);
+  --shadow-lift: 0 2px 4px rgba(33, 29, 22, 0.06), 0 16px 44px rgba(33, 29, 22, 0.12);
+
+  /* --- skala odstępów --- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  /* --- warstwy --- */
+  --z-panel: 10;
+  --z-modal: 100;
+  --z-lightbox: 110;
+
+}
+
+body {
+  background: var(--paper);
+  color: var(--text);
+  /* subtelne ziarno papieru */
+  background-image:
+    radial-gradient(rgba(33, 29, 22, 0.022) 1px, transparent 1px),
+    radial-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px);
+  background-size: 7px 7px, 11px 11px;
+  background-position: 0 0, 3px 4px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

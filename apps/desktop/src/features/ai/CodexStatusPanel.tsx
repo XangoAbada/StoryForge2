@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { checkCodexCli, listCodexModels } from "../../shared/api/commands";
 import type { ReasoningEffort } from "../../shared/api/types";
 import { useCodexSettingsStore } from "./codexSettingsStore";
+import { Button } from "../../shared/ui";
 
 type CodexStatusPanelProps = {
   compact?: boolean;
@@ -165,15 +166,14 @@ export function CodexStatusPanel({ compact = false }: CodexStatusPanelProps) {
               placeholder="codex"
               title="Komenda lub ścieżka do Codex CLI, np. codex albo pełna ścieżka do binarki."
             />
-            <button
-              type="button"
-              className="icon-button"
+            <Button
+              variant="icon"
               onClick={handleCheck}
               title="Sprawdź Codex CLI i odśwież katalog modeli"
               aria-label="Sprawdź Codex CLI"
             >
               <RefreshCw size={16} />
-            </button>
+            </Button>
           </div>
         </label>
 

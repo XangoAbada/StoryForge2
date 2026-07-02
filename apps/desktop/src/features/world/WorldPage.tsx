@@ -4,19 +4,15 @@ import {
   FileText,
   GitBranch,
   Globe2,
-  Loader2,
-  Minus,
   Plus,
   Save,
-  Search,
   Sparkles,
   Trash2,
-  Users,
-  X
+  Users
 } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button, Chip, EmptyState, Field, Modal, Segmented, Tabs, TwoPane } from "../../shared/ui";
 import {
   deleteWorldElement,
   deleteWorldRule,
@@ -565,139 +561,149 @@ export function WorldPage({ projectId }: WorldPageProps) {
   }
 
   return (
-    <section className="world-page">
-      <header className="world-header">
+    <section className="bible-page world-page">
+      <header className="bible-header">
         <div>
           <p className="eyebrow">Story Bible</p>
           <h2>Świat</h2>
           <p className="muted-text">Elementy świata, reguły i ich powiązania z postaciami oraz planem.</p>
         </div>
-        <div className="world-header-actions">
-          <button type="button" className="secondary-button" onClick={() => activateWorldPromptContext("worldElement", elementDraftPreview(emptyElementInput(projectId, world.elements.length)))}>
-            <Sparkles size={16} />
+        <div className="bible-header-actions">
+          <Button variant="ai" onClick={() => activateWorldPromptContext("worldElement", elementDraftPreview(emptyElementInput(projectId, world.elements.length)))}>
+            <Sparkles size={16} aria-hidden />
             AI element
-          </button>
-          <button type="button" className="secondary-button" onClick={() => activateWorldPromptContext("worldRule", ruleDraftPreview(emptyRuleInput(projectId, world.rules.length)))}>
-            <Sparkles size={16} />
+          </Button>
+          <Button variant="ai" onClick={() => activateWorldPromptContext("worldRule", ruleDraftPreview(emptyRuleInput(projectId, world.rules.length)))}>
+            <Sparkles size={16} aria-hidden />
             AI reguła
-          </button>
-          <button type="button" className="secondary-button" onClick={openDefaultRelationPicker}>
-            <Sparkles size={16} />
+          </Button>
+          <Button variant="ai" onClick={openDefaultRelationPicker}>
+            <Sparkles size={16} aria-hidden />
             AI połączenie
-          </button>
+          </Button>
         </div>
       </header>
 
-      <div className="world-layout">
-        <aside className="world-list-panel">
-          <div className="world-toolbar">
-            <label className="world-search">
-              <Search size={16} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Szukaj świata" />
-            </label>
-            {activeTab === "rules" ? null : (
-              <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} title="Filtruj listę świata">
-                {activeTab === "links" ? (
-                  <>
-                    <option value="all">Elementy i reguły</option>
-                    <option value="element">Tylko elementy</option>
-                    <option value="rule">Tylko reguły</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="all">Wszystkie typy</option>
-                    {worldElementTypes.map((option) => (
-                      <option value={option.value} key={option.value}>{option.label}</option>
-                    ))}
-                  </>
-                )}
-              </select>
-            )}
-          </div>
-          <div className="world-card-list">
-            {sidebarItems.map((item) => (
-              <button
-                type="button"
-                key={`${item.kind}:${item.id}`}
-                className={
-                  (item.kind === "element" && item.id === selectedElementId && (activeTab !== "links" || linkFocus === "element")) ||
-                  (item.kind === "rule" && item.id === selectedRuleId && (activeTab !== "links" || linkFocus === "rule"))
-                    ? "world-card active"
-                    : "world-card"
-                }
-                onClick={() => {
-                  if (item.kind === "element") {
-                    setSelectedElementId(item.id);
-                    setLinkFocus("element");
-                    if (activeTab === "rules") {
-                      setActiveTab("profile");
-                    }
-                    return;
+      <TwoPane
+        paneWidth={300}
+        pane={
+          <>
+            <div className="bible-toolbar">
+              <input
+                className="ui-input"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Szukaj świata"
+                aria-label="Szukaj świata"
+              />
+              {activeTab === "rules" ? null : activeTab === "links" ? (
+                <Segmented
+                  ariaLabel="Filtruj listę świata"
+                  items={[
+                    { id: "all", label: "Wszystko" },
+                    { id: "element", label: "Elementy" },
+                    { id: "rule", label: "Reguły" }
+                  ]}
+                  value={typeFilter}
+                  onChange={setTypeFilter}
+                />
+              ) : (
+                <select
+                  className="ui-input"
+                  value={typeFilter}
+                  onChange={(event) => setTypeFilter(event.target.value)}
+                  title="Filtruj listę świata"
+                  aria-label="Filtruj listę świata"
+                >
+                  <option value="all">Wszystkie typy</option>
+                  {worldElementTypes.map((option) => (
+                    <option value={option.value} key={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="bible-list">
+              {sidebarItems.map((item) => (
+                <button
+                  type="button"
+                  key={`${item.kind}:${item.id}`}
+                  className={
+                    (item.kind === "element" && item.id === selectedElementId && (activeTab !== "links" || linkFocus === "element")) ||
+                    (item.kind === "rule" && item.id === selectedRuleId && (activeTab !== "links" || linkFocus === "rule"))
+                      ? "bible-item active"
+                      : "bible-item"
                   }
+                  onClick={() => {
+                    if (item.kind === "element") {
+                      setSelectedElementId(item.id);
+                      setLinkFocus("element");
+                      if (activeTab === "rules") {
+                        setActiveTab("profile");
+                      }
+                      return;
+                    }
 
-                  setSelectedRuleId(item.id);
-                  setLinkFocus("rule");
-                }}
-              >
-                <span className="world-card-icon">{item.kind === "rule" ? <BookOpen size={18} /> : <Globe2 size={18} />}</span>
-                <span className="world-card-body">
-                  <strong>{item.label}</strong>
-                  <small>{item.meta}</small>
-                  <span>{item.description}</span>
-                </span>
-              </button>
-            ))}
-            {sidebarItems.length === 0 ? (
-              <p className="world-empty">Brak pozycji pasujacych do filtrow.</p>
-            ) : null}
-          </div>
-        </aside>
-
-        <main className="world-editor-panel">
-          <div className="world-editor-heading">
-            <div className="world-avatar">{editorHeaderIcon()}</div>
-            <div>
+                    setSelectedRuleId(item.id);
+                    setLinkFocus("rule");
+                  }}
+                >
+                  <span className="t">{item.label}</span>
+                  <span className="m">{item.meta}</span>
+                </button>
+              ))}
+              {sidebarItems.length === 0 ? (
+                <p className="bible-list-empty">Brak pozycji pasujących do filtrów.</p>
+              ) : null}
+            </div>
+            <Button variant="secondary" block onClick={runHeaderCreateAction}>
+              <Plus size={15} aria-hidden />
+              {headerCreateLabel()}
+            </Button>
+          </>
+        }
+      >
+        <main className="bible-editor">
+          <div className="bible-editor-heading">
+            <div className="bible-avatar">{editorHeaderIcon()}</div>
+            <div className="bible-editor-heading-body">
               <p className="eyebrow">{editorHeaderEyebrow()}</p>
               <h3>{editorHeaderTitle()}</h3>
               <p className="muted-text">{editorHeaderDescription()}</p>
             </div>
             <div className="button-row">
               {activeTab !== "rules" && selectedElement ? (
-                <button type="button" className="ghost-button danger" onClick={() => deleteElementMutation.mutate(selectedElement.id)}>
-                  <Trash2 size={15} />
-                  Usun
-                </button>
+                <Button variant="danger" onClick={() => deleteElementMutation.mutate(selectedElement.id)}>
+                  <Trash2 size={15} aria-hidden />
+                  Usuń
+                </Button>
               ) : null}
               {activeTab === "rules" && selectedRule ? (
-                <button type="button" className="ghost-button danger" onClick={() => deleteRuleMutation.mutate(selectedRule.id)}>
-                  <Trash2 size={15} />
-                  Usun
-                </button>
+                <Button variant="danger" onClick={() => deleteRuleMutation.mutate(selectedRule.id)}>
+                  <Trash2 size={15} aria-hidden />
+                  Usuń
+                </Button>
               ) : null}
-              <button type="button" className="secondary-button" onClick={runHeaderCreateAction}>
-                <Plus size={15} />
-                {headerCreateLabel()}
-              </button>
             </div>
           </div>
 
-          <div className="world-tabs" role="tablist" aria-label="Sekcje świata">
-            {worldTabs.map(({ key, label, icon: Icon }) => (
-              <button
-                type="button"
-                key={key}
-                className={activeTab === key ? "world-tab active" : "world-tab"}
-                onClick={() => setActiveTab(key)}
-              >
-                <Icon size={16} />
-                {label}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            ariaLabel="Sekcje świata"
+            items={worldTabs.map(({ key, label, icon: Icon }) => ({
+              id: key,
+              label: (
+                <>
+                  <Icon size={15} aria-hidden />
+                  {label}
+                </>
+              )
+            }))}
+            value={activeTab}
+            onChange={setActiveTab}
+          />
 
           {activeTab === "profile" ? (
-            <form className="world-editor-form" onSubmit={saveElement}>
-              <label className="field-label">Typ elementu
+            <form className="bible-form" onSubmit={saveElement}>
+              <Field label="Typ elementu">
                 <select
                   value={elementDraft.elementType}
                   onChange={(event) => setElementDraft({ ...elementDraft, elementType: event.target.value })}
@@ -707,8 +713,8 @@ export function WorldPage({ projectId }: WorldPageProps) {
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
-              </label>
-              <div className="world-field-grid">
+              </Field>
+              <div className="bible-field-grid">
                 {elementFields.map((item) => (
                   <WorldAiField
                     key={item.field}
@@ -732,17 +738,15 @@ export function WorldPage({ projectId }: WorldPageProps) {
           ) : null}
 
           {activeTab === "rules" ? (
-            <form className="world-rule-editor" onSubmit={saveRule}>
-              <div className="world-section-heading">
-                <h3><BookOpen size={17} /> {ruleDraft.name || "Nowa reguła"}</h3>
-                <div className="button-row">
-                  <button type="button" className="secondary-button" onClick={() => activateWorldPromptContext("worldRuleAnalysis", ruleDraftPreview(ruleDraft))}>
-                    <Sparkles size={15} />
-                    Analizuj
-                  </button>
-                </div>
+            <form className="bible-form" onSubmit={saveRule}>
+              <div className="bible-section-heading">
+                <h4><BookOpen size={17} aria-hidden /> {ruleDraft.name || "Nowa reguła"}</h4>
+                <Button variant="ai" size="sm" onClick={() => activateWorldPromptContext("worldRuleAnalysis", ruleDraftPreview(ruleDraft))}>
+                  <Sparkles size={14} aria-hidden />
+                  Analizuj
+                </Button>
               </div>
-              <div className="world-field-grid">
+              <div className="bible-field-grid">
                 {ruleFields.map((item) => (
                   <WorldAiField
                     key={item.field}
@@ -760,7 +764,7 @@ export function WorldPage({ projectId }: WorldPageProps) {
                 message={message}
                 errorMessage={errorMessage}
                 saving={ruleMutation.isPending}
-                  saveLabel="Zapisz regułę"
+                saveLabel="Zapisz regułę"
               />
             </form>
           ) : null}
@@ -779,16 +783,18 @@ export function WorldPage({ projectId }: WorldPageProps) {
           ) : null}
 
           {activeTab === "visuals" ? (
-            <form className="world-editor-form" onSubmit={saveElement}>
-              <WorldAiField
-                field="elementVisualPrompt"
-                value={elementDraft.visualPrompt}
-                rows={7}
-                target={elementDraftPreview(elementDraft)}
-                onChange={(value) => setElementDraft({ ...elementDraft, visualPrompt: value })}
-                onGenerate={activateWorldPromptContext}
-                onActivate={activateWorldPromptContext}
-              />
+            <form className="bible-form" onSubmit={saveElement}>
+              <div className="bible-field-grid">
+                <WorldAiField
+                  field="elementVisualPrompt"
+                  value={elementDraft.visualPrompt}
+                  rows={7}
+                  target={elementDraftPreview(elementDraft)}
+                  onChange={(value) => setElementDraft({ ...elementDraft, visualPrompt: value })}
+                  onGenerate={activateWorldPromptContext}
+                  onActivate={activateWorldPromptContext}
+                />
+              </div>
               <EditorFooter
                 message={message}
                 errorMessage={errorMessage}
@@ -798,7 +804,7 @@ export function WorldPage({ projectId }: WorldPageProps) {
             </form>
           ) : null}
         </main>
-      </div>
+      </TwoPane>
 
       {picker ? (
         <RelationPicker
@@ -832,21 +838,41 @@ function WorldAiField({ field, value, rows = 3, target, onChange, onGenerate, on
   onGenerate: (field: WorldFieldKey, target?: WorldPromptEntity) => void;
   onActivate: (field: WorldFieldKey, target?: WorldPromptEntity) => void;
 }) {
+  const activate = () => onActivate(field, target);
   return (
-    <div className="field-shell world-field wide" onFocusCapture={(event) => isEditablePromptTarget(event.target) && onActivate(field, target)} onClick={(event) => isEditablePromptTarget(event.target) && onActivate(field, target)}>
-      <div className="field-heading">
-        <span className="field-label-text">{worldFieldConfigs[field].label}</span>
-        <div className="field-ai-actions">
-          <button type="button" className="icon-button" onClick={() => onGenerate(field, target)} title="Wygeneruj to pole z AI" aria-label={`Wygeneruj pole ${worldFieldConfigs[field].label}`}>
-            <Sparkles size={15} />
-          </button>
-          <button type="button" className="icon-button" onClick={() => useAiPromptContextStore.getState().addContextSourceToActiveTarget(worldPromptContextSource(field, target))} title="Dodaj pole do kontekstu AI" aria-label={`Dodaj pole ${worldFieldConfigs[field].label} do kontekstu AI`}>
-            <Plus size={15} />
-          </button>
-        </div>
-      </div>
-      {rows === 1 ? <input value={value} onChange={(event) => onChange(event.target.value)} /> : <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={rows} />}
-    </div>
+    <Field
+      label={worldFieldConfigs[field].label}
+      className="wide"
+      actions={
+        <>
+          <Button
+            variant="ai"
+            size="sm"
+            onClick={() => onGenerate(field, target)}
+            title="Wygeneruj to pole z AI"
+            aria-label={`Wygeneruj pole ${worldFieldConfigs[field].label}`}
+          >
+            <Sparkles size={14} aria-hidden />
+            AI
+          </Button>
+          <Button
+            variant="icon"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => useAiPromptContextStore.getState().addContextSourceToActiveTarget(worldPromptContextSource(field, target))}
+            title="Dodaj pole do kontekstu AI"
+            aria-label={`Dodaj pole ${worldFieldConfigs[field].label} do kontekstu AI`}
+          >
+            <Plus size={14} aria-hidden />
+          </Button>
+        </>
+      }
+    >
+      {rows === 1 ? (
+        <input value={value} onChange={(event) => onChange(event.target.value)} onFocus={activate} onClick={activate} />
+      ) : (
+        <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={rows} onFocus={activate} onClick={activate} />
+      )}
+    </Field>
   );
 }
 
@@ -861,7 +887,7 @@ function WorldLinksPanel({ world, plan, characters, selectedElement, selectedRul
   onUpdateRule: (next: Partial<Omit<SetWorldRuleRelationsInput, "projectId" | "ruleId">>) => void;
 }) {
   if (!selectedElement && !selectedRule) {
-    return <PanelEmpty icon={<GitBranch size={28} />} text="Wybierz element albo regułę, aby łączyć je z kanonem." />;
+    return <EmptyState icon={<GitBranch size={28} />} title="Brak wybranej pozycji" description="Wybierz element albo regułę, aby łączyć je z kanonem." />;
   }
 
   return (
@@ -870,22 +896,30 @@ function WorldLinksPanel({ world, plan, characters, selectedElement, selectedRul
         <>
           <RelationBlock title="Postacie" icon={<Users size={17} />} onAdd={() => onOpenPicker({ target: "element", kind: "characters" })}>
             {elementCharacterIds(world, selectedElement.id).map((id) => (
-              <RelationChip key={id} label={characters.characters.find((item) => item.id === id)?.name ?? "Postac"} onRemove={() => onUpdateElement({ characterIds: elementCharacterIds(world, selectedElement.id).filter((item) => item !== id) })} />
+              <Chip tone="accent" key={id} removeLabel="Odłącz relację" onRemove={() => onUpdateElement({ characterIds: elementCharacterIds(world, selectedElement.id).filter((item) => item !== id) })}>
+                {characters.characters.find((item) => item.id === id)?.name ?? "Postać"}
+              </Chip>
             ))}
           </RelationBlock>
           <RelationBlock title="Wątki" icon={<GitBranch size={17} />} onAdd={() => onOpenPicker({ target: "element", kind: "threads" })}>
             {elementThreadIds(world, selectedElement.id).map((id) => (
-              <RelationChip key={id} label={plan.threads.find((item) => item.id === id)?.name ?? "Wątek"} onRemove={() => onUpdateElement({ threadIds: elementThreadIds(world, selectedElement.id).filter((item) => item !== id) })} />
+              <Chip tone="accent" key={id} removeLabel="Odłącz relację" onRemove={() => onUpdateElement({ threadIds: elementThreadIds(world, selectedElement.id).filter((item) => item !== id) })}>
+                {plan.threads.find((item) => item.id === id)?.name ?? "Wątek"}
+              </Chip>
             ))}
           </RelationBlock>
           <RelationBlock title="Rozdziały" icon={<FileText size={17} />} onAdd={() => onOpenPicker({ target: "element", kind: "chapters" })}>
             {elementChapterIds(world, selectedElement.id).map((id) => (
-              <RelationChip key={id} label={chapterLabel(plan, id)} onRemove={() => onUpdateElement({ chapterIds: elementChapterIds(world, selectedElement.id).filter((item) => item !== id) })} />
+              <Chip tone="accent" key={id} removeLabel="Odłącz relację" onRemove={() => onUpdateElement({ chapterIds: elementChapterIds(world, selectedElement.id).filter((item) => item !== id) })}>
+                {chapterLabel(plan, id)}
+              </Chip>
             ))}
           </RelationBlock>
           <RelationBlock title="Reguły elementu" icon={<BookOpen size={17} />} onAdd={() => onOpenPicker({ target: "element", kind: "rules" })}>
             {elementRuleIds(world, selectedElement.id).map((id) => (
-              <RelationChip key={id} label={world.rules.find((item) => item.id === id)?.name ?? "Reguła"} onRemove={() => onUpdateElement({ ruleIds: elementRuleIds(world, selectedElement.id).filter((item) => item !== id) })} />
+              <Chip tone="accent" key={id} removeLabel="Odłącz relację" onRemove={() => onUpdateElement({ ruleIds: elementRuleIds(world, selectedElement.id).filter((item) => item !== id) })}>
+                {world.rules.find((item) => item.id === id)?.name ?? "Reguła"}
+              </Chip>
             ))}
           </RelationBlock>
         </>
@@ -894,7 +928,9 @@ function WorldLinksPanel({ world, plan, characters, selectedElement, selectedRul
       {selectedElement ? (
         <RelationBlock title="Sceny" icon={<FileText size={17} />} onAdd={() => onOpenPicker({ target: "element", kind: "scenes" })}>
           {elementSceneIds(world, selectedElement.id).map((id) => (
-            <RelationChip key={id} label={sceneLabel(plan, id)} onRemove={() => onUpdateElement({ sceneIds: elementSceneIds(world, selectedElement.id).filter((item) => item !== id) })} />
+            <Chip tone="accent" key={id} removeLabel="Odłącz relację" onRemove={() => onUpdateElement({ sceneIds: elementSceneIds(world, selectedElement.id).filter((item) => item !== id) })}>
+              {sceneLabel(plan, id)}
+            </Chip>
           ))}
         </RelationBlock>
       ) : null}
@@ -903,17 +939,23 @@ function WorldLinksPanel({ world, plan, characters, selectedElement, selectedRul
         <>
           <RelationBlock title="Elementy reguły" icon={<Globe2 size={17} />} onAdd={() => onOpenPicker({ target: "rule", kind: "elements" })}>
             {ruleElementIds(world, selectedRule.id).map((id) => (
-              <RelationChip key={id} label={world.elements.find((item) => item.id === id)?.name ?? "Element"} onRemove={() => onUpdateRule({ elementIds: ruleElementIds(world, selectedRule.id).filter((item) => item !== id) })} />
+              <Chip tone="accent" key={id} removeLabel="Odłącz relację" onRemove={() => onUpdateRule({ elementIds: ruleElementIds(world, selectedRule.id).filter((item) => item !== id) })}>
+                {world.elements.find((item) => item.id === id)?.name ?? "Element"}
+              </Chip>
             ))}
           </RelationBlock>
           <RelationBlock title="Wątki reguły" icon={<GitBranch size={17} />} onAdd={() => onOpenPicker({ target: "rule", kind: "threads" })}>
             {ruleThreadIds(world, selectedRule.id).map((id) => (
-              <RelationChip key={id} label={plan.threads.find((item) => item.id === id)?.name ?? "Wątek"} onRemove={() => onUpdateRule({ threadIds: ruleThreadIds(world, selectedRule.id).filter((item) => item !== id) })} />
+              <Chip tone="accent" key={id} removeLabel="Odłącz relację" onRemove={() => onUpdateRule({ threadIds: ruleThreadIds(world, selectedRule.id).filter((item) => item !== id) })}>
+                {plan.threads.find((item) => item.id === id)?.name ?? "Wątek"}
+              </Chip>
             ))}
           </RelationBlock>
           <RelationBlock title="Rozdziały reguły" icon={<FileText size={17} />} onAdd={() => onOpenPicker({ target: "rule", kind: "chapters" })}>
             {ruleChapterIds(world, selectedRule.id).map((id) => (
-              <RelationChip key={id} label={chapterLabel(plan, id)} onRemove={() => onUpdateRule({ chapterIds: ruleChapterIds(world, selectedRule.id).filter((item) => item !== id) })} />
+              <Chip tone="accent" key={id} removeLabel="Odłącz relację" onRemove={() => onUpdateRule({ chapterIds: ruleChapterIds(world, selectedRule.id).filter((item) => item !== id) })}>
+                {chapterLabel(plan, id)}
+              </Chip>
             ))}
           </RelationBlock>
         </>
@@ -922,7 +964,9 @@ function WorldLinksPanel({ world, plan, characters, selectedElement, selectedRul
       {selectedRule ? (
         <RelationBlock title="Sceny reguły" icon={<FileText size={17} />} onAdd={() => onOpenPicker({ target: "rule", kind: "scenes" })}>
           {ruleSceneIds(world, selectedRule.id).map((id) => (
-            <RelationChip key={id} label={sceneLabel(plan, id)} onRemove={() => onUpdateRule({ sceneIds: ruleSceneIds(world, selectedRule.id).filter((item) => item !== id) })} />
+            <Chip tone="accent" key={id} removeLabel="Odłącz relację" onRemove={() => onUpdateRule({ sceneIds: ruleSceneIds(world, selectedRule.id).filter((item) => item !== id) })}>
+              {sceneLabel(plan, id)}
+            </Chip>
           ))}
         </RelationBlock>
       ) : null}
@@ -934,24 +978,13 @@ function RelationBlock({ title, icon, children, onAdd }: { title: string; icon: 
   return (
     <section className="world-link-block">
       <header>
-        <h3>{icon}{title}</h3>
-        <button type="button" className="world-relation-add-button" onClick={onAdd} title={`Dodaj relację: ${title}`} aria-label={`Dodaj relację: ${title}`}>
-          <Plus size={15} />
-        </button>
+        <h4>{icon}{title}</h4>
+        <Button variant="icon" onClick={onAdd} title={`Dodaj relację: ${title}`} aria-label={`Dodaj relację: ${title}`}>
+          <Plus size={15} aria-hidden />
+        </Button>
       </header>
-      <div className="world-chip-row">{children}</div>
+      <div className="chip-row">{children}</div>
     </section>
-  );
-}
-
-function RelationChip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span className="world-relation-chip">
-      {label}
-      <button type="button" onClick={(event) => { event.stopPropagation(); onRemove(); }} title={`Odłącz relację: ${label}`} aria-label={`Odłącz relację: ${label}`}>
-        <Minus size={12} />
-      </button>
-    </span>
   );
 }
 
@@ -966,80 +999,52 @@ function RelationPicker({ state, world, plan, characters, selectedElement, selec
   onUpdateElement: (next: Partial<Omit<SetWorldElementRelationsInput, "projectId" | "elementId">>) => void;
   onUpdateRule: (next: Partial<Omit<SetWorldRuleRelationsInput, "projectId" | "ruleId">>) => void;
 }) {
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
   const options = pickerOptions(state, world, plan, characters, selectedElement, selectedRule);
-  const content = (
-    <div className="world-relation-modal" role="dialog" aria-modal="true" aria-labelledby="world-relation-title">
-      <button type="button" className="world-relation-backdrop" onClick={onClose} aria-label="Zamknij modal" />
-      <section className="world-relation-shell">
-        <header className="world-relation-header">
-          <div>
-            <p className="eyebrow">Relacje świata</p>
-            <h3 id="world-relation-title">{pickerTitle(state)}</h3>
-          </div>
-          <button type="button" className="icon-button" onClick={onClose} title="Zamknij" aria-label="Zamknij">
-            <X size={16} />
-          </button>
-        </header>
-        <div className="world-relation-list">
-          {options.map((option) => (
-            <button
-              type="button"
-              key={option.id}
-              className={option.selected ? "world-relation-option selected" : "world-relation-option"}
-              onClick={() => {
-                if (state.target === "element") {
-                  if (!selectedElement) return;
-                  const ids = toggleId(option.currentIds, option.id);
-                  const key = relationInputKey(state.kind);
-                  onUpdateElement({ [key]: ids });
-                  return;
-                }
-                if (!selectedRule) return;
+  return (
+    <Modal title={pickerTitle(state)} onClose={onClose} size="md">
+      <div className="world-relation-list">
+        {options.map((option) => (
+          <button
+            type="button"
+            key={option.id}
+            className={option.selected ? "world-relation-option selected" : "world-relation-option"}
+            onClick={() => {
+              if (state.target === "element") {
+                if (!selectedElement) return;
                 const ids = toggleId(option.currentIds, option.id);
-                const key = ruleRelationInputKey(state.kind);
-                onUpdateRule({ [key]: ids });
-              }}
-            >
-              <strong>{option.label}</strong>
-              <span>{option.description}</span>
-            </button>
-          ))}
-          {options.length === 0 ? <p className="world-empty">Brak dostępnych encji.</p> : null}
-        </div>
-      </section>
-    </div>
+                const key = relationInputKey(state.kind);
+                onUpdateElement({ [key]: ids });
+                return;
+              }
+              if (!selectedRule) return;
+              const ids = toggleId(option.currentIds, option.id);
+              const key = ruleRelationInputKey(state.kind);
+              onUpdateRule({ [key]: ids });
+            }}
+          >
+            <strong>{option.label}</strong>
+            <span>{option.description}</span>
+          </button>
+        ))}
+        {options.length === 0 ? <p className="muted-text">Brak dostępnych encji.</p> : null}
+      </div>
+    </Modal>
   );
-
-  return typeof document === "undefined" ? content : createPortal(content, document.body);
 }
 
 function EditorFooter({ message, errorMessage, saving, saveLabel }: { message: string; errorMessage: string; saving: boolean; saveLabel: string }) {
   return (
-    <footer className="world-editor-footer">
+    <footer className="bible-editor-footer">
       <div>
-        {message ? <p className="muted-text">{message}</p> : null}
+        {message ? <p className="success-text">{message}</p> : null}
         {errorMessage ? <p className="warning-text">{errorMessage}</p> : null}
       </div>
-      <button type="submit" className="primary-button" disabled={saving}>
-        {saving ? <Loader2 size={15} className="spin-icon" /> : <Save size={15} />}
+      <Button variant="primary" type="submit" busy={saving}>
+        <Save size={15} aria-hidden />
         {saveLabel}
-      </button>
+      </Button>
     </footer>
   );
-}
-
-function PanelEmpty({ icon, text }: { icon: ReactNode; text: string }) {
-  return <div className="world-panel-empty">{icon}<p>{text}</p></div>;
 }
 
 function emptyElementInput(projectId: string, orderIndex: number): UpsertWorldElementInput {
@@ -1317,10 +1322,6 @@ function sceneLabel(plan: BookPlan, sceneId: string): string {
 
 function isRuleField(field: WorldFieldKey): boolean {
   return field === "worldRule" || field === "worldRuleAnalysis" || field.startsWith("rule");
-}
-
-function isEditablePromptTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
 }
 
 function stringValue(value: unknown, fallback: string): string {

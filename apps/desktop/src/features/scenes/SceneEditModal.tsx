@@ -1,18 +1,14 @@
 import {
   BookOpen,
   CheckCircle2,
-  Circle,
   Clock3,
   ClipboardList,
   Eye,
-  FileText,
   GitBranch,
-  Link2,
   Loader2,
   Map,
   MapPin,
   Plus,
-  Save,
   Sparkles,
   Target,
   Trash2,
@@ -21,6 +17,7 @@ import {
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { Button, Field, Modal, StatusPill } from "../../shared/ui";
 import type {
   Beat,
   BookPlan,
@@ -167,21 +164,6 @@ export function SceneEditModal({
     return () => unregisterPlanDraftFieldTarget(draftTargetId);
   }, [draftTargetId, state]);
 
-  useEffect(() => {
-    if (!state) {
-      return;
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, state]);
-
   const selectedChapter = draft.chapterId
     ? plan.chapters.find((chapter) => chapter.id === draft.chapterId) ?? null
     : null;
@@ -258,39 +240,40 @@ export function SceneEditModal({
     return null;
   }
 
-  const content = (
-    <div
-      className="chapter-edit-modal scene-edit-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="scene-modal-title"
-    >
-      <button
-        type="button"
-        className="chapter-edit-backdrop"
-        onClick={onClose}
-        aria-label="Zamknij edycję sceny"
-      />
-      <div className="chapter-edit-shell scene-edit-shell">
-        <header className="chapter-edit-header">
-          <div>
-            <p className="eyebrow">Projektowanie sceny</p>
-            <h3 id="scene-modal-title">{modalTitle}</h3>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onClose}
-            title="Zamknij edycję sceny"
-            aria-label="Zamknij edycję sceny"
+  return (
+    <Modal
+      title={modalTitle}
+      onClose={onClose}
+      size="xl"
+      footer={
+        <>
+          {scene ? (
+            <Button
+              variant="danger"
+              onClick={() => onDelete(scene.id)}
+              disabled={isSaving}
+            >
+              <Trash2 size={15} aria-hidden />
+              Usuń
+            </Button>
+          ) : null}
+          <Button variant="ghost" onClick={onClose}>
+            Anuluj
+          </Button>
+          <Button
+            variant="primary"
+            type="submit"
+            form="scene-edit-form"
+            busy={isSaving}
+            disabled={!bookId}
           >
-            <X size={18} />
-          </button>
-        </header>
-
-        <div className="chapter-edit-body">
-          <form className="chapter-edit-form scene-edit-form" onSubmit={submit}>
-            <div className="chapter-edit-metrics" aria-label="Najważniejsze informacje o scenie">
+            {isSaving ? "Zapisuję" : "Zapisz scenę"}
+          </Button>
+        </>
+      }
+    >
+      <form id="scene-edit-form" className="chapter-edit-form scene-edit-form" onSubmit={submit}>
+        <div className="chapter-edit-metrics" aria-label="Najważniejsze informacje o scenie">
               <span className="chapter-edit-metric">
                 <BookOpen size={16} />
                 <span>Rozdział:</span>
@@ -310,18 +293,18 @@ export function SceneEditModal({
                 <span>Lokacja:</span>
                 <strong>{selectedLocation?.name ?? "Brak"}</strong>
               </span>
-              <span
-                className={
-                  completionPercent >= 85
-                    ? "chapter-status-pill ready"
-                    : completionPercent >= 45
-                      ? "chapter-status-pill active"
-                      : "chapter-status-pill"
-                }
-              >
-                <Circle size={10} />
-                {visualStatus}
+              <span className="chapter-edit-metric">
+                <CheckCircle2 size={16} />
+                <span>Uzupełnione:</span>
+                <strong>
+                  {completedCount} / {completedItems.length}
+                </strong>
               </span>
+              <StatusPill
+                tone={completionPercent >= 85 ? "success" : completionPercent >= 45 ? "accent" : "muted"}
+              >
+                {visualStatus}
+              </StatusPill>
             </div>
 
             <div className="chapter-edit-content-grid scene-edit-content-grid">
@@ -354,8 +337,7 @@ export function SceneEditModal({
                     <h4>Ustawienia sceny</h4>
                   </div>
                   <div className="scene-settings-grid">
-                    <label className="field-label">
-                      Rozdział
+                    <Field label="Rozdział">
                       <select
                         value={draft.chapterId ?? ""}
                         onChange={(event) => {
@@ -371,9 +353,8 @@ export function SceneEditModal({
                           </option>
                         ))}
                       </select>
-                    </label>
-                    <label className="field-label">
-                      POV
+                    </Field>
+                    <Field label="POV">
                       <select
                         value={draft.povCharacterId ?? ""}
                         onChange={(event) =>
@@ -387,9 +368,8 @@ export function SceneEditModal({
                           </option>
                         ))}
                       </select>
-                    </label>
-                    <label className="field-label">
-                      Lokacja
+                    </Field>
+                    <Field label="Lokacja">
                       <select
                         value={draft.locationId ?? ""}
                         onChange={(event) =>
@@ -403,9 +383,8 @@ export function SceneEditModal({
                           </option>
                         ))}
                       </select>
-                    </label>
-                    <label className="field-label">
-                      Cel słów
+                    </Field>
+                    <Field label="Cel słów">
                       <input
                         type="number"
                         min={0}
@@ -417,9 +396,8 @@ export function SceneEditModal({
                           })
                         }
                       />
-                    </label>
-                    <label className="field-label">
-                      Status
+                    </Field>
+                    <Field label="Status">
                       <select
                         value={draft.status}
                         onChange={(event) =>
@@ -431,7 +409,7 @@ export function SceneEditModal({
                         <option value="written">Napisana</option>
                         <option value="revision">Do redakcji</option>
                       </select>
-                    </label>
+                    </Field>
                   </div>
                 </section>
               </main>
@@ -520,41 +498,9 @@ export function SceneEditModal({
               />
             ) : null}
 
-            <footer className="chapter-edit-footer">
-              <div className="chapter-footer-status">
-                <CheckCircle2 size={16} />
-                <span>
-                  {completedCount} / {completedItems.length} elementów sceny uzupełnionych
-                </span>
-              </div>
-              <div className="chapter-footer-actions">
-                {scene ? (
-                  <button
-                    type="button"
-                    className="ghost-button chapter-delete-button"
-                    onClick={() => onDelete(scene.id)}
-                    disabled={isSaving}
-                  >
-                    <Trash2 size={16} />
-                    Usuń
-                  </button>
-                ) : null}
-                <button type="button" className="ghost-button" onClick={onClose}>
-                  Anuluj
-                </button>
-                <button type="submit" className="primary-button" disabled={isSaving || !bookId}>
-                  {isSaving ? <Loader2 size={16} className="spin-icon" /> : <Save size={16} />}
-                  {isSaving ? "Zapisuję" : "Zapisz scenę"}
-                </button>
-              </div>
-            </footer>
-          </form>
-        </div>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
-
-  return typeof document === "undefined" ? content : createPortal(content, document.body);
 }
 
 function ChapterContextInheritance({
@@ -663,16 +609,17 @@ function SceneTextField({
   onActivatePrompt: () => void;
 }) {
   return (
-    <label className="field-label plan-inline-field scene-inline-field">
-      <span className="plan-inline-label-row">
-        {label}
+    <Field
+      label={label}
+      actions={
         <SceneFieldAiActions
           field={field}
           targetEntity={targetEntity}
           onGenerate={onGenerate}
           onActivatePrompt={onActivatePrompt}
         />
-      </span>
+      }
+    >
       {rows === 1 ? (
         <input
           value={value}
@@ -689,7 +636,7 @@ function SceneTextField({
           onChange={(event) => onChange(event.target.value)}
         />
       )}
-    </label>
+    </Field>
   );
 }
 

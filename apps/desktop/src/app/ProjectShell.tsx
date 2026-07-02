@@ -1,17 +1,11 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
-  Boxes,
   CheckCircle2,
   ChevronDown,
   CircleDot,
-  Download,
   History,
-  Lightbulb,
-  Map,
-  PenLine,
   Settings,
-  ShieldCheck,
-  Users
+  ShieldCheck
 } from "lucide-react";
 import {
   CSSProperties,
@@ -21,8 +15,9 @@ import {
   useMemo
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getProject, listCodexModels } from "../shared/api/commands";
+import { getAiSettings, getProject, listCodexModels } from "../shared/api/commands";
 import type { ReasoningEffort } from "../shared/api/types";
+import { describeTextProvider } from "../features/ai/textProviderInfo";
 import { AiProposalPanel } from "../features/ai/AiProposalPanel";
 import { AiPromptContextPanel } from "../features/ai/AiPromptContextPanel";
 import { useCodexSettingsStore } from "../features/ai/codexSettingsStore";
@@ -30,7 +25,6 @@ import {
   projectLogReturnHref,
   useProjectNavigationStore
 } from "./projectNavigationStore";
-import storyforgeLogo from "../assets/storyforge-logo-full.png";
 
 type ProjectShellProps = {
   projectId: string;
@@ -79,6 +73,12 @@ export function ProjectShell({
     queryFn: () => listCodexModels(codexPath),
     retry: 0
   });
+  const aiSettingsQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: getAiSettings,
+    retry: 0
+  });
+  const providerInfo = describeTextProvider(aiSettingsQuery.data);
   const contextPanelWidth = useCodexSettingsStore(
     (state) => state.contextPanelWidth
   );
@@ -204,65 +204,38 @@ export function ProjectShell({
     >
       <aside className="sidebar">
         <Link className="brand-link" to="/">
-          <span className="brand-mark">
-            <img src={storyforgeLogo} alt="" />
+          <span className="brand-word">
+            Story<em>Forge</em>
           </span>
         </Link>
 
+        <div className="sidebar-project">
+          <strong>{title}</strong>
+        </div>
+
         <nav className="sidebar-nav" aria-label="Etapy pisania">
-          <Link
-            to="/projects/$projectId/concept"
-            params={{ projectId }}
-            className={activeSection === "concept" ? "nav-item active" : "nav-item"}
-          >
-            <Lightbulb size={18} />
-            Koncepcja
-          </Link>
-
-          <Link
-            to="/projects/$projectId/plan"
-            params={{ projectId }}
-            className={activeSection === "plan" ? "nav-item active" : "nav-item"}
-          >
-            <Map size={18} />
-            Plan
-          </Link>
-
-          <Link
-            to="/projects/$projectId/characters"
-            params={{ projectId }}
-            className={activeSection === "characters" ? "nav-item active" : "nav-item"}
-          >
-            <Users size={18} />
-            Postacie
-          </Link>
-
-          <Link
-            to="/projects/$projectId/world"
-            params={{ projectId }}
-            className={activeSection === "world" ? "nav-item active" : "nav-item"}
-          >
-            <Boxes size={18} />
-            Świat
-          </Link>
-
-          <Link
-            to="/projects/$projectId/editor"
-            params={{ projectId }}
-            className={activeSection === "editor" ? "nav-item active" : "nav-item"}
-          >
-            <PenLine size={18} />
-            Edytor
-          </Link>
-
-          <Link
-            to="/projects/$projectId/export"
-            params={{ projectId }}
-            className={activeSection === "export" ? "nav-item active" : "nav-item"}
-          >
-            <Download size={18} />
-            Eksport
-          </Link>
+          {(
+            [
+              ["concept", "01", "Koncepcja"],
+              ["plan", "02", "Plan"],
+              ["characters", "03", "Postacie"],
+              ["world", "04", "Świat"],
+              ["editor", "05", "Edytor"],
+              ["export", "06", "Eksport"]
+            ] as const
+          ).map(([section, num, label]) => (
+            <Link
+              key={section}
+              to={`/projects/$projectId/${section}`}
+              params={{ projectId }}
+              className={activeSection === section ? "nav-item active" : "nav-item"}
+            >
+              <span className="nav-num" aria-hidden>
+                {num}
+              </span>
+              {label}
+            </Link>
+          ))}
         </nav>
 
         <div className="sidebar-bottom-nav">
@@ -284,8 +257,8 @@ export function ProjectShell({
       <div className="workspace">
         <header className="workspace-header">
           <div>
-            <h1>Projekt: {title}</h1>
             <p>{subtitle}</p>
+            <h1>{title}</h1>
           </div>
         </header>
 
@@ -310,54 +283,78 @@ export function ProjectShell({
               className={projectQuery.isError ? "topbar-select muted" : "topbar-select ready"}
             >
               {projectQuery.isError ? <CircleDot size={16} /> : <CheckCircle2 size={16} />}
-              <span>{projectQuery.isError ? "Błąd danych" : "Gotowy"}</span>
+              <span>
+                {providerInfo.isCodex
+                  ? `Codex CLI · ${model}`
+                  : `${providerInfo.providerLabel} · ${providerInfo.modelLabel}`}
+              </span>
               <ChevronDown size={15} />
             </summary>
             <div className="model-menu-body">
-              <label className="field-label">
-                Model
-                <select
-                  value={model}
-                  onChange={(event) => setModel(event.target.value)}
-                  title="Model używany przez codex exec przy generowaniu treści pól."
-                >
-                  {modelOptions.map((option) => (
-                    <option value={option.value} key={option.value} title={option.title}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {providerInfo.isCodex ? (
+                <>
+                  <label className="field-label">
+                    Model
+                    <select
+                      value={model}
+                      onChange={(event) => setModel(event.target.value)}
+                      title="Model używany przez codex exec przy generowaniu treści pól."
+                    >
+                      {modelOptions.map((option) => (
+                        <option value={option.value} key={option.value} title={option.title}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-              <label className="field-label">
-                Poziom reasoning
-                <div className="reasoning-control">
-                  <input
-                    type="range"
-                    min={0}
-                    max={reasoningLevels.length - 1}
-                    step={1}
-                    value={reasoningIndex}
-                    onChange={(event) => updateReasoning(Number(event.target.value))}
-                    title={reasoningLevels[reasoningIndex]?.hint}
-                  />
-                  <div className="reasoning-labels" aria-hidden="true">
-                    {reasoningLevels.map((level) => (
-                      <span
-                        key={level.value}
-                        className={level.value === reasoningEffort ? "active" : ""}
-                        title={level.hint}
-                      >
-                        {level.label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </label>
+                  <label className="field-label">
+                    Poziom reasoning
+                    <div className="reasoning-control">
+                      <input
+                        type="range"
+                        min={0}
+                        max={reasoningLevels.length - 1}
+                        step={1}
+                        value={reasoningIndex}
+                        onChange={(event) => updateReasoning(Number(event.target.value))}
+                        title={reasoningLevels[reasoningIndex]?.hint}
+                      />
+                      <div className="reasoning-labels" aria-hidden="true">
+                        {reasoningLevels.map((level) => (
+                          <span
+                            key={level.value}
+                            className={level.value === reasoningEffort ? "active" : ""}
+                            title={level.hint}
+                          >
+                            {level.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </label>
 
-              {modelQuery.data?.fallback ? (
-                <p className="muted-text">{modelQuery.data.errorMessage}</p>
-              ) : null}
+                  {modelQuery.data?.fallback ? (
+                    <p className="muted-text">{modelQuery.data.errorMessage}</p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <p className="muted-text">
+                    Aktywny dostawca tekstu: <strong>{providerInfo.providerLabel}</strong>
+                    {providerInfo.modelLabel ? ` (${providerInfo.modelLabel})` : ""}. Model
+                    i parametry ustawisz w ustawieniach AI. Suwak reasoning dotyczy tylko
+                    Codeksa.
+                  </p>
+                  <Link
+                    className="model-menu-settings-link"
+                    to="/projects/$projectId/ai"
+                    params={{ projectId }}
+                  >
+                    Otwórz ustawienia AI
+                  </Link>
+                </>
+              )}
             </div>
           </details>
         </div>

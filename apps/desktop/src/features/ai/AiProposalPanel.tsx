@@ -117,6 +117,7 @@ import {
   useProposalStore
 } from "./proposalStore";
 import { CoverImageLightbox } from "./CoverImageLightbox";
+import { Button } from "../../shared/ui";
 import {
   characterPromptContextTargetId,
   conceptPromptContextTargetId,
@@ -967,9 +968,9 @@ function SceneAuditPromptPanel({ prompts }: { prompts: PendingSceneAuditPrompt[]
             <small>Analiza doda znalezione rzeczy jako osobne karty w tym panelu. Nic nie zapisze się w kanonie bez akceptacji.</small>
           </div>
           <div className="scene-discovery-actions">
-            <button
-              type="button"
-              className="secondary-button"
+            <Button
+              variant="ai"
+              size="sm"
               onClick={() => {
                 void queueSceneAuditFromPrompt(prompt, enqueueProposal);
                 removeAuditPrompt(prompt.id);
@@ -977,14 +978,10 @@ function SceneAuditPromptPanel({ prompts }: { prompts: PendingSceneAuditPrompt[]
             >
               <Sparkles size={14} />
               Analizuj
-            </button>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => removeAuditPrompt(prompt.id)}
-            >
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => removeAuditPrompt(prompt.id)}>
               Pomiń
-            </button>
+            </Button>
           </div>
         </article>
       ))}
@@ -1030,24 +1027,24 @@ function SceneAssignmentPanel({
             <small>Przypisanie zmieni tylko relacje tej sceny albo relacje elementu świata. Kanon encji zostaje bez zmian.</small>
           </div>
           <div className="scene-discovery-actions">
-            <button
-              type="button"
-              className="secondary-button"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => assignmentMutation.mutate(assignment)}
               disabled={assignmentMutation.isPending}
               title="Przypisz element do źródłowej sceny"
             >
               <Link2 size={14} />
               Przypisz
-            </button>
-            <button
-              type="button"
-              className="ghost-button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => removeAssignment(assignment.id)}
               disabled={assignmentMutation.isPending}
             >
               Pomiń
-            </button>
+            </Button>
           </div>
         </article>
       ))}
@@ -1265,9 +1262,9 @@ function SceneDiscoveryPanel({
               <small>{discovery.evidence}</small>
             </div>
             <div className="scene-discovery-actions">
-              <button
-                type="button"
-                className="secondary-button"
+              <Button
+                variant="ai"
+                size="sm"
                 onClick={() => queueDiscovery(discovery)}
                 disabled={
                   !canGenerate ||
@@ -1280,14 +1277,10 @@ function SceneDiscoveryPanel({
               >
                 <Sparkles size={14} />
                 Generuj
-              </button>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => removeDiscovery(discovery.id)}
-              >
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => removeDiscovery(discovery.id)}>
                 Odrzuć
-              </button>
+              </Button>
             </div>
           </article>
         );
@@ -1988,62 +1981,53 @@ function ProposalQueueItem({
 
       <div className="button-row">
         {!sceneAuditProposal ? (
-        <button
-          type="button"
-          className="primary-button"
-          onClick={onAccept}
-          disabled={accepting || running || queued || error || !canAccept}
-        >
-          <Check size={16} />
-          {accepting ? "Zapisuję" : "Akceptuj"}
-        </button>
+          <Button
+            variant="primary"
+            busy={accepting}
+            onClick={onAccept}
+            disabled={running || queued || error || !canAccept}
+          >
+            {accepting ? null : <Check size={16} />}
+            {accepting ? "Zapisuję" : "Akceptuj"}
+          </Button>
         ) : null}
         {canAcceptAsPlanVersion ? (
-          <button
-            type="button"
-            className="secondary-button"
+          <Button
             onClick={onAcceptAsPlanVersion}
             disabled={accepting || running || queued || error || !canAccept}
           >
             <GitBranch size={16} />
             Akceptuj jako wariant
-          </button>
+          </Button>
         ) : null}
-        <button
-          type="button"
-          className="ghost-button"
+        <Button
+          variant="ghost"
           onClick={onClear}
           disabled={accepting || running}
         >
           <X size={16} />
           {sceneAuditProposal ? "Zamknij" : "Odrzuć"}
-        </button>
+        </Button>
         {running ? (
-          <button
-            type="button"
-            className="ghost-button"
+          <Button
+            variant="ghost"
+            busy={cancelling}
             onClick={onCancel}
-            disabled={cancelling}
             title="Przerwij aktualną generację Codex CLI."
           >
-            {cancelling ? (
-              <Loader2 size={16} className="spin-icon" />
-            ) : (
-              <CircleStop size={16} />
-            )}
+            {cancelling ? null : <CircleStop size={16} />}
             Przerwij
-          </button>
+          </Button>
         ) : null}
-        <button
-          type="button"
-          className="ghost-button"
+        <Button
+          variant="ghost"
           onClick={onRetry}
           disabled={running || queued || accepting || retrying}
           title="Ponownie uruchom ten sam prompt z zapisanym snapshotem kontekstu."
         >
           <RotateCcw size={16} />
           Ponów
-        </button>
+        </Button>
       </div>
     </article>
   );

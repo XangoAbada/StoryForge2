@@ -1,6 +1,4 @@
 import {
-  AlertCircle,
-  CheckCircle2,
   ExternalLink,
   KeyRound,
   RefreshCw,
@@ -24,6 +22,7 @@ import type {
   TextProviderId
 } from "../../shared/api/types";
 import { DEFAULT_AI_SETTINGS } from "../../shared/api/types";
+import { Button, Field, StatusPill } from "../../shared/ui";
 import { CodexStatusPanel } from "./CodexStatusPanel";
 import { useCodexSettingsStore } from "./codexSettingsStore";
 
@@ -188,8 +187,7 @@ export function AiSettingsPage() {
             />
           </div>
           <div className="inline-control">
-            <button
-              type="button"
+            <Button
               onClick={() => {
                 void startCodexLogin(codexPath);
               }}
@@ -197,10 +195,9 @@ export function AiSettingsPage() {
               title="Uruchamia `codex login` — logowanie otworzy się w przeglądarce."
             >
               <ExternalLink size={14} aria-hidden="true" /> Zaloguj przez Codex CLI
-            </button>
-            <button
-              type="button"
-              className="icon-button"
+            </Button>
+            <Button
+              variant="icon"
               onClick={() => {
                 void queryClient.invalidateQueries({ queryKey: ["codex-login"] });
                 void queryClient.invalidateQueries({ queryKey: ["codex-cli"] });
@@ -209,7 +206,7 @@ export function AiSettingsPage() {
               aria-label="Odśwież status subskrypcji OpenAI"
             >
               <RefreshCw size={16} />
-            </button>
+            </Button>
           </div>
 
           <div className="section-title-row">
@@ -225,8 +222,7 @@ export function AiSettingsPage() {
               loading={claudeQuery.isLoading}
             />
           </div>
-          <label className="field-label">
-            Ścieżka do Claude Code CLI
+          <Field label="Ścieżka do Claude Code CLI">
             <div className="inline-control">
               <Terminal size={16} aria-hidden="true" />
               <input
@@ -234,9 +230,8 @@ export function AiSettingsPage() {
                 onChange={(event) => update("claudePath", event.target.value)}
                 placeholder="claude"
               />
-              <button
-                type="button"
-                className="icon-button"
+              <Button
+                variant="icon"
                 onClick={() => {
                   void queryClient.invalidateQueries({ queryKey: ["claude-cli"] });
                 }}
@@ -244,12 +239,11 @@ export function AiSettingsPage() {
                 aria-label="Sprawdź Claude Code CLI"
               >
                 <RefreshCw size={16} />
-              </button>
+              </Button>
             </div>
-          </label>
+          </Field>
           <div className="inline-control">
-            <button
-              type="button"
+            <Button
               onClick={() => {
                 void startClaudeLogin(draft.claudePath);
               }}
@@ -257,7 +251,7 @@ export function AiSettingsPage() {
               title="Otwiera terminal z Claude Code CLI — wpisz /login, aby zalogować się subskrypcją."
             >
               <ExternalLink size={14} aria-hidden="true" /> Otwórz terminal logowania
-            </button>
+            </Button>
           </div>
           <p className="help-text">
             Status logowania Anthropic to heurystyka (na podstawie plików logowania
@@ -432,8 +426,7 @@ export function AiSettingsPage() {
           <KeyRound size={18} aria-hidden="true" />
         </div>
         <div className="provider-body">
-          <label className="field-label">
-            Klucz OpenAI API
+          <Field label="Klucz OpenAI API">
             <input
               type="password"
               value={draft.openaiApiKey}
@@ -441,9 +434,8 @@ export function AiSettingsPage() {
               placeholder="sk-..."
               autoComplete="off"
             />
-          </label>
-          <label className="field-label">
-            Klucz Anthropic API
+          </Field>
+          <Field label="Klucz Anthropic API">
             <input
               type="password"
               value={draft.anthropicApiKey}
@@ -451,7 +443,7 @@ export function AiSettingsPage() {
               placeholder="sk-ant-..."
               autoComplete="off"
             />
-          </label>
+          </Field>
           <p className="help-text">
             Klucze są zapisywane lokalnie w pliku ustawień aplikacji i wysyłane
             wyłącznie do wybranego dostawcy.
@@ -459,8 +451,7 @@ export function AiSettingsPage() {
         </div>
       </div>
 
-      <label className="field-label narrow">
-        Timeout generowania (sekundy)
+      <Field label="Timeout generowania (sekundy)" className="field-label-narrow">
         <input
           type="number"
           min={30}
@@ -469,7 +460,7 @@ export function AiSettingsPage() {
           value={timeoutSeconds}
           onChange={(event) => setTimeoutSeconds(Number(event.target.value))}
         />
-      </label>
+      </Field>
 
       {missingKeyWarning ? (
         <p className="warning-text">{missingKeyWarning}</p>
@@ -481,19 +472,16 @@ export function AiSettingsPage() {
         </p>
       ) : null}
 
-      <div className="inline-control">
-        <button
-          type="button"
+      <div className="button-row">
+        <Button
+          variant="primary"
+          busy={saveMutation.isPending}
           onClick={() => saveMutation.mutate(draft)}
-          disabled={saveMutation.isPending || settingsQuery.isLoading}
+          disabled={settingsQuery.isLoading}
         >
           {saveMutation.isPending ? "Zapisywanie..." : "Zapisz ustawienia"}
-        </button>
-        {saved ? (
-          <span className="status-pill ready">
-            <CheckCircle2 size={14} /> Zapisano
-          </span>
-        ) : null}
+        </Button>
+        {saved ? <StatusPill tone="success">Zapisano</StatusPill> : null}
       </div>
     </section>
   );
@@ -509,25 +497,13 @@ function SubscriptionPill({
   loading: boolean;
 }) {
   if (loading) {
-    return <span className="status-pill">Sprawdzam</span>;
+    return <StatusPill tone="muted">Sprawdzam</StatusPill>;
   }
   if (!available) {
-    return (
-      <span className="status-pill muted">
-        <AlertCircle size={14} /> Brak CLI
-      </span>
-    );
+    return <StatusPill tone="danger">Brak CLI</StatusPill>;
   }
   if (loggedIn) {
-    return (
-      <span className="status-pill ready">
-        <CheckCircle2 size={14} /> Zalogowano
-      </span>
-    );
+    return <StatusPill tone="success">Zalogowano</StatusPill>;
   }
-  return (
-    <span className="status-pill">
-      <AlertCircle size={14} /> Wymaga logowania
-    </span>
-  );
+  return <StatusPill tone="muted">Wymaga logowania</StatusPill>;
 }

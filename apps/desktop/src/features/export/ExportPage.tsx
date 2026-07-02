@@ -7,7 +7,6 @@ import {
   FileArchive,
   FileText,
   FolderOpen,
-  Image,
   Loader2,
   Palette,
   Save,
@@ -37,6 +36,7 @@ import type {
   WorldWorkspace
 } from "../../shared/api/types";
 import { coverImageSource } from "../../shared/api/assets";
+import { Button, Chip, Field, Segmented } from "../../shared/ui";
 import { useCodexSettingsStore } from "../ai/codexSettingsStore";
 import {
   EXPORT_ARTWORK_FIELD,
@@ -351,15 +351,21 @@ export function ExportPage({ projectId }: ExportPageProps) {
           <p className="eyebrow">Eksport</p>
           <h2>{book?.workingTitle || "Manuskrypt"}</h2>
         </div>
-        <button
-          type="button"
-          className="primary-action"
+        <Button
+          variant="primary"
+          busy={exportMutation.isPending}
           onClick={() => exportMutation.mutate()}
-          disabled={exportMutation.isPending || !book}
+          disabled={!book}
         >
-          {exportMutation.isPending ? <Loader2 size={17} className="spin-icon" /> : <Download size={17} />}
-          {exportMutation.isPending ? "Eksportuję..." : "Eksportuj"}
-        </button>
+          {exportMutation.isPending ? (
+            "Eksportuję..."
+          ) : (
+            <>
+              <Download size={17} />
+              Eksportuj
+            </>
+          )}
+        </Button>
       </div>
 
       <section className={`export-job-status ${exportState}`} aria-live="polite">
@@ -392,15 +398,14 @@ export function ExportPage({ projectId }: ExportPageProps) {
           {exportState === "running" ? <span className="export-progress-bar" /> : null}
         </div>
         {lastExportedFile ? (
-          <button
-            type="button"
-            className="secondary-action compact"
+          <Button
+            size="sm"
             onClick={() => showExportFile(lastExportedFile.filePath)}
             disabled={revealMutation.isPending}
           >
             <FolderOpen size={16} />
             Pokaż plik
-          </button>
+          </Button>
         ) : null}
       </section>
 
@@ -434,8 +439,7 @@ export function ExportPage({ projectId }: ExportPageProps) {
               <FolderOpen size={18} />
               <h3>Folder zapisu</h3>
             </div>
-            <label className="field-label">
-              Lokalizacja eksportu
+            <Field label="Lokalizacja eksportu">
               <div className="folder-field-row">
                 <input
                   value={outputDirectory}
@@ -443,29 +447,25 @@ export function ExportPage({ projectId }: ExportPageProps) {
                   placeholder="Domyślny folder aplikacji"
                   title={outputDirectory || "Domyślny folder aplikacji"}
                 />
-                <button
-                  type="button"
+                <Button
+                  variant="icon"
                   onClick={() => chooseDirectoryMutation.mutate()}
                   disabled={chooseDirectoryMutation.isPending}
                   title="Wybierz folder zapisu eksportu"
                   aria-label="Wybierz folder zapisu eksportu"
                 >
                   {chooseDirectoryMutation.isPending ? (
-                    <Loader2 size={16} className="spin-icon" />
+                    <Loader2 size={16} className="ui-spin" />
                   ) : (
                     <FolderOpen size={16} />
                   )}
-                </button>
+                </Button>
               </div>
-            </label>
+            </Field>
             {outputDirectory ? (
-              <button
-                type="button"
-                className="secondary-action compact"
-                onClick={() => setOutputDirectory("")}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setOutputDirectory("")}>
                 Użyj folderu domyślnego
-              </button>
+              </Button>
             ) : null}
           </section>
 
@@ -474,22 +474,15 @@ export function ExportPage({ projectId }: ExportPageProps) {
               <FileText size={18} />
               <h3>Zakres</h3>
             </div>
-            <div className="segmented-control">
-              <button
-                type="button"
-                className={contentMode === "manuscript" ? "active" : ""}
-                onClick={() => setContentMode("manuscript")}
-              >
-                Manuskrypt
-              </button>
-              <button
-                type="button"
-                className={contentMode === "manuscript_with_summaries" ? "active" : ""}
-                onClick={() => setContentMode("manuscript_with_summaries")}
-              >
-                Ze streszczeniami
-              </button>
-            </div>
+            <Segmented
+              ariaLabel="Tryb treści eksportu"
+              value={contentMode}
+              onChange={setContentMode}
+              items={[
+                { id: "manuscript", label: "Rękopis" },
+                { id: "manuscript_with_summaries", label: "Z adnotacjami" }
+              ]}
+            />
             <div className="chapter-export-list">
               {chapters.map((chapter) => (
                 <label key={chapter.id} className="chapter-export-row">
@@ -511,33 +504,44 @@ export function ExportPage({ projectId }: ExportPageProps) {
               <Save size={18} />
               <h3>Presety</h3>
             </div>
-            <label className="field-label">
-              Nazwa presetu
-              <div className="ai-field-row">
-                <input
-                  value={presetName}
-                  onChange={(event) => setPresetName(event.target.value)}
-                />
-                <button type="button" title="Zaproponuj nazwę presetu" onClick={() => setPresetName("Eksport z separatorami")}>
-                  <Bot size={16} />
-                </button>
-              </div>
-            </label>
-            <button
-              type="button"
-              className="secondary-action"
+            <Field
+              label="Nazwa presetu"
+              actions={
+                <Button
+                  variant="icon"
+                  title="Zaproponuj nazwę presetu"
+                  aria-label="Zaproponuj nazwę presetu"
+                  onClick={() => setPresetName("Eksport z separatorami")}
+                >
+                  <Bot size={15} />
+                </Button>
+              }
+            >
+              <input
+                value={presetName}
+                onChange={(event) => setPresetName(event.target.value)}
+              />
+            </Field>
+            <Button
+              block
+              busy={presetMutation.isPending}
               onClick={() => presetMutation.mutate()}
-              disabled={presetMutation.isPending || !book}
+              disabled={!book}
             >
               <Save size={16} />
               Zapisz preset
-            </button>
+            </Button>
             {presetsQuery.data?.length ? (
               <div className="preset-list">
                 {presetsQuery.data.map((preset) => (
-                  <button type="button" key={preset.id} onClick={() => applyPreset(preset.settingsJson)}>
+                  <Chip
+                    key={preset.id}
+                    tone="accent"
+                    title="Wczytaj preset"
+                    onClick={() => applyPreset(preset.settingsJson)}
+                  >
                     {preset.name}
-                  </button>
+                  </Chip>
                 ))}
               </div>
             ) : null}
@@ -602,7 +606,7 @@ export function ExportPage({ projectId }: ExportPageProps) {
         {exportedFiles.length ? (
           <div className="export-file-list">
             {exportedFiles.map((file) => (
-              <article className="export-file-card" key={file.id}>
+              <article className="export-file-card ui-card" key={file.id}>
                 <div className="export-file-main">
                   <span className="export-file-format">{formatLabel(file.format)}</span>
                   <div>
@@ -615,15 +619,17 @@ export function ExportPage({ projectId }: ExportPageProps) {
                 {file.fallbackFilePath && file.fallbackFilePath !== file.filePath ? (
                   <small className="muted-text">Plik zapasowy: {file.fallbackFilePath}</small>
                 ) : null}
-                <button
-                  type="button"
-                  className="secondary-action compact"
-                  onClick={() => showExportFile(file.filePath)}
-                  disabled={revealMutation.isPending}
-                >
-                  <ExternalLink size={15} />
-                  Pokaż w folderze
-                </button>
+                <div className="export-file-actions">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => showExportFile(file.filePath)}
+                    disabled={revealMutation.isPending}
+                  >
+                    <ExternalLink size={15} />
+                    Pokaż w folderze
+                  </Button>
+                </div>
               </article>
             ))}
           </div>
@@ -658,34 +664,37 @@ function SeparatorEditor({
     <div className="separator-editor">
       <div className="separator-editor-heading">
         <h4>{title}</h4>
-        <button
-          type="button"
+        <Button
+          variant="ai"
+          size="sm"
+          busy={pending}
           onClick={onGenerateArtwork}
-          disabled={pending}
           title="Wygeneruj grafikę separatora"
+          aria-label="Wygeneruj grafikę separatora"
         >
-          {pending ? <Loader2 size={16} className="spin-icon" /> : <Sparkles size={16} />}
-        </button>
+          {pending ? null : <Sparkles size={15} />}
+        </Button>
       </div>
-      <label className="field-label">
-        Tekst / ornament
-        <div className="ai-field-row">
-          <input
-            value={settings.text}
-            onChange={(event) => onChange({ text: event.target.value })}
-          />
-          <button
-            type="button"
+      <Field
+        label="Tekst / ornament"
+        actions={
+          <Button
+            variant="icon"
             title="Zaproponuj ornament dla tego separatora"
+            aria-label="Zaproponuj ornament dla tego separatora"
             onClick={() => onChange({ text: title === "Rozdziały" ? "Rozdział {number}. {title}" : "✦ ✦ ✦" })}
           >
-            <Bot size={16} />
-          </button>
-        </div>
-      </label>
+            <Bot size={15} />
+          </Button>
+        }
+      >
+        <input
+          value={settings.text}
+          onChange={(event) => onChange({ text: event.target.value })}
+        />
+      </Field>
       <div className="separator-controls">
-        <label className="field-label">
-          Rozmiar
+        <Field label="Rozmiar">
           <input
             type="number"
             min={10}
@@ -693,9 +702,8 @@ function SeparatorEditor({
             value={settings.fontSize}
             onChange={(event) => onChange({ fontSize: Number(event.target.value) })}
           />
-        </label>
-        <label className="field-label">
-          Przed
+        </Field>
+        <Field label="Przed">
           <input
             type="number"
             min={0}
@@ -703,9 +711,8 @@ function SeparatorEditor({
             value={settings.spacingBefore}
             onChange={(event) => onChange({ spacingBefore: Number(event.target.value) })}
           />
-        </label>
-        <label className="field-label">
-          Po
+        </Field>
+        <Field label="Po">
           <input
             type="number"
             min={0}
@@ -713,11 +720,10 @@ function SeparatorEditor({
             value={settings.spacingAfter}
             onChange={(event) => onChange({ spacingAfter: Number(event.target.value) })}
           />
-        </label>
+        </Field>
       </div>
       <div className="separator-controls">
-        <label className="field-label">
-          Wyrównanie
+        <Field label="Wyrównanie">
           <select
             value={settings.align}
             onChange={(event) => onChange({ align: event.target.value as ExportSeparatorSettings["align"] })}
@@ -726,23 +732,21 @@ function SeparatorEditor({
             <option value="center">Środek</option>
             <option value="right">Prawo</option>
           </select>
-        </label>
-        <label className="field-label color-field">
-          Kolor
+        </Field>
+        <Field label="Kolor" className="color-field">
           <input
             type="color"
             value={settings.color}
             onChange={(event) => onChange({ color: event.target.value })}
           />
-        </label>
-        <label className="field-label color-field">
-          Tło
+        </Field>
+        <Field label="Tło" className="color-field">
           <input
             type="color"
             value={settings.background}
             onChange={(event) => onChange({ background: event.target.value })}
           />
-        </label>
+        </Field>
       </div>
       <label className="toggle-row">
         <input
@@ -752,8 +756,7 @@ function SeparatorEditor({
         />
         Linia przy separatorze
       </label>
-      <label className="field-label">
-        Grafika
+      <Field label="Grafika">
         <select
           value={settings.imageAssetId ?? ""}
           onChange={(event) => onChange({ imageAssetId: event.target.value || null })}
@@ -765,7 +768,7 @@ function SeparatorEditor({
             </option>
           ))}
         </select>
-      </label>
+      </Field>
     </div>
   );
 }

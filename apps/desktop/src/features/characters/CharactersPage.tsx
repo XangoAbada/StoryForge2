@@ -2,22 +2,19 @@ import {
   Brain,
   Camera,
   Clock3,
-  Link2,
   Loader2,
   Minus,
   Network,
   Plus,
   Save,
-  Search,
   Sparkles,
   Trash2,
   UserRound,
-  Users,
-  X
+  Users
 } from "lucide-react";
-import { FormEvent, MouseEvent, ReactNode, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button, Chip, EmptyState, Field, Modal, StatusPill, Tabs, TwoPane } from "../../shared/ui";
 import { coverImageSource } from "../../shared/api/assets";
 import {
   deleteCharacter,
@@ -127,13 +124,11 @@ type CharacterFieldItem = {
 const characterFieldGroups: Array<{
   title: string;
   description: string;
-  icon: typeof UserRound;
   fields: CharacterFieldItem[];
 }> = [
   {
     title: "Tożsamość",
     description: "Podstawowe informacje, po których łatwo rozpoznać rolę postaci w powieści.",
-    icon: UserRound,
     fields: [
       { field: "characterType", key: "characterType" },
       { field: "name", key: "name" },
@@ -145,7 +140,6 @@ const characterFieldGroups: Array<{
   {
     title: "Motywacje i konflikt",
     description: "Cele, potrzeby i wewnętrzne napięcia, które prowadzą postać przez fabułę.",
-    icon: Sparkles,
     fields: [
       { field: "externalGoal", key: "externalGoal", rows: 2 },
       { field: "internalNeed", key: "internalNeed", rows: 2 },
@@ -157,7 +151,6 @@ const characterFieldGroups: Array<{
   {
     title: "Zasoby i ograniczenia",
     description: "Mocne strony i słabości, które dają scenom tarcie oraz wiarygodne wybory.",
-    icon: Network,
     fields: [
       { field: "strengthsJson", key: "strengthsJson", list: true },
       { field: "weaknessesJson", key: "weaknessesJson", list: true }
@@ -166,7 +159,6 @@ const characterFieldGroups: Array<{
   {
     title: "Głos, łuk i wiedza",
     description: "Sposób mówienia, kierunek przemiany i notatki potrzebne podczas pisania.",
-    icon: Brain,
     fields: [
       { field: "voiceNotes", key: "voiceNotes", rows: 3 },
       { field: "arcSummary", key: "arcSummary", rows: 3 },
@@ -176,7 +168,6 @@ const characterFieldGroups: Array<{
   {
     title: "Wizualia",
     description: "Opis referencyjny używany przy generowaniu obrazu postaci.",
-    icon: Camera,
     fields: [
       { field: "visualPrompt", key: "visualPrompt", rows: 4 }
     ]
@@ -450,192 +441,200 @@ export function CharactersPage({ projectId }: CharactersPageProps) {
   }
 
   return (
-    <section className="characters-page">
-      <header className="characters-header">
+    <section className="bible-page characters-page">
+      <header className="bible-header">
         <div>
           <p className="eyebrow">Story Bible</p>
           <h2>Postacie</h2>
           <p className="muted-text">Profile, relacje, wspomnienia i obrazy referencyjne dla powieści.</p>
         </div>
-        <div className="characters-header-actions">
-          <button
-            type="button"
-            className="secondary-button"
+        <div className="bible-header-actions">
+          <Button
+            variant="ai"
             onClick={generateFullCharacter}
             title="Utwórz pełny tekstowy profil postaci z AI bez obrazu"
             aria-label="Utwórz pełny profil postaci z AI"
           >
-            <Sparkles size={16} />
+            <Sparkles size={16} aria-hidden />
             AI postać
-          </button>
-          <button type="button" className="primary-button" onClick={startNewCharacter}>
-            <Plus size={16} />
-            Nowa postać
-          </button>
+          </Button>
         </div>
       </header>
 
-      <div className="characters-layout">
-        <aside className="characters-list-panel">
-          <div className="characters-toolbar">
-            <label className="characters-search">
-              <Search size={16} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Szukaj postaci" />
-            </label>
-            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} title="Filtruj rodzaj postaci">
-              <option value="all">Wszystkie rodzaje</option>
-              {characterTypeOptions.map((option) => (
-                <option value={option.value} key={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="character-card-list">
-            {filteredCharacters.map((character) => (
-              <CharacterCard
-                key={character.id}
-                character={character}
-                image={assetForCharacter(workspace, character)}
-                relations={relationsForCharacter(workspace, character.id)}
-                active={character.id === selectedCharacterId}
-                onSelect={() => setSelectedCharacterId(character.id)}
-                onDetachRelation={(relationId, event) => {
-                  event.stopPropagation();
-                  deleteRelationMutation.mutate(relationId);
-                }}
+      <TwoPane
+        paneWidth={300}
+        pane={
+          <>
+            <div className="bible-toolbar">
+              <input
+                className="ui-input"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Szukaj postaci"
+                aria-label="Szukaj postaci"
               />
-            ))}
-            {filteredCharacters.length === 0 ? (
-              <p className="character-empty">Brak postaci pasujących do filtrów.</p>
-            ) : null}
-          </div>
-        </aside>
-
-        <main className="character-editor-panel">
-          <form className="character-editor-form" onSubmit={saveCharacter}>
-            <div className="character-editor-heading">
-              <div className="character-avatar">
-                {selectedImage ? <img src={coverImageSource(selectedImage.filePath)} alt="" /> : <UserRound size={34} />}
-              </div>
-              <div>
-                <p className="eyebrow">{selectedCharacter ? "Profil postaci" : "Nowa postać"}</p>
-                <h3>{draft.name || "Bez nazwy"}</h3>
-                <p className="muted-text">{draft.role || "Określ rolę fabularną i najważniejsze napięcie."}</p>
-              </div>
-              <div className="button-row">
-                {selectedCharacter ? (
-                  <button
-                    type="button"
-                    className="ghost-button danger"
-                    onClick={() => deleteCharacterMutation.mutate(selectedCharacter.id)}
-                  >
-                    <Trash2 size={15} />
-                    Usuń
-                  </button>
-                ) : null}
-                <button type="submit" className="primary-button" disabled={characterMutation.isPending}>
-                  <Save size={15} />
-                  {characterMutation.isPending ? "Zapisuję" : "Zapisz"}
-                </button>
-              </div>
+              <select
+                className="ui-input"
+                value={typeFilter}
+                onChange={(event) => setTypeFilter(event.target.value)}
+                title="Filtruj rodzaj postaci"
+                aria-label="Filtruj rodzaj postaci"
+              >
+                <option value="all">Wszystkie rodzaje</option>
+                {characterTypeOptions.map((option) => (
+                  <option value={option.value} key={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
-
-            <div className="character-tabs" role="tablist" aria-label="Sekcje postaci">
-              {characterTabs.map(({ key, label, icon: Icon }) => (
+            <div className="bible-list">
+              {filteredCharacters.map((character) => (
                 <button
                   type="button"
-                  key={key}
-                  className={activeTab === key ? "character-tab active" : "character-tab"}
-                  onClick={() => setActiveTab(key)}
+                  key={character.id}
+                  className={character.id === selectedCharacterId ? "bible-item active" : "bible-item"}
+                  onClick={() => setSelectedCharacterId(character.id)}
                 >
-                  <Icon size={16} />
-                  {label}
+                  <span className="t">{character.name || "Bez nazwy"}</span>
+                  <span className="m">
+                    {typeLabel(character.characterType)}
+                    {character.role ? ` · ${character.role}` : ""}
+                  </span>
                 </button>
               ))}
+              {filteredCharacters.length === 0 ? (
+                <p className="bible-list-empty">Brak postaci pasujących do filtrów.</p>
+              ) : null}
             </div>
+            <Button variant="secondary" block onClick={startNewCharacter}>
+              <Plus size={15} aria-hidden />
+              Nowa postać
+            </Button>
+          </>
+        }
+      >
+        <main className="bible-editor">
+          <div className="bible-editor-heading">
+            <div className="bible-avatar">
+              {selectedImage ? <img src={coverImageSource(selectedImage.filePath)} alt="" /> : <UserRound size={34} />}
+            </div>
+            <div className="bible-editor-heading-body">
+              <p className="eyebrow">{selectedCharacter ? "Profil postaci" : "Nowa postać"}</p>
+              <h3>{draft.name || "Bez nazwy"}</h3>
+              <p className="muted-text">{draft.role || "Określ rolę fabularną i najważniejsze napięcie."}</p>
+            </div>
+            <div className="button-row">
+              {selectedCharacter ? (
+                <Button
+                  variant="danger"
+                  onClick={() => deleteCharacterMutation.mutate(selectedCharacter.id)}
+                >
+                  <Trash2 size={15} aria-hidden />
+                  Usuń
+                </Button>
+              ) : null}
+              <Button
+                variant="primary"
+                type="submit"
+                form="character-profile-form"
+                busy={characterMutation.isPending}
+              >
+                <Save size={15} aria-hidden />
+                {characterMutation.isPending ? "Zapisuję" : "Zapisz"}
+              </Button>
+            </div>
+          </div>
 
-            {activeTab === "profile" ? (
-              <div className="character-profile-groups">
-                {characterFieldGroups.map((group) => {
-                  const Icon = group.icon;
+          <Tabs
+            ariaLabel="Sekcje postaci"
+            items={characterTabs.map(({ key, label, icon: Icon }) => ({
+              id: key,
+              label: (
+                <>
+                  <Icon size={15} aria-hidden />
+                  {label}
+                </>
+              )
+            }))}
+            value={activeTab}
+            onChange={setActiveTab}
+          />
 
-                  return (
-                    <section className="character-profile-group" key={group.title}>
-                      <div className="character-profile-group-heading">
-                        <span className="character-profile-group-icon">
-                          <Icon size={17} />
-                        </span>
-                        <div>
-                          <h4>{group.title}</h4>
-                          <p>{group.description}</p>
-                        </div>
-                      </div>
-                      <div className="character-field-grid">
-                        {group.fields.map((item) => (
-                          <CharacterField
-                            key={item.field}
-                            field={item.field}
-                            value={String(draft[item.key] ?? "")}
-                            rows={item.rows}
-                            list={item.list}
-                            target={selectedCharacter ?? draftCharacterPreview(draft)}
-                            onChange={(value) => setDraft((current) => ({ ...current, [item.key]: value }))}
-                            onGenerate={activateCharacterPromptContext}
-                            onActivate={activateCharacterPromptContext}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  );
-                })}
-              </div>
-            ) : null}
+          {activeTab === "profile" ? (
+            <form id="character-profile-form" className="bible-group-stack" onSubmit={saveCharacter}>
+              {characterFieldGroups.map((group) => (
+                <section className="bible-group" key={group.title}>
+                  <div className="bible-group-heading">
+                    <h4>{group.title}</h4>
+                    <p>{group.description}</p>
+                  </div>
+                  <div className="bible-field-grid">
+                    {group.fields.map((item) => (
+                      <CharacterField
+                        key={item.field}
+                        field={item.field}
+                        value={String(draft[item.key] ?? "")}
+                        rows={item.rows}
+                        list={item.list}
+                        target={selectedCharacter ?? draftCharacterPreview(draft)}
+                        onChange={(value) => setDraft((current) => ({ ...current, [item.key]: value }))}
+                        onGenerate={activateCharacterPromptContext}
+                        onActivate={activateCharacterPromptContext}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </form>
+          ) : null}
 
-            {activeTab === "relations" ? (
-              <RelationsSection
-                character={selectedCharacter}
-                workspace={workspace}
-                onCreate={() => selectedCharacter && setRelationModal({ mode: "create", fromCharacterId: selectedCharacter.id })}
-                onGenerate={() => selectedCharacter && generateRelationForCharacter(selectedCharacter)}
-                onEdit={(relationId) => setRelationModal({ mode: "edit", relationId })}
-                onDelete={(relationId) => deleteRelationMutation.mutate(relationId)}
-              />
-            ) : null}
+          {activeTab === "relations" ? (
+            <RelationsSection
+              character={selectedCharacter}
+              workspace={workspace}
+              onCreate={() => selectedCharacter && setRelationModal({ mode: "create", fromCharacterId: selectedCharacter.id })}
+              onGenerate={() => selectedCharacter && generateRelationForCharacter(selectedCharacter)}
+              onEdit={(relationId) => setRelationModal({ mode: "edit", relationId })}
+              onDelete={(relationId) => deleteRelationMutation.mutate(relationId)}
+            />
+          ) : null}
 
-            {activeTab === "memories" ? (
-              <MemoriesSection
-                character={selectedCharacter}
-                workspace={workspace}
-                onCreate={() => selectedCharacter && setMemoryModal({ mode: "create", characterId: selectedCharacter.id })}
-                onGenerate={() => selectedCharacter && generateMemoryForCharacter(selectedCharacter)}
-                onEdit={(memoryId) => setMemoryModal({ mode: "edit", memoryId })}
-                onDelete={(memoryId) => deleteMemoryMutation.mutate(memoryId)}
-                onCreateLink={(memoryId) => setMemoryLinkModal({ mode: "create", fromMemoryId: memoryId })}
-                onEditLink={(linkId) => setMemoryLinkModal({ mode: "edit", linkId })}
-                onDeleteLink={(linkId) => deleteMemoryLinkMutation.mutate(linkId)}
-              />
-            ) : null}
+          {activeTab === "memories" ? (
+            <MemoriesSection
+              character={selectedCharacter}
+              workspace={workspace}
+              onCreate={() => selectedCharacter && setMemoryModal({ mode: "create", characterId: selectedCharacter.id })}
+              onGenerate={() => selectedCharacter && generateMemoryForCharacter(selectedCharacter)}
+              onEdit={(memoryId) => setMemoryModal({ mode: "edit", memoryId })}
+              onDelete={(memoryId) => deleteMemoryMutation.mutate(memoryId)}
+              onCreateLink={(memoryId) => setMemoryLinkModal({ mode: "create", fromMemoryId: memoryId })}
+              onEditLink={(linkId) => setMemoryLinkModal({ mode: "edit", linkId })}
+            />
+          ) : null}
 
-            {activeTab === "image" ? (
-              <CharacterImageSection
-                character={selectedCharacter}
-                image={selectedImage}
-                onGenerate={() => selectedCharacter && activateCharacterPromptContext("characterImage", selectedCharacter)}
-              />
-            ) : null}
-          </form>
+          {activeTab === "image" ? (
+            <CharacterImageSection
+              character={selectedCharacter}
+              image={selectedImage}
+              onGenerate={() => selectedCharacter && activateCharacterPromptContext("characterImage", selectedCharacter)}
+            />
+          ) : null}
 
           {message ? <p className="success-text">{message}</p> : null}
           {errorMessage ? <p className="warning-text">{errorMessage}</p> : null}
         </main>
-      </div>
+      </TwoPane>
 
       {relationModal ? (
         <RelationModal
           state={relationModal}
           workspace={workspace}
+          saving={relationMutation.isPending}
           onClose={() => setRelationModal(null)}
           onSubmit={(input) => relationMutation.mutate(input)}
+          onDelete={(relationId) => {
+            deleteRelationMutation.mutate(relationId);
+            setRelationModal(null);
+          }}
           onGenerate={activateCharacterPromptContext}
           onActivate={activateCharacterPromptContext}
         />
@@ -645,8 +644,13 @@ export function CharactersPage({ projectId }: CharactersPageProps) {
         <MemoryModal
           state={memoryModal}
           workspace={workspace}
+          saving={memoryMutation.isPending}
           onClose={() => setMemoryModal(null)}
           onSubmit={(input) => memoryMutation.mutate(input)}
+          onDelete={(memoryId) => {
+            deleteMemoryMutation.mutate(memoryId);
+            setMemoryModal(null);
+          }}
           onGenerate={activateCharacterPromptContext}
           onActivate={activateCharacterPromptContext}
         />
@@ -656,8 +660,13 @@ export function CharactersPage({ projectId }: CharactersPageProps) {
         <MemoryLinkModal
           state={memoryLinkModal}
           workspace={workspace}
+          saving={memoryLinkMutation.isPending}
           onClose={() => setMemoryLinkModal(null)}
           onSubmit={(input) => memoryLinkMutation.mutate(input)}
+          onDelete={(linkId) => {
+            deleteMemoryLinkMutation.mutate(linkId);
+            setMemoryLinkModal(null);
+          }}
           onGenerate={activateCharacterPromptContext}
           onActivate={activateCharacterPromptContext}
         />
@@ -690,58 +699,64 @@ function CharacterField({
   const activeTarget = useAiPromptContextStore((state) => activeTargetId ? state.targets[activeTargetId] : null);
   const addContextSourceToActiveTarget = useAiPromptContextStore((state) => state.addContextSourceToActiveTarget);
   const fieldAlreadyInContext = Boolean(activeTarget?.sources.some((source) => source.key === characterPromptContextSource(field, target).key || source.key === field));
+  const activate = () => onActivate(field, target);
 
   return (
-    <div
-      className={rows ? "field-shell character-field wide" : "field-shell character-field"}
-      onClick={(event) => {
-        if (isEditablePromptTarget(event.target)) {
-          onActivate(field, target);
-        }
-      }}
-      onFocusCapture={(event) => {
-        if (isEditablePromptTarget(event.target)) {
-          onActivate(field, target);
-        }
-      }}
-    >
-      <div className="field-heading">
-        <span className="field-label-text">{config.label}</span>
+    <Field
+      label={config.label}
+      className={rows ? "wide" : undefined}
+      actions={
         <AiActions
           field={field}
           target={target}
-          disabled={false}
           onGenerate={onGenerate}
           addDisabled={!activeTarget || fieldAlreadyInContext}
           onAddContext={() => addContextSourceToActiveTarget(characterPromptContextSource(field, target))}
         />
-      </div>
+      }
+    >
       {rows ? (
-        <textarea value={list ? listDisplay(value) : value} onChange={(event) => onChange(event.target.value)} rows={rows} aria-label={config.label} />
+        <textarea
+          value={list ? listDisplay(value) : value}
+          onChange={(event) => onChange(event.target.value)}
+          rows={rows}
+          onFocus={activate}
+          onClick={activate}
+          aria-label={config.label}
+        />
       ) : field === "characterType" ? (
-        <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={config.label}>
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onFocus={activate}
+          aria-label={config.label}
+        >
           {characterTypeOptions.map((option) => (
             <option value={option.value} key={option.value}>{option.label}</option>
           ))}
         </select>
       ) : (
-        <input value={list ? listDisplay(value) : value} onChange={(event) => onChange(event.target.value)} aria-label={config.label} />
+        <input
+          value={list ? listDisplay(value) : value}
+          onChange={(event) => onChange(event.target.value)}
+          onFocus={activate}
+          onClick={activate}
+          aria-label={config.label}
+        />
       )}
-    </div>
+    </Field>
   );
 }
 
 function AiActions({
   field,
   target,
-  disabled,
   addDisabled,
   onGenerate,
   onAddContext
 }: {
   field: CharacterFieldKey;
   target: CharacterPromptEntity;
-  disabled: boolean;
   addDisabled: boolean;
   onGenerate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
   onAddContext: () => void;
@@ -754,11 +769,11 @@ function AiActions({
     })
   );
   return (
-    <div className="ai-field-actions">
-      <button
-        type="button"
-        className="icon-button ai-field-button"
-        disabled={disabled || Boolean(loading)}
+    <>
+      <Button
+        variant="ai"
+        size="sm"
+        disabled={Boolean(loading)}
         onClick={(event) => {
           event.stopPropagation();
           onGenerate(field, target);
@@ -766,61 +781,23 @@ function AiActions({
         title={`Generuj pole "${characterFieldConfigs[field].label}" z AI`}
         aria-label={`Generuj ${characterFieldConfigs[field].label} z AI`}
       >
-        {loading === "running" ? <Loader2 size={15} className="spin-icon" /> : loading === "queued" ? <Clock3 size={15} /> : <Sparkles size={15} />}
-      </button>
-      <button
-        type="button"
-        className="icon-button ai-context-add-button"
+        {loading === "running" ? <Loader2 size={14} className="ui-spin" aria-hidden /> : loading === "queued" ? <Clock3 size={14} aria-hidden /> : <Sparkles size={14} aria-hidden />}
+        AI
+      </Button>
+      <Button
+        variant="icon"
         disabled={addDisabled}
+        onMouseDown={(event) => event.preventDefault()}
         onClick={(event) => {
           event.stopPropagation();
           onAddContext();
         }}
-        title={addDisabled ? "Pole jest juz w kontekscie albo nie ma aktywnego promptu." : "Dodaj pole do kontekstu promptu."}
+        title={addDisabled ? "Pole jest już w kontekście albo nie ma aktywnego promptu." : "Dodaj pole do kontekstu promptu."}
         aria-label={`Dodaj ${characterFieldConfigs[field].label} do kontekstu promptu`}
       >
-        <Plus size={14} />
-      </button>
-    </div>
-  );
-}
-
-function CharacterCard({
-  character,
-  image,
-  relations,
-  active,
-  onSelect,
-  onDetachRelation
-}: {
-  character: Character;
-  image: VisualAsset | null;
-  relations: CharacterRelation[];
-  active: boolean;
-  onSelect: () => void;
-  onDetachRelation: (relationId: string, event: MouseEvent<HTMLButtonElement>) => void;
-}) {
-  return (
-    <button type="button" className={active ? "character-card active" : "character-card"} onClick={onSelect}>
-      <span className="character-card-image">
-        {image ? <img src={coverImageSource(image.filePath)} alt="" /> : <UserRound size={28} />}
-      </span>
-      <span className="character-card-body">
-        <strong>{character.name}</strong>
-        <small>{typeLabel(character.characterType)} / {character.role || "Bez roli"}</small>
-        <span className="character-card-description">{character.shortDescription || "Brak opisu."}</span>
-        <span className="relation-chip-row">
-          {relations.slice(0, 3).map((relation) => (
-            <span className="relation-chip" key={relation.id} title={relation.description}>
-              {relation.relationType}
-              <button type="button" title="Odepnij relację" aria-label="Odepnij relację" onClick={(event) => onDetachRelation(relation.id, event)}>
-                <Minus size={11} />
-              </button>
-            </span>
-          ))}
-        </span>
-      </span>
-    </button>
+        <Plus size={14} aria-hidden />
+      </Button>
+    </>
   );
 }
 
@@ -833,15 +810,15 @@ function RelationsSection({ character, workspace, onCreate, onGenerate, onEdit, 
   onDelete: (relationId: string) => void;
 }) {
   if (!character) {
-    return <PanelEmpty icon={<Users size={22} />} text="Zapisz postać, aby dodawać relacje." />;
+    return <EmptyState icon={<Users size={22} />} title="Brak zapisanej postaci" description="Zapisz postać, aby dodawać relacje." />;
   }
   const relations = relationsForCharacter(workspace, character.id);
   const canGenerateRelation = workspace.characters.some((item) => item.id !== character.id);
   return (
-    <section className="character-section">
+    <section className="bible-section">
       <SectionHeading
         title="Relacje"
-        icon={<Users size={18} />}
+        icon={<Users size={17} />}
         actionLabel="Dodaj relację"
         onAction={onCreate}
         aiActionLabel="AI relacja"
@@ -849,12 +826,12 @@ function RelationsSection({ character, workspace, onCreate, onGenerate, onEdit, 
         aiActionDisabled={!canGenerateRelation}
         aiActionTitle={canGenerateRelation ? "Wygeneruj szkic relacji z AI" : "Dodaj drugą postać, aby wygenerować relację"}
       />
-      <div className="character-relation-list">
+      <div className="bible-card-list">
         {relations.map((relation) => {
           const other = workspace.characters.find((item) => item.id === (relation.fromCharacterId === character.id ? relation.toCharacterId : relation.fromCharacterId));
           return (
             <article
-              className="character-relation-card clickable"
+              className="bible-card clickable"
               key={relation.id}
               role="button"
               tabIndex={0}
@@ -867,15 +844,12 @@ function RelationsSection({ character, workspace, onCreate, onGenerate, onEdit, 
               }}
               title="Otwórz relację"
             >
-              <div>
-                <strong>{other?.name ?? "Postać"} <span>{relation.relationType}</span></strong>
-                <p>{relation.description || relation.opinion || "Brak opisu relacji."}</p>
-              </div>
-              <div className="relation-trust"><span style={{ width: `${relation.trustLevel}%` }} /></div>
-              <div className="button-row">
-                <button
-                  type="button"
-                  className="icon-button"
+              <div className="bible-card-heading">
+                <strong>
+                  {other?.name ?? "Postać"} <Chip tone="accent">{relation.relationType}</Chip>
+                </strong>
+                <Button
+                  variant="icon"
                   onClick={(event) => {
                     event.stopPropagation();
                     onDelete(relation.id);
@@ -883,19 +857,25 @@ function RelationsSection({ character, workspace, onCreate, onGenerate, onEdit, 
                   title="Usuń tylko relację"
                   aria-label="Usuń tylko relację"
                 >
-                  <Minus size={14} />
-                </button>
+                  <Minus size={14} aria-hidden />
+                </Button>
+              </div>
+              <p>{relation.description || relation.opinion || "Brak opisu relacji."}</p>
+              <div className="relation-trust" title={`Zaufanie: ${relation.trustLevel}%`}>
+                <span style={{ width: `${relation.trustLevel}%` }} />
               </div>
             </article>
           );
         })}
-        {relations.length === 0 ? <p className="character-empty">Brak relacji tej postaci.</p> : null}
+        {relations.length === 0 ? (
+          <EmptyState icon={<Users size={22} />} title="Brak relacji" description="Ta postać nie ma jeszcze zapisanych relacji." />
+        ) : null}
       </div>
     </section>
   );
 }
 
-function MemoriesSection({ character, workspace, onCreate, onGenerate, onEdit, onDelete, onCreateLink, onEditLink, onDeleteLink }: {
+function MemoriesSection({ character, workspace, onCreate, onGenerate, onEdit, onDelete, onCreateLink, onEditLink }: {
   character: Character | null;
   workspace: CharacterWorkspace;
   onCreate: () => void;
@@ -904,17 +884,16 @@ function MemoriesSection({ character, workspace, onCreate, onGenerate, onEdit, o
   onDelete: (memoryId: string) => void;
   onCreateLink: (memoryId: string) => void;
   onEditLink: (linkId: string) => void;
-  onDeleteLink: (linkId: string) => void;
 }) {
   if (!character) {
-    return <PanelEmpty icon={<Brain size={22} />} text="Zapisz postać, aby dodawać wspomnienia." />;
+    return <EmptyState icon={<Brain size={22} />} title="Brak zapisanej postaci" description="Zapisz postać, aby dodawać wspomnienia." />;
   }
   const memories = workspace.memories.filter((memory) => memory.characterId === character.id);
   return (
-    <section className="character-section">
+    <section className="bible-section">
       <SectionHeading
         title="Wspomnienia"
-        icon={<Brain size={18} />}
+        icon={<Brain size={17} />}
         actionLabel="Dodaj wspomnienie"
         onAction={onCreate}
         aiActionLabel="AI wspomnienie"
@@ -925,32 +904,44 @@ function MemoriesSection({ character, workspace, onCreate, onGenerate, onEdit, o
         {memories.map((memory) => {
           const links = linksForMemory(workspace, memory.id);
           return (
-            <article className="memory-card" key={memory.id}>
-              <div className="memory-card-heading">
+            <article className="bible-card" key={memory.id}>
+              <div className="bible-card-heading">
                 <strong>{memory.title}</strong>
-                <span>{memory.importance}</span>
+                <StatusPill tone="accent" title="Ważność wspomnienia">{memory.importance}</StatusPill>
               </div>
               <p>{memory.summary || memory.details || "Brak opisu."}</p>
               <small>{[memory.memoryType, memory.subject, memory.emotion].filter(Boolean).join(" / ")}</small>
-              <div className="memory-link-row">
-                {links.map((link) => (
-                  <span className="memory-link-chip" key={link.id} title={link.description}>
-                    <Network size={12} />
-                    {link.strength}
-                    <button type="button" onClick={() => onEditLink(link.id)} title="Edytuj połączenie" aria-label="Edytuj połączenie"><Link2 size={11} /></button>
-                    <button type="button" onClick={() => onDeleteLink(link.id)} title="Usuń połączenie" aria-label="Usuń połączenie"><Minus size={11} /></button>
-                  </span>
-                ))}
-              </div>
+              {links.length > 0 ? (
+                <div className="chip-row">
+                  {links.map((link) => (
+                    <Chip
+                      tone="accent"
+                      key={link.id}
+                      title={link.description || "Edytuj połączenie"}
+                      onClick={() => onEditLink(link.id)}
+                    >
+                      <Network size={11} aria-hidden />
+                      {link.strength}
+                    </Chip>
+                  ))}
+                </div>
+              ) : null}
               <div className="button-row">
-                <button type="button" className="ghost-button" onClick={() => onEdit(memory.id)}>Edytuj</button>
-                <button type="button" className="ghost-button" onClick={() => onCreateLink(memory.id)}><Plus size={14} /> Połącz</button>
-                <button type="button" className="icon-button" onClick={() => onDelete(memory.id)} title="Usuń wspomnienie" aria-label="Usuń wspomnienie"><Trash2 size={14} /></button>
+                <Button variant="ghost" size="sm" onClick={() => onEdit(memory.id)}>Edytuj</Button>
+                <Button variant="ghost" size="sm" onClick={() => onCreateLink(memory.id)}>
+                  <Plus size={14} aria-hidden />
+                  Połącz
+                </Button>
+                <Button variant="icon" onClick={() => onDelete(memory.id)} title="Usuń wspomnienie" aria-label="Usuń wspomnienie">
+                  <Trash2 size={14} aria-hidden />
+                </Button>
               </div>
             </article>
           );
         })}
-        {memories.length === 0 ? <p className="character-empty">Brak wspomnień tej postaci.</p> : null}
+        {memories.length === 0 ? (
+          <EmptyState icon={<Brain size={22} />} title="Brak wspomnień" description="Ta postać nie ma jeszcze zapisanych wspomnień." />
+        ) : null}
       </div>
     </section>
   );
@@ -962,7 +953,7 @@ function CharacterImageSection({ character, image, onGenerate }: {
   onGenerate: () => void;
 }) {
   if (!character) {
-    return <PanelEmpty icon={<Camera size={22} />} text="Zapisz postać, aby wygenerować obraz." />;
+    return <EmptyState icon={<Camera size={22} />} title="Brak zapisanej postaci" description="Zapisz postać, aby wygenerować obraz." />;
   }
   return (
     <section className="character-image-section">
@@ -973,20 +964,22 @@ function CharacterImageSection({ character, image, onGenerate }: {
         <p className="eyebrow">Obraz referencyjny</p>
         <h3>{character.name}</h3>
         <p className="muted-text">{character.visualPrompt || "Prompt obrazu powstanie z profilu postaci i kontekstu książki."}</p>
-        <button type="button" className="primary-button" onClick={onGenerate}>
-          <Camera size={16} />
+        <Button variant="primary" onClick={onGenerate}>
+          <Camera size={16} aria-hidden />
           Generuj obraz
-        </button>
+        </Button>
       </div>
     </section>
   );
 }
 
-function RelationModal({ state, workspace, onClose, onSubmit, onGenerate, onActivate }: {
+function RelationModal({ state, workspace, saving, onClose, onSubmit, onDelete, onGenerate, onActivate }: {
   state: RelationModalState;
   workspace: CharacterWorkspace;
+  saving: boolean;
   onClose: () => void;
   onSubmit: (input: UpsertCharacterRelationInput) => void;
+  onDelete: (relationId: string) => void;
   onGenerate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
   onActivate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
 }) {
@@ -998,41 +991,47 @@ function RelationModal({ state, workspace, onClose, onSubmit, onGenerate, onActi
     return true;
   });
   return (
-    <PortalModal title={existing ? "Edytuj relację" : "Dodaj relację"} eyebrow="Relacja postaci" onClose={onClose}>
-      <form className="modal-form" onSubmit={(event) => { event.preventDefault(); onSubmit(draft); }}>
-        <label className="field-label">Postać docelowa
+    <Modal
+      title={existing ? "Edytuj relację" : "Dodaj relację"}
+      onClose={onClose}
+      size="lg"
+      footer={<ModalFooterActions existingId={existing?.id} saving={saving} formId="relation-modal-form" onClose={onClose} onDelete={onDelete} />}
+    >
+      <form id="relation-modal-form" className="modal-form" onSubmit={(event) => { event.preventDefault(); onSubmit(draft); }}>
+        <Field label="Postać docelowa">
           <select value={draft.toCharacterId} onChange={(event) => setDraft({ ...draft, toCharacterId: event.target.value })}>
             <option value="">Wybierz postać</option>
             {workspace.characters.filter((item) => item.id !== draft.fromCharacterId).map((character) => (
               <option key={character.id} value={character.id}>{character.name}</option>
             ))}
           </select>
-        </label>
-        <label className="field-label">Typ relacji
+        </Field>
+        <Field label="Typ relacji">
           <select value={draft.relationType} onChange={(event) => setDraft({ ...draft, relationType: event.target.value })}>
             {relationTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
-        </label>
+        </Field>
         <ModalAiField field="relationDescription" value={draft.description} target={target} onChange={(value) => setDraft({ ...draft, description: value })} onGenerate={onGenerate} onActivate={onActivate} />
         <ModalAiField field="relationHistory" value={draft.history} target={target} onChange={(value) => setDraft({ ...draft, history: value })} onGenerate={onGenerate} onActivate={onActivate} />
         <ModalAiField field="relationConflict" value={draft.conflict} target={target} onChange={(value) => setDraft({ ...draft, conflict: value })} onGenerate={onGenerate} onActivate={onActivate} />
         <ModalAiField field="relationOpinion" value={draft.opinion} target={target} onChange={(value) => setDraft({ ...draft, opinion: value })} onGenerate={onGenerate} onActivate={onActivate} />
-        <label className="field-label">Zaufanie
+        <Field label={`Zaufanie: ${draft.trustLevel}%`} className="wide">
           <input type="range" min={0} max={100} value={draft.trustLevel} onChange={(event) => setDraft({ ...draft, trustLevel: Number(event.target.value) })} />
-        </label>
+        </Field>
         <ModalAiField field="relationSecret" value={draft.secret} target={target} onChange={(value) => setDraft({ ...draft, secret: value })} onGenerate={onGenerate} onActivate={onActivate} />
         <ModalAiField field="relationChangeOverTime" value={draft.changeOverTime} target={target} onChange={(value) => setDraft({ ...draft, changeOverTime: value })} onGenerate={onGenerate} onActivate={onActivate} />
-        <ModalFooter onClose={onClose} />
       </form>
-    </PortalModal>
+    </Modal>
   );
 }
 
-function MemoryModal({ state, workspace, onClose, onSubmit, onGenerate, onActivate }: {
+function MemoryModal({ state, workspace, saving, onClose, onSubmit, onDelete, onGenerate, onActivate }: {
   state: MemoryModalState;
   workspace: CharacterWorkspace;
+  saving: boolean;
   onClose: () => void;
   onSubmit: (input: UpsertCharacterMemoryInput) => void;
+  onDelete: (memoryId: string) => void;
   onGenerate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
   onActivate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
 }) {
@@ -1044,32 +1043,38 @@ function MemoryModal({ state, workspace, onClose, onSubmit, onGenerate, onActiva
     return true;
   });
   return (
-    <PortalModal title={existing ? "Edytuj wspomnienie" : "Dodaj wspomnienie"} eyebrow="Pamięć postaci" onClose={onClose}>
-      <form className="modal-form" onSubmit={(event) => { event.preventDefault(); onSubmit(draft); }}>
+    <Modal
+      title={existing ? "Edytuj wspomnienie" : "Dodaj wspomnienie"}
+      onClose={onClose}
+      size="lg"
+      footer={<ModalFooterActions existingId={existing?.id} saving={saving} formId="memory-modal-form" onClose={onClose} onDelete={onDelete} />}
+    >
+      <form id="memory-modal-form" className="modal-form" onSubmit={(event) => { event.preventDefault(); onSubmit(draft); }}>
         <ModalAiField field="memoryTitle" value={draft.title} target={target} onChange={(value) => setDraft({ ...draft, title: value })} onGenerate={onGenerate} onActivate={onActivate} rows={1} />
-        <label className="field-label">Typ wspomnienia
+        <Field label="Typ wspomnienia">
           <select value={draft.memoryType} onChange={(event) => setDraft({ ...draft, memoryType: event.target.value })}>
             {memoryTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
-        </label>
+        </Field>
         <ModalAiField field="memorySummary" value={draft.summary} target={target} onChange={(value) => setDraft({ ...draft, summary: value })} onGenerate={onGenerate} onActivate={onActivate} />
         <ModalAiField field="memoryDetails" value={draft.details} target={target} onChange={(value) => setDraft({ ...draft, details: value })} onGenerate={onGenerate} onActivate={onActivate} />
         <ModalAiField field="memorySubject" value={draft.subject} target={target} onChange={(value) => setDraft({ ...draft, subject: value })} onGenerate={onGenerate} onActivate={onActivate} rows={1} />
         <ModalAiField field="memoryEmotion" value={draft.emotion} target={target} onChange={(value) => setDraft({ ...draft, emotion: value })} onGenerate={onGenerate} onActivate={onActivate} rows={1} />
-        <label className="field-label">Ważność
+        <Field label={`Ważność: ${draft.importance}%`} className="wide">
           <input type="range" min={0} max={100} value={draft.importance} onChange={(event) => setDraft({ ...draft, importance: Number(event.target.value) })} />
-        </label>
-        <ModalFooter onClose={onClose} />
+        </Field>
       </form>
-    </PortalModal>
+    </Modal>
   );
 }
 
-function MemoryLinkModal({ state, workspace, onClose, onSubmit, onGenerate, onActivate }: {
+function MemoryLinkModal({ state, workspace, saving, onClose, onSubmit, onDelete, onGenerate, onActivate }: {
   state: MemoryLinkModalState;
   workspace: CharacterWorkspace;
+  saving: boolean;
   onClose: () => void;
   onSubmit: (input: UpsertCharacterMemoryLinkInput) => void;
+  onDelete: (linkId: string) => void;
   onGenerate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
   onActivate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
 }) {
@@ -1081,26 +1086,54 @@ function MemoryLinkModal({ state, workspace, onClose, onSubmit, onGenerate, onAc
     return true;
   });
   return (
-    <PortalModal title={existing ? "Edytuj połączenie" : "Połącz wspomnienia"} eyebrow="Sieć wspomnień" onClose={onClose} small>
-      <form className="modal-form" onSubmit={(event) => { event.preventDefault(); onSubmit(draft); }}>
-        <label className="field-label">Drugie wspomnienie
+    <Modal
+      title={existing ? "Edytuj połączenie" : "Połącz wspomnienia"}
+      onClose={onClose}
+      size="md"
+      footer={<ModalFooterActions existingId={existing?.id} saving={saving} formId="memory-link-modal-form" onClose={onClose} onDelete={onDelete} />}
+    >
+      <form id="memory-link-modal-form" className="modal-form single" onSubmit={(event) => { event.preventDefault(); onSubmit(draft); }}>
+        <Field label="Drugie wspomnienie">
           <select value={draft.toMemoryId} onChange={(event) => setDraft({ ...draft, toMemoryId: event.target.value })}>
             <option value="">Wybierz wspomnienie</option>
             {workspace.memories.filter((memory) => memory.id !== draft.fromMemoryId).map((memory) => (
               <option key={memory.id} value={memory.id}>{memory.title}</option>
             ))}
           </select>
-        </label>
-        <label className="field-label">Typ połączenia
+        </Field>
+        <Field label="Typ połączenia">
           <input value={draft.linkType} onChange={(event) => setDraft({ ...draft, linkType: event.target.value })} />
-        </label>
+        </Field>
         <ModalAiField field="memoryLinkDescription" value={draft.description} target={target} onChange={(value) => setDraft({ ...draft, description: value })} onGenerate={onGenerate} onActivate={onActivate} />
-        <label className="field-label">Siła
+        <Field label={`Siła: ${draft.strength}%`} className="wide">
           <input type="range" min={0} max={100} value={draft.strength} onChange={(event) => setDraft({ ...draft, strength: Number(event.target.value) })} />
-        </label>
-        <ModalFooter onClose={onClose} />
+        </Field>
       </form>
-    </PortalModal>
+    </Modal>
+  );
+}
+
+function ModalFooterActions({ existingId, saving, formId, onClose, onDelete }: {
+  existingId?: string;
+  saving: boolean;
+  formId: string;
+  onClose: () => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <>
+      {existingId ? (
+        <Button variant="danger" onClick={() => onDelete(existingId)} disabled={saving}>
+          <Trash2 size={15} aria-hidden />
+          Usuń
+        </Button>
+      ) : null}
+      <Button variant="ghost" onClick={onClose}>Anuluj</Button>
+      <Button variant="primary" type="submit" form={formId} busy={saving}>
+        <Save size={15} aria-hidden />
+        {saving ? "Zapisuję" : "Zapisz"}
+      </Button>
+    </>
   );
 }
 
@@ -1113,61 +1146,27 @@ function ModalAiField({ field, value, rows = 3, target, onChange, onGenerate, on
   onGenerate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
   onActivate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
 }) {
+  const activate = () => onActivate(field, target);
   return (
-    <div className="field-shell character-field wide" onFocusCapture={(event) => isEditablePromptTarget(event.target) && onActivate(field, target)} onClick={(event) => isEditablePromptTarget(event.target) && onActivate(field, target)}>
-      <div className="field-heading">
-        <span className="field-label-text">{characterFieldConfigs[field].label}</span>
-        <AiActions field={field} target={target} disabled={false} addDisabled={false} onGenerate={onGenerate} onAddContext={() => useAiPromptContextStore.getState().addContextSourceToActiveTarget(characterPromptContextSource(field, target))} />
-      </div>
-      {rows === 1 ? <input value={value} onChange={(event) => onChange(event.target.value)} /> : <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={rows} />}
-    </div>
-  );
-}
-
-function PortalModal({ title, eyebrow, small, children, onClose }: {
-  title: string;
-  eyebrow: string;
-  small?: boolean;
-  children: ReactNode;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
+    <Field
+      label={characterFieldConfigs[field].label}
+      className="wide"
+      actions={
+        <AiActions
+          field={field}
+          target={target}
+          addDisabled={false}
+          onGenerate={onGenerate}
+          onAddContext={() => useAiPromptContextStore.getState().addContextSourceToActiveTarget(characterPromptContextSource(field, target))}
+        />
       }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  const content = (
-    <div className="character-modal" role="dialog" aria-modal="true" aria-labelledby="character-modal-title">
-      <button type="button" className="character-modal-backdrop" onClick={onClose} aria-label="Zamknij modal" />
-      <section className={small ? "character-modal-shell small" : "character-modal-shell"}>
-        <header className="character-modal-header">
-          <div>
-            <p className="eyebrow">{eyebrow}</p>
-            <h3 id="character-modal-title">{title}</h3>
-          </div>
-          <button type="button" className="icon-button" onClick={onClose} title="Zamknij" aria-label="Zamknij">
-            <X size={16} />
-          </button>
-        </header>
-        <div className="character-modal-body">{children}</div>
-      </section>
-    </div>
-  );
-
-  return typeof document === "undefined" ? content : createPortal(content, document.body);
-}
-
-function ModalFooter({ onClose }: { onClose: () => void }) {
-  return (
-    <footer className="character-modal-footer">
-      <button type="button" className="ghost-button" onClick={onClose}>Anuluj</button>
-      <button type="submit" className="primary-button"><Save size={15} /> Zapisz</button>
-    </footer>
+    >
+      {rows === 1 ? (
+        <input value={value} onChange={(event) => onChange(event.target.value)} onFocus={activate} onClick={activate} />
+      ) : (
+        <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={rows} onFocus={activate} onClick={activate} />
+      )}
+    </Field>
   );
 }
 
@@ -1182,33 +1181,29 @@ function SectionHeading({ title, icon, actionLabel, onAction, aiActionLabel, onA
   aiActionTitle?: string;
 }) {
   return (
-    <div className="character-section-heading">
-      <h3>{icon}{title}</h3>
+    <div className="bible-section-heading">
+      <h4>{icon}{title}</h4>
       <div className="button-row">
         {onAiAction ? (
-          <button
-            type="button"
-            className="secondary-button"
+          <Button
+            variant="ai"
+            size="sm"
             onClick={onAiAction}
             disabled={aiActionDisabled}
             title={aiActionTitle}
             aria-label={aiActionLabel}
           >
-            <Sparkles size={15} />
+            <Sparkles size={14} aria-hidden />
             {aiActionLabel}
-          </button>
+          </Button>
         ) : null}
-        <button type="button" className="secondary-button" onClick={onAction}>
-          <Plus size={15} />
+        <Button variant="secondary" size="sm" onClick={onAction}>
+          <Plus size={14} aria-hidden />
           {actionLabel}
-        </button>
+        </Button>
       </div>
     </div>
   );
-}
-
-function PanelEmpty({ icon, text }: { icon: ReactNode; text: string }) {
-  return <div className="character-panel-empty">{icon}<p>{text}</p></div>;
 }
 
 function useDraftRegistration(targetId: string, applier: (field: CharacterFieldKey, value: string) => boolean) {
@@ -1556,8 +1551,4 @@ function listDisplay(value: string): string {
 
 function typeLabel(value: string): string {
   return characterTypeOptions.find((option) => option.value === value)?.label ?? value;
-}
-
-function isEditablePromptTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
 }

@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StoryForge2 — makieta redesignu (redakcyjny jasny)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Schibsted+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+/* ====================== TOKENY ====================== */
+:root {
+  color-scheme: light;
+  /* papier i powierzchnie */
+  --paper: #f7f3ec;
+  --surface: #fffdf9;
+  --surface-sunken: #f1ece2;
+  /* atrament */
+  --ink: #211d16;
+  --ink-soft: #6e6558;
+  --ink-faint: #a89c8b;
+  /* linie */
+  --line: #e4dccd;
+  --line-strong: #cfc4b0;
+  /* akcenty: jeden kolor = jedno znaczenie */
+  --accent: #1f5d57;          /* akcja główna, aktywne */
+  --accent-deep: #14443f;
+  --accent-wash: #e7efec;
+  --ai: #a06a12;              /* marginalia AI (ochra) */
+  --ai-wash: #f7edd9;
+  --danger: #96372a;
+  --danger-wash: #f6e5e0;
+  --success: #2e6b3f;
+  --success-wash: #e6efe4;
+  /* typografia */
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-ui: "Schibsted Grotesk", "Segoe UI", sans-serif;
+  --font-prose: "Source Serif 4", Georgia, serif;
+  /* skala odstępów */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+  --radius: 6px;
+  --shadow: 0 1px 2px rgba(33,29,22,.05), 0 8px 28px rgba(33,29,22,.07);
+  --shadow-lift: 0 2px 4px rgba(33,29,22,.06), 0 16px 44px rgba(33,29,22,.12);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--paper);
+  /* subtelne ziarno papieru */
+  background-image:
+    radial-gradient(rgba(33,29,22,.022) 1px, transparent 1px),
+    radial-gradient(rgba(255,255,255,.5) 1px, transparent 1px);
+  background-size: 7px 7px, 11px 11px;
+  background-position: 0 0, 3px 4px;
+}
+
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; }
+
+button { font: inherit; cursor: pointer; }
+input, textarea, select { font: inherit; color: inherit; }
+
+/* ====================== PASEK MAKIETY ====================== */
+.mock-bar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: var(--s4);
+  padding: var(--s2) var(--s5);
+  background: var(--ink); color: var(--paper);
+  font-size: 12.5px;
+}
+.mock-bar strong { font-family: var(--font-display); font-size: 14px; letter-spacing: .02em; }
+.mock-tabs { display: flex; gap: var(--s1); margin-left: auto; }
+.mock-tabs button {
+  padding: 5px 14px; border: 1px solid rgba(247,243,236,.25); border-radius: 999px;
+  background: transparent; color: var(--paper); font-size: 12.5px;
+}
+.mock-tabs button.active { background: var(--paper); color: var(--ink); border-color: var(--paper); font-weight: 600; }
+
+.screen { display: none; }
+.screen.active { display: block; animation: reveal .45s ease both; }
+@keyframes reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ====================== KOMPONENTY WSPÓLNE ====================== */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: var(--radius);
+  border: 1px solid transparent; font-weight: 600; font-size: 13.5px;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--accent); color: #fdfbf6; }
+.btn-primary:hover { background: var(--accent-deep); box-shadow: var(--shadow); }
+.btn-secondary { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+.btn-secondary:hover { border-color: var(--ink-faint); box-shadow: var(--shadow); }
+.btn-ghost { background: transparent; color: var(--ink-soft); }
+.btn-ghost:hover { background: var(--surface-sunken); color: var(--ink); }
+.btn-ai { background: var(--ai-wash); color: var(--ai); border-color: #e5d3a8; }
+.btn-ai:hover { background: #f2e3c4; }
+.btn-danger-ghost { background: transparent; color: var(--danger); }
+.btn-danger-ghost:hover { background: var(--danger-wash); }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+  letter-spacing: .03em; text-transform: uppercase;
+}
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill-success { background: var(--success-wash); color: var(--success); }
+.pill-warn { background: var(--ai-wash); color: var(--ai); }
+.pill-muted { background: var(--surface-sunken); color: var(--ink-soft); }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+
+.field-label {
+  display: block; font-size: 12px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+.input {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--line-strong);
+  border-radius: var(--radius); background: var(--surface); font-size: 14px;
+}
+.input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+
+/* ====================== SHELL ====================== */
+.shell { display: grid; grid-template-columns: 264px minmax(0,1fr); min-height: calc(100vh - 37px); }
+
+.rail {
+  border-right: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255,253,249,.6), transparent 120px);
+  padding: var(--s5) var(--s4);
+  display: flex; flex-direction: column; gap: var(--s5);
+}
+.rail-brand { display: flex; align-items: baseline; gap: 8px; padding: 0 var(--s2); }
+.rail-brand .mark {
+  font-family: var(--font-display); font-weight: 700; font-size: 21px; color: var(--ink);
+}
+.rail-brand .mark em { font-style: italic; color: var(--accent); }
+.rail-project {
+  padding: var(--s3) var(--s2) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+.rail-project h2 { font-size: 16px; font-style: italic; }
+.rail-project span { font-size: 12px; color: var(--ink-soft); }
+
+/* nawigacja jak spis treści */
+.toc { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.toc a {
+  display: grid; grid-template-columns: 26px 1fr auto; align-items: baseline; gap: 8px;
+  padding: 8px var(--s2); border-radius: var(--radius);
+  color: var(--ink-soft); text-decoration: none; font-size: 14px;
+}
+.toc .num { font-family: var(--font-display); font-size: 13px; color: var(--ink-faint); font-variant-numeric: oldstyle-nums; }
+.toc a:hover { background: var(--surface-sunken); color: var(--ink); }
+.toc a.active {
+  background: var(--accent-wash); color: var(--accent-deep); font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.toc a.active .num { color: var(--accent); }
+.toc .dot { width: 7px; height: 7px; border-radius: 50%; align-self: center; }
+.toc .dot.done { background: var(--success); }
+.toc .dot.wip { background: var(--ai); }
+.toc .dot.todo { border: 1.5px solid var(--line-strong); }
+.rail-bottom { margin-top: auto; border-top: 1px solid var(--line); padding-top: var(--s3); }
+
+.workspace { display: flex; flex-direction: column; min-width: 0; }
+.topbar {
+  display: flex; align-items: center; gap: var(--s4);
+  padding: var(--s3) var(--s6); border-bottom: 1px solid var(--line);
+  background: rgba(255,253,249,.75); backdrop-filter: blur(4px);
+}
+.topbar h1 { font-size: 19px; }
+.topbar .crumb { font-size: 12.5px; color: var(--ink-soft); }
+.autosave { margin-left: auto; display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-soft); }
+.autosave::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+
+.content { padding: var(--s6); flex: 1; min-width: 0; }
+
+/* panel AI — marginalia */
+.with-margin { display: grid; grid-template-columns: minmax(0,1fr) 316px; }
+.marginalia {
+  border-left: 1px dashed var(--line-strong);
+  background: linear-gradient(180deg, var(--ai-wash), transparent 220px);
+  padding: var(--s5) var(--s4);
+  display: flex; flex-direction: column; gap: var(--s4);
+}
+.marginalia h3 {
+  font-size: 13px; font-family: var(--font-ui); font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; color: var(--ai);
+  display: flex; align-items: center; gap: 8px;
+}
+.marginalia h3::before { content: "✎"; font-size: 15px; }
+.margin-note {
+  background: var(--surface); border: 1px solid #e8d9b4; border-radius: var(--radius);
+  padding: var(--s3); font-size: 13px; box-shadow: var(--shadow);
+}
+.margin-note .meta { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 6px; }
+.margin-note .actions { display: flex; gap: 8px; margin-top: 10px; }
+.margin-note .actions .btn { padding: 5px 12px; font-size: 12.5px; }
+.margin-src { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); padding: 3px 0; }
+.margin-src input { accent-color: var(--ai); }
+
+/* ====================== DASHBOARD ====================== */
+.dash { max-width: 1060px; margin: 0 auto; padding: var(--s7) var(--s6); }
+.masthead { text-align: center; padding-bottom: var(--s6); border-bottom: 3px double var(--line-strong); margin-bottom: var(--s6); }
+.masthead .over { font-size: 12px; letter-spacing: .28em; text-transform: uppercase; color: var(--ink-soft); }
+.masthead h1 { font-size: 58px; font-weight: 700; margin: 6px 0 2px; }
+.masthead h1 em { font-style: italic; color: var(--accent); }
+.masthead p { color: var(--ink-soft); font-size: 15px; }
+
+.new-project { display: flex; gap: var(--s3); max-width: 640px; margin: 0 auto var(--s7); }
+.new-project .input { flex: 1; padding: 12px 16px; font-size: 15px; }
+
+.shelf-label {
+  display: flex; align-items: baseline; gap: var(--s3); margin-bottom: var(--s4);
+}
+.shelf-label h2 { font-size: 24px; }
+.shelf-label .rule { flex: 1; border-bottom: 1px solid var(--line-strong); }
+.shelf-label span { font-size: 13px; color: var(--ink-soft); }
+
+.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--s5); }
+.book {
+  display: flex; flex-direction: column; text-align: left;
+  border: none; background: none; padding: 0;
+  transition: transform .18s ease;
+}
+.book:hover { transform: translateY(-4px); }
+.book .cover {
+  aspect-ratio: 2 / 2.9; border-radius: 3px 8px 8px 3px;
+  border: 1px solid var(--line); border-left: 6px solid;
+  box-shadow: var(--shadow); position: relative; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: var(--s4);
+}
+.book:hover .cover { box-shadow: var(--shadow-lift); }
+.cover .cover-title { font-family: var(--font-display); font-weight: 600; font-size: 19px; line-height: 1.2; }
+.cover .cover-sub { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; margin-top: 6px; opacity: .75; }
+.cover-a { background: linear-gradient(160deg, #22403c, #14302c); color: #ecf2ef; border-left-color: #0e2422 !important; }
+.cover-b { background: linear-gradient(160deg, #f3e6cd, #e9d5ac); color: #4c3a12; border-left-color: #c9a95e !important; }
+.cover-c { background: linear-gradient(160deg, #3b2f3f, #241c28); color: #efe8f0; border-left-color: #171019 !important; }
+.cover-new {
+  background: transparent; border: 1.5px dashed var(--line-strong); border-left-width: 1.5px;
+  align-items: center; justify-content: center; color: var(--ink-faint);
+  font-size: 40px; font-weight: 300;
+}
+.book .meta { padding: var(--s3) 2px 0; }
+.book .meta .t { font-weight: 600; font-size: 14.5px; }
+.book .meta .d { font-size: 12.5px; color: var(--ink-soft); }
+.book .meta .row { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+
+/* ====================== PLAN ====================== */
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px; background: var(--surface); }
+.seg button { border: none; background: transparent; padding: 6px 18px; border-radius: 999px; font-size: 13px; color: var(--ink-soft); font-weight: 600; }
+.seg button.active { background: var(--ink); color: var(--paper); }
+
+.steps { display: flex; align-items: center; gap: 0; margin: var(--s5) 0 var(--s6); flex-wrap: wrap; }
+.step { display: flex; align-items: center; gap: 9px; padding: 7px 14px 7px 8px; border-radius: 999px; border: none; background: transparent; color: var(--ink-soft); font-size: 13.5px; }
+.step .n {
+  width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 12.5px;
+  border: 1.5px solid var(--line-strong); color: var(--ink-soft); background: var(--surface);
+}
+.step.done .n { background: var(--success-wash); border-color: var(--success); color: var(--success); }
+.step.active { color: var(--accent-deep); font-weight: 700; }
+.step.active .n { background: var(--accent); border-color: var(--accent); color: #fff; }
+.step-sep { width: 26px; border-bottom: 1px dotted var(--line-strong); }
+
+.plan-head { display: flex; align-items: center; gap: var(--s4); margin-bottom: var(--s4); }
+.plan-head h2 { font-size: 26px; }
+.plan-head .spacer { flex: 1; }
+
+.act-label {
+  display: flex; align-items: center; gap: var(--s3); margin: var(--s5) 0 var(--s3);
+  font-family: var(--font-display); font-style: italic; font-size: 16px; color: var(--ink-soft);
+}
+.act-label::after { content: ""; flex: 1; border-bottom: 1px solid var(--line); }
+
+.chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--s4); }
+.chapter-card { padding: var(--s4); display: flex; flex-direction: column; gap: 9px; transition: box-shadow .15s ease; }
+.chapter-card:hover { box-shadow: var(--shadow-lift); }
+.chapter-card .head { display: flex; align-items: baseline; gap: 10px; }
+.chapter-card .roman { font-family: var(--font-display); font-size: 22px; color: var(--ink-faint); min-width: 30px; }
+.chapter-card .head h3 { font-size: 16.5px; }
+.chapter-card p { font-size: 13px; color: var(--ink-soft); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 11.5px; font-weight: 600; padding: 2.5px 9px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink-soft);
+}
+.chip.thread { border-color: #c8d6d3; background: var(--accent-wash); color: var(--accent-deep); }
+.chip.beat { border-color: #e0cba0; background: var(--ai-wash); color: var(--ai); }
+.chapter-card .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; font-size: 12px; color: var(--ink-soft); }
+
+/* ====================== EDYTOR SCEN ====================== */
+.editor-grid { display: grid; grid-template-columns: 252px minmax(0,1fr); min-height: 100%; }
+.scene-rail { border-right: 1px solid var(--line); padding: var(--s4); }
+.scene-rail .field-label { margin-top: var(--s3); }
+.scene-list { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: var(--s2); }
+.scene-item {
+  text-align: left; border: 1px solid transparent; background: transparent;
+  border-radius: var(--radius); padding: 9px 11px; display: flex; flex-direction: column; gap: 3px;
+}
+.scene-item:hover { background: var(--surface-sunken); }
+.scene-item.active { background: var(--surface); border-color: var(--line); box-shadow: var(--shadow); }
+.scene-item .t { font-weight: 600; font-size: 13.5px; }
+.scene-item .m { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink-soft); }
+
+.manuscript-wrap { padding: var(--s6); display: flex; flex-direction: column; gap: var(--s4); align-items: center; }
+.ms-toolbar {
+  display: flex; gap: 2px; align-self: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+  padding: 4px 8px; box-shadow: var(--shadow); position: sticky; top: var(--s3); z-index: 5;
+}
+.ms-toolbar button {
+  width: 30px; height: 30px; border: none; background: transparent; border-radius: 50%;
+  color: var(--ink-soft); font-size: 13.5px;
+}
+.ms-toolbar button:hover { background: var(--surface-sunken); color: var(--ink); }
+.ms-toolbar .sep { width: 1px; background: var(--line); margin: 5px 6px; }
+
+.manuscript {
+  width: 100%; max-width: 660px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 2px;
+  box-shadow: var(--shadow-lift); padding: 64px 72px; position: relative;
+}
+.manuscript::before {
+  content: ""; position: absolute; inset: 0 auto 0 44px;
+  border-left: 1px solid rgba(150,55,42,.12);
+}
+.manuscript .scene-no { font-size: 11.5px; letter-spacing: .3em; text-transform: uppercase; color: var(--ink-faint); text-align: center; }
+.manuscript h2 { font-size: 30px; text-align: center; margin: 10px 0 34px; }
+.manuscript .prose { font-family: var(--font-prose); font-size: 16.5px; line-height: 1.75; color: #2a251d; }
+.manuscript .prose p + p { text-indent: 1.6em; margin-top: 4px; }
+.manuscript .prose p:first-of-type::first-letter {
+  font-family: var(--font-display); font-size: 52px; line-height: .9;
+  float: left; padding: 4px 8px 0 0; color: var(--accent);
+}
+.ms-count { font-size: 12px; color: var(--ink-faint); text-align: right; margin-top: var(--s5); }
+
+.scene-meta-row { display: flex; gap: 8px; flex-wrap: wrap; max-width: 660px; width: 100%; }
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <strong>StoryForge2 · makieta redesignu</strong>
+  <span>kierunek: redakcyjny jasny</span>
+  <nav class="mock-tabs">
+    <button class="active" data-screen="dash">Dashboard</button>
+    <button data-screen="plan">Plan</button>
+    <button data-screen="editor">Edytor scen</button>
+  </nav>
+</div>
+
+<!-- ============ EKRAN 1: DASHBOARD ============ -->
+<section class="screen active" id="screen-dash">
+  <div class="dash">
+    <header class="masthead">
+      <div class="over">Lokalny warsztat pisarski</div>
+      <h1>Story<em>Forge</em></h1>
+      <p>Od pierwszej iskry pomysłu do gotowego rękopisu.</p>
+    </header>
+
+    <div class="new-project">
+      <input class="input" placeholder="Roboczy tytuł nowej książki…">
+      <button class="btn btn-ai">✎ Zaproponuj</button>
+      <button class="btn btn-primary">Załóż projekt</button>
+    </div>
+
+    <div class="shelf-label">
+      <h2>Twoja półka</h2>
+      <div class="rule"></div>
+      <span>3 projekty · ostatnio: dziś 14:32</span>
+    </div>
+
+    <div class="shelf">
+      <button class="book">
+        <span class="cover cover-a">
+          <span class="cover-title">Cień nad Wisłą</span>
+          <span class="cover-sub">Kryminał · tom I</span>
+        </span>
+        <span class="meta">
+          <span class="t">Cień nad Wisłą</span>
+          <span class="row"><span class="d">edytowano dziś</span><span class="pill pill-success">Pisanie</span></span>
+        </span>
+      </button>
+      <button class="book">
+        <span class="cover cover-b">
+          <span class="cover-title">Ogrody popiołu</span>
+          <span class="cover-sub">Fantasy</span>
+        </span>
+        <span class="meta">
+          <span class="t">Ogrody popiołu</span>
+          <span class="row"><span class="d">edytowano wczoraj</span><span class="pill pill-warn">Plan</span></span>
+        </span>
+      </button>
+      <button class="book">
+        <span class="cover cover-c">
+          <span class="cover-title">Ostatni seans</span>
+          <span class="cover-sub">Thriller</span>
+        </span>
+        <span class="meta">
+          <span class="t">Ostatni seans</span>
+          <span class="row"><span class="d">edytowano 12 cze</span><span class="pill pill-muted">Koncepcja</span></span>
+        </span>
+      </button>
+      <button class="book">
+        <span class="cover cover-new">+</span>
+        <span class="meta"><span class="t" style="color:var(--ink-soft)">Nowy projekt</span></span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EKRAN 2: PLAN ============ -->
+<section class="screen" id="screen-plan">
+  <div class="shell">
+    <aside class="rail">
+      <div class="rail-brand"><span class="mark">S<em>F</em></span></div>
+      <div class="rail-project">
+        <h2>Cień nad Wisłą</h2>
+        <span>Kryminał · 42 180 / 90 000 słów</span>
+      </div>
+      <ul class="toc">
+        <li><a href="#"><span class="num">01</span> Koncepcja <span class="dot done"></span></a></li>
+        <li><a href="#" class="active"><span class="num">02</span> Plan <span class="dot wip"></span></a></li>
+        <li><a href="#"><span class="num">03</span> Postacie <span class="dot done"></span></a></li>
+        <li><a href="#"><span class="num">04</span> Świat <span class="dot wip"></span></a></li>
+        <li><a href="#"><span class="num">05</span> Edytor <span class="dot todo"></span></a></li>
+        <li><a href="#"><span class="num">06</span> Eksport <span class="dot todo"></span></a></li>
+      </ul>
+      <div class="rail-bottom">
+        <ul class="toc">
+          <li><a href="#"><span class="num">✎</span> Asystent AI</a></li>
+          <li><a href="#"><span class="num">⚙</span> Ustawienia</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <div class="topbar">
+        <div>
+          <div class="crumb">Plan · krok 3 z 6</div>
+          <h1>Rozdziały</h1>
+        </div>
+        <div class="autosave">zapisano przed chwilą</div>
+        <div class="seg">
+          <button class="active">Kreator</button>
+          <button>Podgląd</button>
+        </div>
+      </div>
+
+      <div class="with-margin">
+        <div class="content">
+          <div class="steps">
+            <button class="step done"><span class="n">✓</span> Struktura</button><span class="step-sep"></span>
+            <button class="step done"><span class="n">✓</span> Akty</button><span class="step-sep"></span>
+            <button class="step active"><span class="n">3</span> Rozdziały</button><span class="step-sep"></span>
+            <button class="step"><span class="n">4</span> Wątki</button><span class="step-sep"></span>
+            <button class="step"><span class="n">5</span> Beaty</button><span class="step-sep"></span>
+            <button class="step"><span class="n">6</span> Sceny</button>
+          </div>
+
+          <div class="plan-head">
+            <h2>Szkielet rozdziałów</h2>
+            <div class="spacer"></div>
+            <button class="btn btn-ai">✎ Generuj sceny dla rozdziałów</button>
+            <button class="btn btn-secondary">+ Rozdział</button>
+          </div>
+
+          <div class="act-label">Akt I — Zawiązanie</div>
+          <div class="chapters">
+            <div class="card chapter-card">
+              <div class="head"><span class="roman">I</span><h3>Ciało w porcie</h3></div>
+              <p>Komisarz Zaręba zostaje wezwany do znaleziska na nabrzeżu. Pierwsze poszlaki prowadzą donikąd.</p>
+              <div class="chips">
+                <span class="chip thread">Śledztwo</span>
+                <span class="chip beat">Otwarcie</span>
+                <span class="chip">3 sceny</span>
+              </div>
+              <div class="foot"><span>~4 200 słów</span><span class="pill pill-success">Gotowy</span></div>
+            </div>
+            <div class="card chapter-card">
+              <div class="head"><span class="roman">II</span><h3>Stare długi</h3></div>
+              <p>Przeszłość Zaręby wraca w postaci dawnego informatora, który wie więcej, niż mówi.</p>
+              <div class="chips">
+                <span class="chip thread">Śledztwo</span>
+                <span class="chip thread">Przeszłość Zaręby</span>
+                <span class="chip">2 sceny</span>
+              </div>
+              <div class="foot"><span>~3 800 słów</span><span class="pill pill-warn">Szkic</span></div>
+            </div>
+            <div class="card chapter-card">
+              <div class="head"><span class="roman">III</span><h3>Fałszywy trop</h3></div>
+              <p>Zatrzymanie podejrzanego okazuje się pułapką zastawioną przez kogoś z komendy.</p>
+              <div class="chips">
+                <span class="chip beat">Pierwszy zwrot</span>
+                <span class="chip">bez scen</span>
+              </div>
+              <div class="foot"><span>—</span><span class="pill pill-muted">Planowany</span></div>
+            </div>
+          </div>
+
+          <div class="act-label">Akt II — Konfrontacja</div>
+          <div class="chapters">
+            <div class="card chapter-card">
+              <div class="head"><span class="roman">IV</span><h3>Miasto pod wodą</h3></div>
+              <p>Powódź odcina dzielnicę i grzebie dowody. Zaręba działa wbrew prokuraturze.</p>
+              <div class="chips">
+                <span class="chip thread">Śledztwo</span>
+                <span class="chip beat">Podniesienie stawki</span>
+                <span class="chip">bez scen</span>
+              </div>
+              <div class="foot"><span>—</span><span class="pill pill-muted">Planowany</span></div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="marginalia">
+          <h3>Marginalia AI</h3>
+          <div class="margin-note">
+            <div class="meta">Propozycja · rozdział III · przed chwilą</div>
+            „Fałszywy trop" mógłby kończyć się sceną z perspektywy antagonisty — wzmocni to zwrot i zasieje nieufność wobec komendy.
+            <div class="actions">
+              <button class="btn btn-primary">Przyjmij</button>
+              <button class="btn btn-ghost">Odrzuć</button>
+            </div>
+          </div>
+          <div>
+            <span class="field-label">Kontekst promptu</span>
+            <label class="margin-src"><input type="checkbox" checked> Koncepcja książki</label>
+            <label class="margin-src"><input type="checkbox" checked> Struktura aktów</label>
+            <label class="margin-src"><input type="checkbox"> Karty postaci</label>
+            <label class="margin-src"><input type="checkbox"> Zasady świata</label>
+          </div>
+          <button class="btn btn-ai" style="justify-content:center">✎ Zapytaj o ten krok</button>
+        </aside>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EKRAN 3: EDYTOR SCEN ============ -->
+<section class="screen" id="screen-editor">
+  <div class="shell">
+    <aside class="rail">
+      <div class="rail-brand"><span class="mark">S<em>F</em></span></div>
+      <div class="rail-project">
+        <h2>Cień nad Wisłą</h2>
+        <span>Kryminał · 42 180 / 90 000 słów</span>
+      </div>
+      <ul class="toc">
+        <li><a href="#"><span class="num">01</span> Koncepcja <span class="dot done"></span></a></li>
+        <li><a href="#"><span class="num">02</span> Plan <span class="dot wip"></span></a></li>
+        <li><a href="#"><span class="num">03</span> Postacie <span class="dot done"></span></a></li>
+        <li><a href="#"><span class="num">04</span> Świat <span class="dot wip"></span></a></li>
+        <li><a href="#" class="active"><span class="num">05</span> Edytor <span class="dot wip"></span></a></li>
+        <li><a href="#"><span class="num">06</span> Eksport <span class="dot todo"></span></a></li>
+      </ul>
+      <div class="rail-bottom">
+        <ul class="toc">
+          <li><a href="#"><span class="num">✎</span> Asystent AI</a></li>
+          <li><a href="#"><span class="num">⚙</span> Ustawienia</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <div class="topbar">
+        <div>
+          <div class="crumb">Edytor · Rozdział I — Ciało w porcie</div>
+          <h1>Świt nad nabrzeżem</h1>
+        </div>
+        <div class="autosave">zapisano przed chwilą</div>
+      </div>
+
+      <div class="with-margin">
+        <div class="editor-grid">
+          <aside class="scene-rail">
+            <span class="field-label">Rozdział</span>
+            <select class="input">
+              <option>I — Ciało w porcie</option>
+              <option>II — Stare długi</option>
+            </select>
+            <span class="field-label" style="margin-top:16px">Sceny</span>
+            <ul class="scene-list">
+              <li><button class="scene-item active">
+                <span class="t">Świt nad nabrzeżem</span>
+                <span class="m"><span class="pill pill-success" style="padding:1px 8px">Napisana</span><span>1 640 słów</span></span>
+              </button></li>
+              <li><button class="scene-item">
+                <span class="t">Pierwsze oględziny</span>
+                <span class="m"><span class="pill pill-warn" style="padding:1px 8px">Szkic</span><span>920 słów</span></span>
+              </button></li>
+              <li><button class="scene-item">
+                <span class="t">Telefon z prokuratury</span>
+                <span class="m"><span class="pill pill-muted" style="padding:1px 8px">Planowana</span><span>—</span></span>
+              </button></li>
+            </ul>
+            <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:12px">+ Nowa scena</button>
+          </aside>
+
+          <div class="manuscript-wrap">
+            <div class="ms-toolbar">
+              <button><b>B</b></button>
+              <button><i>I</i></button>
+              <button><u>U</u></button>
+              <span class="sep"></span>
+              <button>„”</button>
+              <button>¶</button>
+              <button>—</button>
+              <span class="sep"></span>
+              <button title="Cofnij">↺</button>
+              <button title="Ponów">↻</button>
+            </div>
+
+            <article class="manuscript">
+              <div class="scene-no">Rozdział I · Scena 1</div>
+              <h2>Świt nad nabrzeżem</h2>
+              <div class="prose">
+                <p>Mgła nad Wisłą miała tego ranka kolor rozcieńczonego mleka i zapach mułu, który komisarz Zaręba znał aż za dobrze. Stał na skraju nabrzeża, z rękami w kieszeniach płaszcza, i patrzył, jak technicy rozstawiają parawan wokół czegoś, co jeszcze wczoraj było człowiekiem.</p>
+                <p>— Długo tak będziesz stał? — Szymczyk podała mu kubek z automatu. Kawa pachniała plastikiem.</p>
+                <p>— Aż mgła opadnie — odparł. — Wtedy zobaczymy, co widział zabójca.</p>
+                <p>Nie dodał, że mgła w tym mieście nie opadała nigdy do końca. Że osiadała na wszystkim — na aktach, na ludziach, na pamięci — cienką warstwą, której nie dało się już potem zmyć.</p>
+              </div>
+              <div class="ms-count">1 640 słów · cel sceny: 1 800</div>
+            </article>
+
+            <div class="scene-meta-row">
+              <span class="chip thread">Śledztwo</span>
+              <span class="chip">Zaręba</span>
+              <span class="chip">Szymczyk</span>
+              <span class="chip">Nabrzeże portowe</span>
+              <button class="chip" style="cursor:pointer">+ powiąż</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="marginalia">
+          <h3>Marginalia AI</h3>
+          <div class="margin-note">
+            <div class="meta">Kontynuacja sceny · 2 warianty</div>
+            Zaręba klęka przy parawanie. Wariant A prowadzi przez dialog z technikiem, wariant B przez retrospekcję sprawy sprzed lat.
+            <div class="actions">
+              <button class="btn btn-primary">Wstaw A</button>
+              <button class="btn btn-secondary">Wstaw B</button>
+              <button class="btn btn-ghost">Odrzuć</button>
+            </div>
+          </div>
+          <div>
+            <span class="field-label">Własna instrukcja</span>
+            <textarea class="input" rows="3" placeholder="np. dopisz zakończenie sceny w napiętym tonie…"></textarea>
+          </div>
+          <div>
+            <span class="field-label">Tryb wstawiania</span>
+            <div class="seg" style="width:100%">
+              <button class="active" style="flex:1">Dopisz</button>
+              <button style="flex:1">Zastąp</button>
+              <button style="flex:1">Przed</button>
+            </div>
+          </div>
+          <button class="btn btn-ai" style="justify-content:center">✎ Generuj kontynuację</button>
+          <div>
+            <span class="field-label">Spójność</span>
+            <div class="margin-note" style="border-color:var(--line)">
+              <div class="meta">Audyt Story Bible</div>
+              Scena zgodna z kartą Zaręby i zasadami świata. Ostatni audyt: dziś 14:02.
+              <div class="actions"><button class="btn btn-ghost">Sprawdź ponownie</button></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+document.querySelectorAll('.mock-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mock-tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('screen-' + btn.dataset.screen).classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { BookOpen, FolderOpen, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Plus, Sparkles, Trash2 } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -13,7 +13,7 @@ import { coverImageSource } from "../../shared/api/assets";
 import { formatLocalDateTime } from "../../shared/date";
 import { AiProposalPanel } from "../ai/AiProposalPanel";
 import { AiPromptContextPanel } from "../ai/AiPromptContextPanel";
-import { CodexStatusPanel } from "../ai/CodexStatusPanel";
+import { AiProviderStatusPanel } from "../ai/AiProviderStatusPanel";
 import { useCodexSettingsStore } from "../ai/codexSettingsStore";
 import {
   NEW_PROJECT_TITLE_PROMPT_TARGET_ID,
@@ -30,11 +30,22 @@ import {
   renderNewProjectTitlePromptPackage,
   renderPromptPackage
 } from "../ai/promptPackage";
+import { Button, EmptyState, Spinner, StatusPill } from "../../shared/ui";
 import {
   NEW_PROJECT_PROPOSAL_ID,
   pendingProposalStatus,
   useProposalStore
 } from "../ai/proposalStore";
+
+function projectCountLabel(count: number): string {
+  if (count === 1) {
+    return "1 projekt";
+  }
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  const few = mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14);
+  return `${count} ${few ? "projekty" : "projektów"}`;
+}
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -249,114 +260,110 @@ export function DashboardPage() {
     });
   }
 
+  const projectCount = projectsQuery.data?.length ?? 0;
+
   return (
     <main className="dashboard dashboard-with-panel">
       <div className="dashboard-main-column">
-        <section className="dashboard-header">
-          <div>
-            <p className="eyebrow">StoryForge2</p>
-            <h1>Projekty</h1>
-            <p className="muted-text">
-              Lokalny warsztat pisarski z kanonem, SQLite i Codex CLI Bridge.
-            </p>
-            <Link to="/settings" className="muted-text">
-              Ustawienia AI
-            </Link>
-          </div>
-          <form className="new-project-form" onSubmit={handleSubmit}>
-            <label className="field-label">
-              Nowy projekt
-              <div className="inline-control new-project-title-control">
-                <BookOpen size={16} aria-hidden="true" />
-                <input
-                  value={name}
-                  onFocus={() => activateNewProjectTitleTarget()}
-                  onChange={(event) => {
-                    setName(event.target.value);
-                    activateNewProjectTitleTarget(event.target.value);
-                  }}
-                  placeholder="Roboczy tytuł książki"
-                />
-                <button
-                  type="button"
-                  className="icon-button ai-inline-button"
-                  aria-label="Generuj tytuł dla nowego projektu"
-                  title="Generuj tytuł dla nowego projektu"
-                  onClick={() => activateNewProjectTitleTarget()}
-                  disabled={
-                    Boolean(newProjectStatus) ||
-                    createMutation.isPending ||
-                    codexUnavailable ||
-                    codexStatusQuery.isLoading
-                  }
-                >
-                  {newProjectStatus ? (
-                    <Loader2 size={16} className="spin-icon" />
-                  ) : (
-                    <Sparkles size={16} />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="icon-button ai-context-add-button"
-                  aria-label="Dodaj wpis autora do kontekstu promptu"
-                  title={
-                    activePromptTarget
-                      ? "Wpis autora jest już wymaganym kontekstem tego promptu."
-                      : "Najpierw zaznacz pole tekstowe, aby otworzyć kontekst promptu."
-                  }
-                  disabled
-                >
-                  <Plus size={14} />
-                </button>
-                <button
-                  type="submit"
-                  className="icon-button strong"
-                  aria-label="Utwórz projekt"
-                  title="Utwórz projekt"
-                  disabled={createMutation.isPending || name.trim().length === 0}
-                >
-                  <Plus size={17} />
-                </button>
-              </div>
-            </label>
-            {createMutation.isError ? (
-              <p className="warning-text">Nie udało się utworzyć projektu.</p>
-            ) : null}
-          </form>
-        </section>
+        <header className="masthead">
+          <p className="masthead-over">Lokalny warsztat pisarski</p>
+          <h1>
+            Story<em>Forge</em>
+          </h1>
+          <p className="masthead-tagline">
+            Od pierwszej iskry pomysłu do gotowego rękopisu.
+          </p>
+          <Link to="/settings" className="masthead-link">
+            Ustawienia AI
+          </Link>
+        </header>
 
-        <section className="project-list-section">
-          <div className="section-title-row">
-            <div>
-              <p className="eyebrow">Biblioteka</p>
-              <h2>Ostatnie projekty</h2>
-            </div>
-            <FolderOpen size={20} aria-hidden="true" />
+        <form className="new-project-form" onSubmit={handleSubmit}>
+          <div className="new-project-row">
+            <input
+              className="new-project-input"
+              value={name}
+              onFocus={() => activateNewProjectTitleTarget()}
+              onChange={(event) => {
+                setName(event.target.value);
+                activateNewProjectTitleTarget(event.target.value);
+              }}
+              placeholder="Roboczy tytuł książki"
+              aria-label="Roboczy tytuł nowej książki"
+            />
+            <Button
+              variant="ai"
+              aria-label="Generuj tytuł dla nowego projektu"
+              title="Generuj tytuł dla nowego projektu"
+              onClick={() => activateNewProjectTitleTarget()}
+              disabled={
+                Boolean(newProjectStatus) ||
+                createMutation.isPending ||
+                codexUnavailable ||
+                codexStatusQuery.isLoading
+              }
+            >
+              {newProjectStatus ? (
+                <Spinner />
+              ) : (
+                <Sparkles size={15} aria-hidden="true" />
+              )}
+              Zaproponuj
+            </Button>
+            <Button
+              variant="icon"
+              aria-label="Dodaj wpis autora do kontekstu promptu"
+              title={
+                activePromptTarget
+                  ? "Wpis autora jest już wymaganym kontekstem tego promptu."
+                  : "Najpierw zaznacz pole tekstowe, aby otworzyć kontekst promptu."
+              }
+              disabled
+            >
+              <Plus size={14} />
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              busy={createMutation.isPending}
+              disabled={name.trim().length === 0}
+            >
+              Załóż projekt
+            </Button>
+          </div>
+          {createMutation.isError ? (
+            <p className="warning-text">Nie udało się utworzyć projektu.</p>
+          ) : null}
+        </form>
+
+        <section className="shelf-section">
+          <div className="shelf-label">
+            <h2>Twoja półka</h2>
+            <div className="rule" aria-hidden="true" />
+            {projectCount > 0 ? <span>{projectCountLabel(projectCount)}</span> : null}
           </div>
 
           {projectsQuery.isLoading ? (
-            <p className="muted-text">Ładuję projekty...</p>
+            <p className="muted-text shelf-loading">
+              <Spinner /> Ładuję projekty...
+            </p>
           ) : null}
 
           {projectsQuery.isError ? (
-            <div className="empty-state">
-              <h3>Backend desktopowy nie odpowiada</h3>
-              <p>
-                Uruchom aplikację przez Tauri, aby korzystać z lokalnej bazy
-                SQLite i komend Rust.
-              </p>
-            </div>
+            <EmptyState
+              title="Backend desktopowy nie odpowiada"
+              description="Uruchom aplikację przez Tauri, aby korzystać z lokalnej bazy SQLite i komend Rust."
+            />
           ) : null}
 
           {projectsQuery.data?.length === 0 ? (
-            <div className="empty-state">
-              <h3>Jeszcze nie ma projektów</h3>
-              <p>Utwórz pierwszy projekt, a StoryForge2 założy książkę i bazę.</p>
-            </div>
+            <EmptyState
+              title="Jeszcze nie ma projektów"
+              description="Utwórz pierwszy projekt, a StoryForge2 założy książkę i bazę."
+            />
           ) : null}
 
-          <div className="project-grid">
+          <div className="shelf">
             {projectsQuery.data?.map((project) => {
               const coverSrc = coverImageSource(project.coverImagePath);
               const displayTitle = project.workingTitle || project.name;
@@ -375,31 +382,35 @@ export function DashboardPage() {
                 !projectTitleAlreadyInContext;
 
               return (
-                <article className="project-card-shell" key={project.id}>
+                <article className="book" key={project.id}>
                   <Link
-                    className="project-card book-card"
+                    className="book-link"
                     to="/projects/$projectId/concept"
                     params={{ projectId: project.id }}
                   >
-                    <span className="project-cover-art">
+                    <span className="cover">
                       {coverSrc ? (
                         <img src={coverSrc} alt="" />
                       ) : (
-                        <span className="project-card-icon">
-                          <BookOpen size={28} />
-                        </span>
+                        <>
+                          <span className="cover-title">{displayTitle}</span>
+                          <span className="cover-sub">{project.name}</span>
+                        </>
                       )}
                     </span>
-                    <span className="project-card-copy">
-                      <strong>{displayTitle}</strong>
-                      <small>{project.name}</small>
-                      <time>{formatLocalDateTime(project.updatedAt)}</time>
+                    <span className="book-meta">
+                      <strong className="book-title">{displayTitle}</strong>
+                      <span className="book-row">
+                        <time>{formatLocalDateTime(project.updatedAt)}</time>
+                        {generating ? (
+                          <StatusPill tone="warn">AI w toku</StatusPill>
+                        ) : null}
+                      </span>
                     </span>
                   </Link>
-                  <div className="project-card-ai-actions">
-                    <button
-                      type="button"
-                      className="icon-button project-card-ai-button"
+                  <div className="book-actions">
+                    <Button
+                      variant="icon"
                       onClick={() => activateProjectTitleTarget(project.id)}
                       disabled={
                         generating ||
@@ -410,15 +421,10 @@ export function DashboardPage() {
                       title="Generuj tytuł roboczy z AI"
                       aria-label={`Generuj tytuł roboczy z AI dla projektu ${displayTitle}`}
                     >
-                      {generating ? (
-                        <Loader2 size={16} className="spin-icon" />
-                      ) : (
-                        <Sparkles size={16} />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button ai-context-add-button project-card-context-button"
+                      {generating ? <Spinner /> : <Sparkles size={15} />}
+                    </Button>
+                    <Button
+                      variant="icon"
                       onClick={() => addProjectTitleToPromptContext(project.id)}
                       disabled={!canAddProjectTitleContext}
                       title={
@@ -429,21 +435,22 @@ export function DashboardPage() {
                       aria-label={`Dodaj tytuł roboczy projektu ${displayTitle} do kontekstu promptu`}
                     >
                       <Plus size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button project-card-delete-button"
+                    </Button>
+                    <Button
+                      variant="icon"
+                      className="book-delete"
                       onClick={() => requestProjectDelete(project.id, displayTitle)}
                       disabled={deleteMutation.isPending}
                       title="Usuń projekt"
                       aria-label={`Usuń projekt ${displayTitle}`}
                     >
-                      {deleteMutation.isPending && deleteMutation.variables === project.id ? (
-                        <Loader2 size={16} className="spin-icon" />
+                      {deleteMutation.isPending &&
+                      deleteMutation.variables === project.id ? (
+                        <Spinner />
                       ) : (
-                        <Trash2 size={16} />
+                        <Trash2 size={15} />
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </article>
               );
@@ -458,7 +465,7 @@ export function DashboardPage() {
       </div>
 
       <aside className="dashboard-side-panel">
-        <CodexStatusPanel compact />
+        <AiProviderStatusPanel />
         <AiPromptContextPanel />
         {visibleProposalProjectId ? (
           <AiProposalPanel

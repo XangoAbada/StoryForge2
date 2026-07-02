@@ -1,24 +1,21 @@
 import {
   BookOpen,
   CheckCircle2,
-  Circle,
   Clock3,
   Hash,
   LayoutList,
   Link2,
   Loader2,
-  Pencil,
   Plus,
   Route,
-  Save,
   Sparkles,
   Target,
   Trash2,
   X
 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import type { Beat, BookPlan, Chapter, UpsertChapterInput } from "../../shared/api/types";
+import { Button, Field, Modal, StatusPill } from "../../shared/ui";
 import {
   planFieldConfigs,
   type PlanFieldKey,
@@ -33,6 +30,8 @@ export type ChapterModalState =
 
 type ChapterRelationKind = "threads" | "beats";
 type ChapterPromptEntity = Chapter;
+
+const chapterFormId = "chapter-edit-form";
 
 export function ChapterEditModal({
   state,
@@ -60,21 +59,6 @@ export function ChapterEditModal({
       ? plan.chapters.find((candidate) => candidate.id === state.chapterId)
       : undefined;
 
-  useEffect(() => {
-    if (!state) {
-      return;
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [state, onClose]);
-
   if (!state) {
     return null;
   }
@@ -83,55 +67,42 @@ export function ChapterEditModal({
     state.mode === "edit" && chapter
       ? `Rozdział ${dynamicChapterNumber(plan, chapter.id)}: ${chapter.workingTitle}`
       : "Nowy rozdział";
-  const modal = (
-    <div
-      className="chapter-edit-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="chapter-edit-title"
-    >
-      <button
-        type="button"
-        className="chapter-edit-backdrop"
-        onClick={onClose}
-        aria-label="Zamknij edycję rozdziału"
-      />
-      <div className="chapter-edit-shell">
-        <header className="chapter-edit-header">
-          <div>
-            <p className="eyebrow">Edycja rozdziału</p>
-            <h3 id="chapter-edit-title">{modalTitle}</h3>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onClose}
-            aria-label="Zamknij edycję rozdziału"
-            title="Zamknij edycję rozdziału"
-          >
-            <X size={18} />
-          </button>
-        </header>
-        <div className="chapter-edit-body">
-          <ChapterForm
-            bookId={bookId}
-            chapter={chapter}
-            plan={plan}
-            saving={saving}
-            orderIndex={plan.chapters.length}
-            initialActId={state.mode === "create" ? state.actId : undefined}
-            onCancel={onClose}
-            onSave={onSave}
-            onDelete={chapter && onDelete ? () => onDelete(chapter.id) : undefined}
-            onGenerate={(field) => onGenerate(field, chapter)}
-            onActivatePrompt={(field) => onActivatePrompt(field, chapter)}
-          />
-        </div>
-      </div>
-    </div>
-  );
 
-  return typeof document === "undefined" ? modal : createPortal(modal, document.body);
+  return (
+    <Modal
+      title={modalTitle}
+      onClose={onClose}
+      size="xl"
+      footer={
+        <>
+          {chapter && onDelete ? (
+            <Button variant="danger" onClick={() => onDelete(chapter.id)} disabled={saving}>
+              <Trash2 size={15} aria-hidden />
+              Usuń
+            </Button>
+          ) : null}
+          <Button variant="ghost" onClick={onClose}>
+            Anuluj
+          </Button>
+          <Button variant="primary" type="submit" form={chapterFormId} busy={saving}>
+            {saving ? "Zapisuję" : "Zapisz zmiany"}
+          </Button>
+        </>
+      }
+    >
+      <ChapterForm
+        bookId={bookId}
+        chapter={chapter}
+        plan={plan}
+        saving={saving}
+        orderIndex={plan.chapters.length}
+        initialActId={state.mode === "create" ? state.actId : undefined}
+        onSave={onSave}
+        onGenerate={(field) => onGenerate(field, chapter)}
+        onActivatePrompt={(field) => onActivatePrompt(field, chapter)}
+      />
+    </Modal>
+  );
 }
 
 function ChapterForm({
@@ -142,9 +113,6 @@ function ChapterForm({
   initialActId,
   saving,
   onSave,
-  onCancel,
-  onDelete,
-  onSelect,
   onGenerate,
   onActivatePrompt
 }: {
@@ -155,9 +123,6 @@ function ChapterForm({
   initialActId?: string | null;
   saving: boolean;
   onSave: (input: UpsertChapterInput) => void;
-  onCancel: () => void;
-  onDelete?: () => void;
-  onSelect?: () => void;
   onGenerate: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
   onActivatePrompt: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
 }) {
@@ -253,11 +218,10 @@ function ChapterForm({
     : contractComplete
       ? "Kontrakt gotowy"
       : "Szkielet gotowy";
-  const visualTone = contractComplete ? "ready" : skeletonComplete ? "active" : "draft";
-  const openChapterLabel = chapter ? `Otwórz rozdział ${chapter.workingTitle}` : "";
+  const visualTone = contractComplete ? "success" : skeletonComplete ? "accent" : "muted";
 
   return (
-    <form className="chapter-edit-form" onSubmit={submit}>
+    <form id={chapterFormId} className="chapter-edit-form" onSubmit={submit}>
       <div className="chapter-edit-metrics" aria-label="Najważniejsze informacje o rozdziale">
         <span className="chapter-edit-metric">
           <BookOpen size={16} />
@@ -274,18 +238,14 @@ function ChapterForm({
           <span>Cel słów:</span>
           <strong>{targetWords ? targetWords.toLocaleString("pl-PL") : "Brak"}</strong>
         </span>
-        <span
-          className={
-            visualTone === "ready"
-              ? "chapter-status-pill ready"
-              : visualTone === "active"
-                ? "chapter-status-pill active"
-                : "chapter-status-pill"
-          }
-        >
-          <Circle size={10} />
-          {visualStatus}
+        <span className="chapter-edit-metric">
+          <CheckCircle2 size={16} />
+          <span>Uzupełnione:</span>
+          <strong>
+            {completedItems} / {completionItems.length}
+          </strong>
         </span>
+        <StatusPill tone={visualTone}>{visualStatus}</StatusPill>
       </div>
 
       <div className="chapter-edit-content-grid">
@@ -355,24 +315,22 @@ function ChapterForm({
               <h4>Ustawienia rozdziału</h4>
             </div>
             <div className="scene-settings-grid">
-              <label className="field-label">
-                Akt
+              <Field label="Akt">
                 <select value={actId} onChange={(event) => setActId(event.target.value)}>
                   <option value="">Bez aktu</option>
                   {plan.acts.map((act) => (
                     <option key={act.id} value={act.id}>{act.name}</option>
                   ))}
                 </select>
-              </label>
-              <label className="field-label">
-                Cel słów
+              </Field>
+              <Field label="Cel słów">
                 <input
                   type="number"
                   min={0}
                   value={targetWordCount}
                   onChange={(event) => setTargetWordCount(event.target.value)}
                 />
-              </label>
+              </Field>
             </div>
           </section>
         </main>
@@ -386,7 +344,6 @@ function ChapterForm({
                 field="chapterThreadSuggestions"
                 chapter={chapter}
                 onGenerate={() => onGenerate("chapterThreadSuggestions", chapter)}
-                onActivatePrompt={() => onActivatePrompt("chapterThreadSuggestions", chapter)}
                 onOpenPicker={() => setRelationPicker("threads")}
               />
             </div>
@@ -419,7 +376,6 @@ function ChapterForm({
                 field="chapterBeatSuggestions"
                 chapter={chapter}
                 onGenerate={() => onGenerate("chapterBeatSuggestions", chapter)}
-                onActivatePrompt={() => onActivatePrompt("chapterBeatSuggestions", chapter)}
                 onOpenPicker={() => setRelationPicker("beats")}
               />
             </div>
@@ -463,33 +419,6 @@ function ChapterForm({
           }}
         />
       ) : null}
-
-      <footer className="chapter-edit-footer">
-        <div className="chapter-footer-status">
-          <CheckCircle2 size={16} />
-          <span>{completedItems} / {completionItems.length} elementów szkieletu i kontraktu uzupełnionych</span>
-        </div>
-        <div className="chapter-footer-actions">
-          {onDelete ? (
-            <button type="button" className="ghost-button chapter-delete-button" onClick={onDelete} disabled={saving}>
-              <Trash2 size={16} />
-              Usuń
-            </button>
-          ) : null}
-          <button type="button" className="ghost-button" onClick={onCancel}>
-            Anuluj
-          </button>
-          <button type="submit" className="primary-button" disabled={saving}>
-            <Save size={16} />
-            {saving ? "Zapisuję" : "Zapisz zmiany"}
-          </button>
-          {onSelect && openChapterLabel ? (
-            <button type="button" className="icon-button" onClick={onSelect} aria-label={openChapterLabel} title={openChapterLabel}>
-              <Pencil size={16} />
-            </button>
-          ) : null}
-        </div>
-      </footer>
     </form>
   );
 }
@@ -515,21 +444,22 @@ function PlanInlineField({
 }) {
   const activate = () => onActivatePrompt(field, entity);
   return (
-    <label className="field-label plan-inline-field">
-      <span className="plan-inline-label-row">
-        {label}
+    <Field
+      label={label}
+      actions={
         <PlanAiActions
           field={field}
           targetEntity={entity}
           onGenerate={() => onGenerate(field, entity)}
         />
-      </span>
+      }
+    >
       {rows === 1 ? (
         <input value={value} onChange={(event) => onChange(event.target.value)} onFocus={activate} onClick={activate} />
       ) : (
         <textarea value={value} onChange={(event) => onChange(event.target.value)} onFocus={activate} onClick={activate} rows={rows} />
       )}
-    </label>
+    </Field>
   );
 }
 
@@ -605,7 +535,6 @@ function ChapterRelationActions({
   field: PlanFieldKey;
   chapter?: Chapter;
   onGenerate: () => void;
-  onActivatePrompt: () => void;
   onOpenPicker: () => void;
 }) {
   const proposals = useProposalStore((state) => state.proposals);
@@ -719,13 +648,13 @@ function ChapterRelationPickerModal({
         </div>
 
         <footer className="chapter-relation-footer">
-          <button type="button" className="ghost-button" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Anuluj
-          </button>
-          <button type="button" className="primary-button" disabled={checkedIds.length === 0} onClick={() => onAdd(checkedIds)}>
-            <Plus size={16} />
+          </Button>
+          <Button variant="primary" disabled={checkedIds.length === 0} onClick={() => onAdd(checkedIds)}>
+            <Plus size={15} aria-hidden />
             Dodaj wybrane
-          </button>
+          </Button>
         </footer>
       </section>
     </div>

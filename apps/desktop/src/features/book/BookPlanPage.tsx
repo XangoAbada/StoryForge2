@@ -11,7 +11,6 @@ import {
   Flag,
   GitBranch,
   GripVertical,
-  Hash,
   LayoutList,
   Link2,
   Loader2,
@@ -30,6 +29,7 @@ import {
 import { createPortal } from "react-dom";
 import {
   FormEvent,
+  Fragment,
   MouseEvent,
   PointerEvent,
   ReactNode,
@@ -83,6 +83,7 @@ import type {
   WorldWorkspace
 } from "../../shared/api/types";
 import { useProjectNavigationStore } from "../../app/projectNavigationStore";
+import { Button, Chip, Field, Modal, Segmented, StatusPill } from "../../shared/ui";
 import {
   buildPlanPromptPackage,
   planFieldConfigs,
@@ -157,13 +158,13 @@ type BeatSaveInput = UpsertBeatInput & {
 };
 type PlanPromptEntity = Act | Beat | PlotThread | Chapter | ChapterThread | Scene;
 
-const planSteps: Array<{ key: PlanStep; label: string; icon: typeof Map }> = [
-  { key: "structure", label: "Struktura", icon: Map },
-  { key: "acts", label: "Akty", icon: Flag },
-  { key: "chapters", label: "Szkielet rozdziałów", icon: FileText },
-  { key: "threads", label: "Wątki", icon: GitBranch },
-  { key: "beats", label: "Beaty", icon: Target },
-  { key: "scenes", label: "Sceny", icon: ClipboardList }
+const planSteps: Array<{ key: PlanStep; label: string }> = [
+  { key: "structure", label: "Struktura" },
+  { key: "acts", label: "Akty" },
+  { key: "chapters", label: "Rozdziały" },
+  { key: "threads", label: "Wątki" },
+  { key: "beats", label: "Beaty" },
+  { key: "scenes", label: "Sceny" }
 ];
 
 const actColors = ["#3f8f6b", "#4f8fd9", "#8b5cf6", "#f59e42", "#d94f8f"];
@@ -905,30 +906,23 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
             niego wątki, beaty i sceny.
           </p>
         </div>
-        <div className="plan-header-actions" role="group" aria-label="Tryb planu">
-          <button
-            type="button"
-            className={mode === "wizard" ? "plan-mode-button active" : "plan-mode-button"}
-            onClick={() => selectMode("wizard")}
-          >
-            <LayoutList size={16} />
-            Kreator
-          </button>
-          <button
-            type="button"
-            className={mode === "preview" ? "plan-mode-button active" : "plan-mode-button"}
-            onClick={() => selectMode("preview")}
-            disabled={!isPlanReady(plan)}
-            title={
-              isPlanReady(plan)
-                ? "Otwórz podgląd planu."
-                : "Dodaj akty i rozdziały, aby odblokować podgląd."
-            }
-          >
-            <Route size={16} />
-            Podgląd
-          </button>
-        </div>
+        <span
+          title={
+            isPlanReady(plan)
+              ? "Przełącz tryb planu."
+              : "Dodaj akty i rozdziały, aby odblokować podgląd."
+          }
+        >
+          <Segmented
+            ariaLabel="Tryb planu"
+            items={[
+              { id: "wizard", label: "Kreator" },
+              { id: "preview", label: "Podgląd" }
+            ]}
+            value={mode}
+            onChange={(nextMode) => selectMode(nextMode as PlanMode)}
+          />
+        </span>
       </header>
 
       {message ? <p className="success-text">{message}</p> : null}
@@ -1056,84 +1050,36 @@ function ConfirmDeleteModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  useEffect(() => {
-    if (!target) {
-      return;
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !deleting) {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [deleting, onClose, target]);
-
   if (!target) {
     return null;
   }
 
   const copy = deleteTargetCopy(target);
-  const modal = (
-    <div
-      className="confirm-delete-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-delete-title"
-    >
-      <button
-        type="button"
-        className="confirm-delete-backdrop"
-        onClick={onClose}
-        disabled={deleting}
-        aria-label="Zamknij potwierdzenie usuwania"
-      />
-      <section className="confirm-delete-shell">
-        <header className="confirm-delete-header">
-          <span className="confirm-delete-icon" aria-hidden="true">
-            <Trash2 size={18} />
-          </span>
-          <div>
-            <p className="eyebrow">Potwierdzenie</p>
-            <h3 id="confirm-delete-title">{copy.title}</h3>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onClose}
-            disabled={deleting}
-            aria-label="Zamknij potwierdzenie usuwania"
-            title="Zamknij"
-          >
-            <X size={18} />
-          </button>
-        </header>
-        <div className="confirm-delete-body">
-          <strong>{target.title}</strong>
-          <p>{copy.description}</p>
-          <p className="warning-text">Tej operacji nie można cofnąć.</p>
-        </div>
-        <footer className="confirm-delete-footer">
-          <button type="button" className="ghost-button" onClick={onClose} disabled={deleting}>
-            Anuluj
-          </button>
-          <button
-            type="button"
-            className="ghost-button chapter-delete-button"
-            onClick={onConfirm}
-            disabled={deleting}
-          >
-            {deleting ? <Loader2 size={16} className="spin-icon" /> : <Trash2 size={16} />}
-            Usuń
-          </button>
-        </footer>
-      </section>
-    </div>
-  );
 
-  return typeof document === "undefined" ? modal : createPortal(modal, document.body);
+  return (
+    <Modal
+      title={copy.title}
+      onClose={onClose}
+      size="sm"
+      footer={
+        <>
+          <Button variant="danger" onClick={onConfirm} busy={deleting}>
+            {deleting ? null : <Trash2 size={15} aria-hidden />}
+            Usuń
+          </Button>
+          <Button variant="ghost" onClick={onClose} disabled={deleting}>
+            Anuluj
+          </Button>
+        </>
+      }
+    >
+      <div className="confirm-delete-body">
+        <strong>{target.title}</strong>
+        <p>{copy.description}</p>
+        <p className="warning-text">Tej operacji nie można cofnąć.</p>
+      </div>
+    </Modal>
+  );
 }
 
 function deleteTargetCopy(target: DeleteTarget): { title: string; description: string } {
@@ -1596,26 +1542,34 @@ function PlanStageNavigation({
   activeStep: PlanStep;
   onSelectStep: (step: PlanStep) => void;
 }) {
-  return (
-    <nav className="plan-stage-navigation" aria-label="Kroki planu powieści">
-      <div className="plan-stage-track">
-        {planSteps.map((step, index) => {
-          const active = activeStep === step.key;
+  const activeIndex = planSteps.findIndex((step) => step.key === activeStep);
 
-          return (
+  return (
+    <nav className="plan-steps" aria-label="Kroki planu powieści">
+      {planSteps.map((step, index) => {
+        const active = activeStep === step.key;
+        const done = index < activeIndex;
+        const className = ["plan-step", active ? "active" : "", done ? "done" : ""]
+          .filter(Boolean)
+          .join(" ");
+
+        return (
+          <Fragment key={step.key}>
+            {index > 0 ? <span className="plan-step-sep" aria-hidden="true" /> : null}
             <button
               type="button"
-              key={step.key}
-              className={active ? "plan-stage-step active" : "plan-stage-step"}
+              className={className}
               onClick={() => onSelectStep(step.key)}
               aria-current={active ? "step" : undefined}
             >
-              <span className="plan-stage-number">{index + 1}</span>
-              <span className="plan-stage-label">{step.label}</span>
+              <span className="plan-step-n" aria-hidden="true">
+                {done ? "✓" : index + 1}
+              </span>
+              {step.label}
             </button>
-          );
-        })}
-      </div>
+          </Fragment>
+        );
+      })}
     </nav>
   );
 }
@@ -1983,339 +1937,6 @@ function ActForm({
         </label>
       </div>
       <EntityActions saving={saving} onDelete={onDelete} />
-    </form>
-  );
-}
-
-function LegacyBeatsStep({
-  bookId,
-  plan,
-  saving,
-  onSave,
-  onDelete,
-  onSelect,
-  onGenerate,
-  onActivatePrompt
-}: StepProps & {
-  onSave: (input: UpsertBeatInput) => void;
-  onDelete: (item: SelectedPlanItem) => void;
-  onSelect: (item: SelectedPlanItem) => void;
-}) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [actFilter, setActFilter] = useState("all");
-  const [sortMode, setSortMode] = useState<BeatSortMode>("order");
-  const [expandedBeatId, setExpandedBeatId] = useState<string | null>(null);
-  const [addingBeat, setAddingBeat] = useState(false);
-  const normalizedSearch = searchQuery.trim().toLocaleLowerCase("pl-PL");
-  const visibleBeats = plan.beats
-    .filter((beat) => {
-      const searchable = `${beat.name} ${beat.description} ${beat.role}`
-        .toLocaleLowerCase("pl-PL");
-      const matchesSearch = !normalizedSearch || searchable.includes(normalizedSearch);
-      const matchesAct = true;
-
-      return matchesSearch && matchesAct;
-    })
-    .sort((first, second) => {
-      if (sortMode === "name") {
-        return first.name.localeCompare(second.name, "pl-PL");
-      }
-      if (sortMode === "role") {
-        return (
-          first.role.localeCompare(second.role, "pl-PL") ||
-          first.orderIndex - second.orderIndex
-        );
-      }
-      return first.orderIndex - second.orderIndex;
-    });
-  const lanes = beatBoardLanesForPlan(plan, visibleBeats);
-
-  return (
-    <PlanCard
-      title="Beaty"
-      icon={<Target size={18} />}
-      action={
-        <PlanAiActions
-          field="beatSheet"
-          onGenerate={() => onGenerate("beatSheet")}
-          onActivatePrompt={() => onActivatePrompt("beatSheet")}
-        />
-      }
-    >
-      <div className="beat-board-shell">
-        <div className="beat-board-toolbar">
-          <div className="beat-board-heading">
-            <strong>{visibleBeats.length} / {plan.beats.length}</strong>
-            <span>beatów w widoku</span>
-          </div>
-          <label className="beat-board-search">
-            <Search size={16} />
-            <input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Szukaj beatu..."
-              aria-label="Szukaj beatu"
-            />
-          </label>
-          <select
-            value={actFilter}
-            onChange={(event) => setActFilter(event.target.value)}
-            aria-label="Filtruj beaty po akcie"
-          >
-            <option value="all">Akt: Wszystkie</option>
-            <option value="none">Bez aktu</option>
-            {plan.acts.map((act) => (
-              <option value={act.id} key={act.id}>
-                {act.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={sortMode}
-            onChange={(event) => setSortMode(event.target.value as BeatSortMode)}
-            aria-label="Sortuj beaty"
-          >
-            <option value="order">Sortuj: Kolejność</option>
-            <option value="name">Sortuj: Nazwa</option>
-            <option value="role">Sortuj: Rola</option>
-          </select>
-          <button
-            type="button"
-            className="primary-button beat-board-add-button"
-            onClick={() => {
-              setExpandedBeatId(null);
-              setAddingBeat((current) => !current);
-            }}
-          >
-            <Plus size={16} />
-            Dodaj beat
-          </button>
-        </div>
-
-        <div className="beat-board-timeline" aria-label="Oś aktów">
-          {lanes.map((lane) => (
-            <div
-              className="beat-board-timeline-segment"
-              style={{ borderTopColor: lane.color }}
-              key={lane.id}
-            >
-              <span style={{ background: lane.color }} />
-              <strong>{lane.name}</strong>
-              <small>{lane.rangeLabel}</small>
-            </div>
-          ))}
-        </div>
-
-        {addingBeat ? (
-          <div className="beat-board-new-form">
-            <LegacyBeatForm
-              bookId={bookId}
-              plan={plan}
-              saving={saving}
-              orderIndex={plan.beats.length}
-              onSave={onSave}
-              onCancel={() => setAddingBeat(false)}
-              formClassName="beat-board-editor-form"
-            />
-          </div>
-        ) : null}
-
-        <div className="beat-board-columns">
-          {lanes.map((lane) => (
-            <section className="beat-board-column" key={lane.id}>
-              <div className="beat-board-column-header">
-                <div>
-                  <span style={{ background: lane.color }} />
-                  <h4>{lane.name}</h4>
-                </div>
-                <small>{lane.beats.length} beatów</small>
-              </div>
-              <div className="beat-board-card-stack">
-                {lane.beats.length === 0 ? (
-                  <p className="beat-board-empty">Brak beatów dla tych filtrów.</p>
-                ) : null}
-                {lane.beats.map((beat) => {
-                  const threads = threadsForBeat(plan, beat);
-                  const chapters = chaptersForBeat(plan, beat);
-                  const expanded = expandedBeatId === beat.id;
-
-                  return (
-                    <article
-                      className={expanded ? "beat-board-card-shell active" : "beat-board-card-shell"}
-                      key={beat.id}
-                    >
-                      <button
-                        type="button"
-                        className="beat-board-card"
-                        onClick={() => {
-                          setAddingBeat(false);
-                          setExpandedBeatId(expanded ? null : beat.id);
-                          onSelect({ type: "beat", id: beat.id });
-                        }}
-                        aria-expanded={expanded}
-                        aria-label={`Otwórz beat ${beat.name}`}
-                      >
-                        <span className="beat-board-card-topline">
-                          <span className="beat-board-number">{beat.orderIndex + 1}</span>
-                          <MoreHorizontal size={16} />
-                        </span>
-                        <strong>{beat.name}</strong>
-                        <span className="beat-board-description">
-                          {beat.description || "Dodaj opis roli tego beatu w historii."}
-                        </span>
-                        <span className="beat-board-role">{beat.role || "Bez roli"}</span>
-                        <span className="beat-board-meta">
-                          <span>
-                            Wątki:
-                            {threads.length > 0 ? (
-                              threads.map((thread) => (
-                                <em key={thread.id}>{thread.name}</em>
-                              ))
-                            ) : (
-                              <em>Brak</em>
-                            )}
-                          </span>
-                          <span>
-                            Rozdz.:
-                            {chapters.length > 0 ? (
-                              chapters.map((chapter) => (
-                                <em key={chapter.id}>{dynamicChapterNumber(plan, chapter.id)}</em>
-                              ))
-                            ) : (
-                              <em>Brak</em>
-                            )}
-                          </span>
-                        </span>
-                      </button>
-                      {expanded ? (
-                        <LegacyBeatForm
-                          bookId={bookId}
-                          beat={beat}
-                          plan={plan}
-                          saving={saving}
-                          onSave={onSave}
-                          onDelete={() => onDelete({ type: "beat", id: beat.id })}
-                          onSelect={() => onSelect({ type: "beat", id: beat.id })}
-                          onCancel={() => setExpandedBeatId(null)}
-                          formClassName="beat-board-editor-form"
-                        />
-                      ) : null}
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
-      </div>
-    </PlanCard>
-  );
-}
-
-function LegacyBeatForm({
-  bookId,
-  beat,
-  plan,
-  orderIndex = 0,
-  saving,
-  onSave,
-  onDelete,
-  onSelect,
-  onCancel,
-  formClassName
-}: {
-  bookId: string;
-  beat?: Beat;
-  plan: BookPlan;
-  orderIndex?: number;
-  saving: boolean;
-  onSave: (input: UpsertBeatInput) => void;
-  onDelete?: () => void;
-  onSelect?: () => void;
-  onCancel?: () => void;
-  formClassName?: string;
-}) {
-  const [name, setName] = useState(beat?.name ?? `Beat ${orderIndex + 1}`);
-  const [description, setDescription] = useState(beat?.description ?? "");
-  const [role, setRole] = useState(beat?.role ?? "");
-  const [actId, setActId] = useState("");
-
-  useEffect(() => {
-    setName(beat?.name ?? `Beat ${orderIndex + 1}`);
-    setDescription(beat?.description ?? "");
-    setRole(beat?.role ?? "");
-    setActId("");
-  }, [
-    beat?.name,
-    beat?.description,
-    beat?.role,
-    beat?.id,
-    plan.acts,
-    orderIndex
-  ]);
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSave({
-      id: beat?.id,
-      bookId,
-      name,
-      description,
-      role,
-      orderIndex: beat?.orderIndex ?? orderIndex,
-    });
-  }
-
-  return (
-    <form
-      className={formClassName ? `plan-entity-card ${formClassName}` : "plan-entity-card"}
-      onSubmit={submit}
-    >
-      <button
-        type="button"
-        className="plan-link-title"
-        onClick={onSelect}
-        disabled={!beat}
-        aria-label={beat ? `Otwórz beat ${beat.name}` : "Nowy beat"}
-      >
-        <Target size={15} />
-        {beat ? beat.name : "Nowy beat"}
-      </button>
-      <label className="field-label">
-        Nazwa
-        <input value={name} onChange={(event) => setName(event.target.value)} />
-      </label>
-      <label className="field-label">
-        Akt
-        <select value={actId} onChange={(event) => setActId(event.target.value)}>
-          <option value="">Bez aktu</option>
-          {plan.acts.map((act) => (
-            <option value={act.id} key={act.id}>
-              {act.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field-label">
-        Rola
-        <input value={role} onChange={(event) => setRole(event.target.value)} />
-      </label>
-      <label className="field-label">
-        Opis
-        <textarea
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          rows={4}
-        />
-      </label>
-      <div className="beat-form-actions">
-        <EntityActions saving={saving} onDelete={onDelete} />
-        {onCancel ? (
-          <button type="button" className="ghost-button" onClick={onCancel}>
-            Zamknij
-          </button>
-        ) : null}
-      </div>
     </form>
   );
 }
@@ -2845,10 +2466,7 @@ function BeatForm({
   plan,
   orderIndex = 0,
   initialChapterId,
-  saving,
   onSave,
-  onDelete,
-  onCancel,
   onGenerate,
   onActivatePrompt
 }: {
@@ -2859,8 +2477,6 @@ function BeatForm({
   initialChapterId?: string | null;
   saving: boolean;
   onSave: (input: BeatSaveInput) => void;
-  onDelete?: () => void;
-  onCancel?: () => void;
   onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
   onActivatePrompt: (
     field: PlanFieldKey,
@@ -2949,7 +2565,7 @@ function BeatForm({
   const completionPercent = Math.round((completedItems / completionItems.length) * 100);
 
   return (
-    <form className="chapter-edit-form beat-edit-form" onSubmit={submit}>
+    <form id="beat-edit-form" className="chapter-edit-form beat-edit-form" onSubmit={submit}>
       <div className="chapter-edit-metrics" aria-label="Najważniejsze informacje o beacie">
         <span className="chapter-edit-metric">
           <Target size={16} />
@@ -2965,18 +2581,18 @@ function BeatForm({
               : "Nieprzypisany"}
           </strong>
         </span>
-        <span
-          className={
-            completionPercent >= 100
-              ? "chapter-status-pill ready"
-              : completionPercent >= 50
-                ? "chapter-status-pill active"
-                : "chapter-status-pill"
-          }
-        >
-          <Circle size={10} />
-          {completionPercent >= 100 ? "Gotowy" : completionPercent >= 50 ? "W trakcie" : "Szkic"}
+        <span className="chapter-edit-metric">
+          <CheckCircle2 size={16} />
+          <span>Uzupełnione:</span>
+          <strong>
+            {completedItems} / {completionItems.length}
+          </strong>
         </span>
+        <StatusPill
+          tone={completionPercent >= 100 ? "success" : completionPercent >= 50 ? "accent" : "muted"}
+        >
+          {completionPercent >= 100 ? "Gotowy" : completionPercent >= 50 ? "W trakcie" : "Szkic"}
+        </StatusPill>
       </div>
 
       <div className="chapter-edit-content-grid beat-edit-content-grid">
@@ -3022,8 +2638,10 @@ function BeatForm({
               <Route size={16} />
               <h4>Rozdział</h4>
             </div>
-            <label className="field-label">
-              Przypisz do
+            <Field
+              label="Przypisz do"
+              hint="Beat może być przypisany tylko do jednego rozdziału. Zmiana tutaj przeniesie go z poprzedniego miejsca."
+            >
               <select value={chapterId} onChange={(event) => setChapterId(event.target.value)}>
                 <option value="">Nieprzypisany</option>
                 {orderedChaptersForPlan(plan).map((chapter) => (
@@ -3032,40 +2650,10 @@ function BeatForm({
                   </option>
                 ))}
               </select>
-            </label>
-            <p>
-              Beat może być przypisany tylko do jednego rozdziału. Zmiana tutaj przeniesie go z
-              poprzedniego miejsca.
-            </p>
+            </Field>
           </section>
         </aside>
       </div>
-
-      <footer className="chapter-edit-footer">
-        <div className="chapter-footer-status">
-          <CheckCircle2 size={16} />
-          <span>
-            {completedItems} / {completionItems.length} elementy beatu uzupełnione
-          </span>
-        </div>
-        <div className="chapter-footer-actions">
-          {onDelete ? (
-            <button type="button" className="ghost-button chapter-delete-button" onClick={onDelete} disabled={saving}>
-              <Trash2 size={16} />
-              Usuń
-            </button>
-          ) : null}
-          {onCancel ? (
-            <button type="button" className="ghost-button" onClick={onCancel}>
-              Anuluj
-            </button>
-          ) : null}
-          <button type="submit" className="primary-button" disabled={saving}>
-            <Save size={16} />
-            {saving ? "Zapisuję" : "Zapisz zmiany"}
-          </button>
-        </div>
-      </footer>
     </form>
   );
 }
@@ -3092,16 +2680,17 @@ function BeatInlineField({
   ) => void;
 }) {
   return (
-    <label className="field-label plan-inline-field">
-      <span className="plan-inline-label-row">
-        {label}
+    <Field
+      label={label}
+      actions={
         <PlanAiActions
           field={field}
           targetEntity={{} as Beat}
           onGenerate={() => onGenerate(field)}
           onActivatePrompt={() => onActivatePrompt(field)}
         />
-      </span>
+      }
+    >
       {rows ? (
         <textarea
           value={value}
@@ -3116,7 +2705,7 @@ function BeatInlineField({
           onFocus={() => onActivatePrompt(field)}
         />
       )}
-    </label>
+    </Field>
   );
 }
 
@@ -3149,79 +2738,51 @@ function BeatEditModal({
       ? plan.beats.find((candidate) => candidate.id === state.beatId)
       : undefined;
 
-  useEffect(() => {
-    if (!state) {
-      return;
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [state, onClose]);
-
   if (!state) {
     return null;
   }
 
   const modalTitle = state.mode === "edit" && beat ? beat.name : "Nowy beat";
-  const modal = (
-    <div
-      className="chapter-edit-modal beat-edit-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="beat-edit-title"
+
+  return (
+    <Modal
+      title={modalTitle}
+      onClose={onClose}
+      size="lg"
+      footer={
+        <>
+          {beat ? (
+            <Button
+              variant="danger"
+              onClick={() => onDelete({ type: "beat", id: beat.id })}
+              disabled={saving}
+            >
+              <Trash2 size={15} aria-hidden />
+              Usuń
+            </Button>
+          ) : null}
+          <Button variant="ghost" onClick={onClose}>
+            Anuluj
+          </Button>
+          <Button variant="primary" type="submit" form="beat-edit-form" busy={saving}>
+            {saving ? "Zapisuję" : "Zapisz zmiany"}
+          </Button>
+        </>
+      }
     >
-      <button
-        type="button"
-        className="chapter-edit-backdrop"
-        onClick={onClose}
-        aria-label="Zamknij edycję beatu"
+      <BeatForm
+        bookId={bookId}
+        beat={beat}
+        plan={plan}
+        saving={saving}
+        orderIndex={plan.beats.length}
+        initialChapterId={state.mode === "create" ? state.chapterId : undefined}
+        onSave={onSave}
+        onGenerate={onGenerate}
+        onActivatePrompt={onActivatePrompt}
       />
-      <div className="chapter-edit-shell beat-edit-shell">
-        <header className="chapter-edit-header">
-          <div>
-            <p className="eyebrow">Edycja beatu</p>
-            <h3 id="beat-edit-title">{modalTitle}</h3>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onClose}
-            aria-label="Zamknij edycję beatu"
-            title="Zamknij edycję beatu"
-          >
-            <X size={18} />
-          </button>
-        </header>
-        <div className="chapter-edit-body">
-          <BeatForm
-            bookId={bookId}
-            beat={beat}
-            plan={plan}
-            saving={saving}
-            orderIndex={plan.beats.length}
-            initialChapterId={state.mode === "create" ? state.chapterId : undefined}
-            onCancel={onClose}
-            onSave={onSave}
-            onDelete={beat ? () => onDelete({ type: "beat", id: beat.id }) : undefined}
-            onGenerate={onGenerate}
-            onActivatePrompt={onActivatePrompt}
-          />
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
-
-  if (typeof document === "undefined") {
-    return modal;
-  }
-
-  return createPortal(modal, document.body);
 }
 
 function ThreadsStep({
@@ -4526,24 +4087,15 @@ function ChaptersStep({
             </div>
           </div>
           <div className="chapter-board-actions">
-            <div className="thread-view-toggle chapter-view-toggle" role="group" aria-label="Widok rozdziałów">
-              <button
-                type="button"
-                className={viewMode === "cockpit" ? "active" : ""}
-                onClick={() => setViewMode("cockpit")}
-              >
-                <LayoutList size={15} />
-                Kokpit
-              </button>
-              <button
-                type="button"
-                className={viewMode === "map" ? "active" : ""}
-                onClick={() => setViewMode("map")}
-              >
-                <Map size={15} />
-                Mapa aktów
-              </button>
-            </div>
+            <Segmented
+              ariaLabel="Widok rozdziałów"
+              items={[
+                { id: "cockpit", label: "Kokpit" },
+                { id: "map", label: "Mapa aktów" }
+              ]}
+              value={viewMode}
+              onChange={setViewMode}
+            />
             <button
               type="button"
               className="primary-button"
@@ -4836,6 +4388,8 @@ function ChapterBoardCard({
   const threads = threadsForChapter(plan, chapter);
   const beatIds = beats.map((beat) => beat.id);
   const threadIds = threads.map((thread) => thread.id);
+  const sceneCount = orderedScenesForChapter(plan, chapter.id).length;
+  const readiness = chapterReadiness(plan, chapter);
   const className = [
     "chapter-board-card",
     dragging ? "dragging" : "",
@@ -4866,8 +4420,11 @@ function ChapterBoardCard({
       }}
       aria-label={`Otwórz rozdział ${chapter.workingTitle}`}
     >
-      <span className="chapter-card-topline">
-        <span className="chapter-number-badge">{number}</span>
+      <span className="chapter-card-head">
+        <span className="chapter-card-roman" aria-hidden="true">
+          {romanNumeral(number)}
+        </span>
+        <strong className="chapter-card-title">{chapter.workingTitle || "Bez tytułu"}</strong>
         <span
           className="chapter-drag-handle"
           aria-hidden="true"
@@ -4881,7 +4438,6 @@ function ChapterBoardCard({
         >
           <GripVertical size={15} />
         </span>
-        <span>{formatWordCount(chapter.targetWordCount)}</span>
         <button
           type="button"
           className="plan-card-delete-icon"
@@ -4897,98 +4453,105 @@ function ChapterBoardCard({
           <Trash2 size={14} />
         </button>
       </span>
-      <strong>{chapter.workingTitle}</strong>
       <p>{chapter.summary || "Brak streszczenia rozdziału."}</p>
-      <span className="chapter-card-field">
-        <b>Cel</b>
-        {chapter.purpose || "Brak"}
-      </span>
-      <span className="chapter-card-field">
-        <b>Konflikt</b>
-        {chapter.conflict || "Brak"}
-      </span>
-      <span className="chapter-card-field">
-        <b>Punkt zwrotny</b>
-        {chapter.turningPoint || "Brak"}
-      </span>
-      <span className="chapter-chip-row">
-        {beats.map((beat) => (
-          <span className="chapter-chip beat" key={beat.id} title={beatPreviewText(beat)}>
-            {beat.name}
-            <button
-              type="button"
-              className="chapter-chip-remove"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onUpdateRelations(
-                  threadIds,
-                  beatIds.filter((beatId) => beatId !== beat.id)
-                );
-              }}
-              aria-label={`Odepnij beat ${beat.name}`}
-              title={`Odepnij beat ${beat.name}`}
-            >
-              -
-            </button>
-          </span>
-        ))}
+      <span
+        className="chapter-card-chips"
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
+      >
         {threads.map((thread) => (
-          <span
-            className="chapter-chip thread"
+          <Chip
             key={thread.id}
+            tone="accent"
             title={thread.description || "Brak opisu wątku."}
+            onRemove={() =>
+              onUpdateRelations(
+                threadIds.filter((threadId) => threadId !== thread.id),
+                beatIds
+              )
+            }
+            removeLabel={`Odepnij wątek ${thread.name}`}
           >
             {thread.name}
-            <button
-              type="button"
-              className="chapter-chip-remove"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onUpdateRelations(
-                  threadIds.filter((threadId) => threadId !== thread.id),
-                  beatIds
-                );
-              }}
-              aria-label={`Odepnij wątek ${thread.name}`}
-              title={`Odepnij wątek ${thread.name}`}
-            >
-              -
-            </button>
-          </span>
+          </Chip>
         ))}
-        <button
-          type="button"
-          className="chapter-card-relation-add-button"
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onOpenRelationPicker("beats");
-          }}
-          aria-label={`Dodaj beat do rozdziału ${chapter.workingTitle}`}
-          title="Dodaj beat"
+        {beats.map((beat) => (
+          <Chip
+            key={beat.id}
+            tone="ai"
+            title={beatPreviewText(beat)}
+            onRemove={() =>
+              onUpdateRelations(
+                threadIds,
+                beatIds.filter((beatId) => beatId !== beat.id)
+              )
+            }
+            removeLabel={`Odepnij beat ${beat.name}`}
+          >
+            {beat.name}
+          </Chip>
+        ))}
+        <Chip>{sceneCountLabel(sceneCount)}</Chip>
+        <Chip
+          onClick={() => onOpenRelationPicker("threads")}
+          title={`Dodaj wątek do rozdziału ${chapter.workingTitle}`}
         >
-          <Plus size={13} />
-          <span>Beat</span>
-        </button>
-        <button
-          type="button"
-          className="chapter-card-relation-add-button"
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onOpenRelationPicker("threads");
-          }}
-          aria-label={`Dodaj wątek do rozdziału ${chapter.workingTitle}`}
-          title="Dodaj wątek"
+          + Wątek
+        </Chip>
+        <Chip
+          onClick={() => onOpenRelationPicker("beats")}
+          title={`Dodaj beat do rozdziału ${chapter.workingTitle}`}
         >
-          <Plus size={13} />
-          <span>Wątek</span>
-        </button>
+          + Beat
+        </Chip>
+      </span>
+      <span className="chapter-card-foot">
+        <span>
+          {chapter.targetWordCount
+            ? `~${chapter.targetWordCount.toLocaleString("pl-PL")} słów`
+            : "—"}
+        </span>
+        <StatusPill
+          tone={readiness.tone === "ready" ? "success" : readiness.tone === "active" ? "warn" : "muted"}
+          title={readiness.missing.slice(0, 3).join(" ")}
+        >
+          {readiness.label}
+        </StatusPill>
       </span>
     </article>
   );
+}
+
+function romanNumeral(value: number): string {
+  const table: Array<[number, string]> = [
+    [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"],
+    [100, "C"], [90, "XC"], [50, "L"], [40, "XL"],
+    [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]
+  ];
+  let rest = Math.max(1, Math.floor(value));
+  let result = "";
+  for (const [amount, symbol] of table) {
+    while (rest >= amount) {
+      result += symbol;
+      rest -= amount;
+    }
+  }
+  return result;
+}
+
+function sceneCountLabel(count: number): string {
+  if (count === 0) {
+    return "bez scen";
+  }
+  if (count === 1) {
+    return "1 scena";
+  }
+  const lastDigit = count % 10;
+  const lastTwo = count % 100;
+  if (lastDigit >= 2 && lastDigit <= 4 && (lastTwo < 12 || lastTwo > 14)) {
+    return `${count} sceny`;
+  }
+  return `${count} scen`;
 }
 
 function ChapterCockpit({
@@ -5645,23 +5208,24 @@ function PlanInlineField({
   onActivatePrompt: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
 }) {
   return (
-    <label className="field-label plan-inline-field">
-      <span className="plan-inline-label-row">
-        {label}
+    <Field
+      label={label}
+      actions={
         <PlanAiActions
           field={field}
           targetEntity={entity}
           onGenerate={() => onGenerate(field, entity)}
           onActivatePrompt={() => onActivatePrompt(field, entity)}
         />
-      </span>
+      }
+    >
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onFocus={() => onActivatePrompt(field, entity)}
         rows={rows}
       />
-    </label>
+    </Field>
   );
 }
 
@@ -6409,10 +5973,6 @@ function beatsWithoutChapter(plan: BookPlan, beats: Beat[]): Beat[] {
   return beats.filter((beat) => !chapterIdForBeat(plan, beat.id));
 }
 
-function beatBoardLanesForPlan(plan: BookPlan, beats: Beat[]): BeatBoardLane[] {
-  return beatChapterLanesForPlan(plan, beats);
-}
-
 function threadsForBeat(plan: BookPlan, beat: Beat): PlotThread[] {
   const chapter = chapterForBeat(plan, beat);
   return chapter ? threadsForChapter(plan, chapter) : [];
@@ -6788,345 +6348,6 @@ function chaptersWithoutAct(plan: BookPlan): Chapter[] {
   return orderedChaptersForPlan(plan).filter((chapter) => !chapter.actId);
 }
 
-function SceneEditModal({ state, bookId, plan, characters, world, saving, onClose, onSave, onDelete, onGenerate, onActivatePrompt }: {
-  state: SceneModalState | null;
-  bookId: string;
-  plan: BookPlan;
-  characters: CharacterWorkspace;
-  world: WorldWorkspace;
-  saving: boolean;
-  onClose: () => void;
-  onSave: (input: UpsertSceneInput, relations: Omit<SetSceneRelationsInput, "bookId" | "sceneId">) => void;
-  onDelete: (sceneId: string) => void;
-  onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
-  onActivatePrompt: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
-}) {
-  const scene = state?.mode === "edit" ? plan.scenes.find((item) => item.id === state.sceneId) : undefined;
-  const [draft, setDraft] = useState<UpsertSceneInput>(() =>
-    sceneToInput(bookId, plan, scene, state?.mode === "create" ? state.chapterId : undefined)
-  );
-  const [characterIds, setCharacterIds] = useState<string[]>([]);
-  const [threadIds, setThreadIds] = useState<string[]>([]);
-  const [elementIds, setElementIds] = useState<string[]>([]);
-  const [ruleIds, setRuleIds] = useState<string[]>([]);
-  const [draftTargetId, setDraftTargetId] = useState("");
-  const [relationPicker, setRelationPicker] = useState<SceneRelationKind | null>(null);
-
-  useEffect(() => {
-    if (!state) return;
-    const current = state.mode === "edit" ? plan.scenes.find((item) => item.id === state.sceneId) : undefined;
-    setDraft(sceneToInput(bookId, plan, current, state.mode === "create" ? state.chapterId : undefined));
-    setCharacterIds(current ? sceneCharacterIds(plan, current.id) : []);
-    setThreadIds(current ? sceneThreadIds(plan, current.id) : []);
-    setElementIds(current ? sceneElementIds(plan, current.id) : []);
-    setRuleIds(current ? sceneRuleIds(plan, current.id) : []);
-    setDraftTargetId(
-      current?.id ??
-        `draft-scene:${state.mode === "create" ? state.chapterId ?? "none" : "none"}:${Date.now().toString(36)}`
-    );
-    setRelationPicker(null);
-  }, [bookId, plan, state]);
-
-  useEffect(() => {
-    if (!state || !draftTargetId) return;
-    registerPlanDraftFieldTarget(draftTargetId, (field, value) => {
-      setDraft((current) => applySceneDraftField(current, field, value));
-    });
-    return () => unregisterPlanDraftFieldTarget(draftTargetId);
-  }, [draftTargetId, state]);
-
-  useEffect(() => {
-    if (!state) return;
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose, state]);
-
-  if (!state) return null;
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSave(draft, { characterIds, threadIds, elementIds, ruleIds });
-  }
-
-  const scenePromptEntity = draftTargetId ? sceneDraftPromptEntity(draft, draftTargetId) : undefined;
-  const selectedChapter = draft.chapterId
-    ? plan.chapters.find((chapter) => chapter.id === draft.chapterId)
-    : undefined;
-  const selectedPov = characters.characters.find((character) => character.id === draft.povCharacterId);
-  const selectedLocation = world.elements.find((element) => element.id === draft.locationId);
-  const completionItems = [
-    { label: "Tytuł", complete: Boolean(draft.title.trim()) },
-    { label: "Streszczenie", complete: Boolean(draft.summary.trim()) },
-    { label: "Cel", complete: Boolean(draft.goal.trim()) },
-    { label: "Konflikt", complete: Boolean(draft.conflict.trim()) },
-    { label: "Wynik", complete: Boolean(draft.outcome.trim()) },
-    { label: "Postacie", complete: characterIds.length > 0 },
-    { label: "Wątki", complete: threadIds.length > 0 }
-  ];
-  const completedItems = completionItems.filter((item) => item.complete).length;
-  const completionPercent = Math.round((completedItems / completionItems.length) * 100);
-  const modalTitle = scene ? draft.title || "Edytuj scenę" : "Nowa scena";
-  const visualStatus =
-    completionPercent >= 85
-      ? "Gotowa do pisania"
-      : completionPercent >= 45
-        ? "W trakcie"
-        : "Szkic";
-  const currentRelationIds = relationPicker
-    ? { characters: characterIds, threads: threadIds, elements: elementIds, rules: ruleIds }[relationPicker]
-    : [];
-
-  const content = (
-    <div className="chapter-edit-modal scene-edit-modal" role="dialog" aria-modal="true" aria-labelledby="scene-modal-title">
-      <button type="button" className="chapter-edit-backdrop" onClick={onClose} aria-label="Zamknij edycję sceny" />
-      <div className="chapter-edit-shell scene-edit-shell">
-        <header className="chapter-edit-header">
-          <div>
-            <p className="eyebrow">Edycja sceny</p>
-            <h3 id="scene-modal-title">{modalTitle}</h3>
-          </div>
-          <button type="button" className="icon-button" onClick={onClose} title="Zamknij edycję sceny" aria-label="Zamknij edycję sceny">
-            <X size={18} />
-          </button>
-        </header>
-
-        <div className="chapter-edit-body">
-          <form className="chapter-edit-form scene-edit-form" onSubmit={submit}>
-            <div className="chapter-edit-metrics" aria-label="Najważniejsze informacje o scenie">
-              <span className="chapter-edit-metric">
-                <BookOpen size={16} />
-                <span>Rozdział:</span>
-                <strong>{selectedChapter ? `${selectedChapter.number}. ${selectedChapter.workingTitle || "Bez tytułu"}` : "Bez rozdziału"}</strong>
-              </span>
-              <span className="chapter-edit-metric">
-                <Eye size={16} />
-                <span>POV:</span>
-                <strong>{selectedPov?.name ?? "Brak"}</strong>
-              </span>
-              <span className="chapter-edit-metric">
-                <Map size={16} />
-                <span>Lokacja:</span>
-                <strong>{selectedLocation?.name ?? "Brak"}</strong>
-              </span>
-              <span className={completionPercent >= 85 ? "chapter-status-pill ready" : completionPercent >= 45 ? "chapter-status-pill active" : "chapter-status-pill"}>
-                <Circle size={10} />
-                {visualStatus}
-              </span>
-            </div>
-
-            <div className="chapter-edit-content-grid scene-edit-content-grid">
-              <main className="chapter-edit-main">
-                <section className="chapter-edit-section">
-                  <div className="chapter-section-heading">
-                    <ClipboardList size={17} />
-                    <h4>Treść sceny</h4>
-                  </div>
-                  <div className="chapter-field-stack">
-                    <SceneTextField field="sceneTitle" label="Tytuł" value={draft.title} targetEntity={scenePromptEntity} onChange={(title) => setDraft({ ...draft, title })} onGenerate={onGenerate} onActivatePrompt={onActivatePrompt} rows={1} />
-                    <SceneTextField field="sceneSummary" label="Streszczenie" value={draft.summary} targetEntity={scenePromptEntity} onChange={(summary) => setDraft({ ...draft, summary })} onGenerate={onGenerate} onActivatePrompt={onActivatePrompt} rows={4} />
-                    <SceneTextField field="sceneGoal" label="Cel" value={draft.goal} targetEntity={scenePromptEntity} onChange={(goal) => setDraft({ ...draft, goal })} onGenerate={onGenerate} onActivatePrompt={onActivatePrompt} />
-                    <SceneTextField field="sceneConflict" label="Konflikt" value={draft.conflict} targetEntity={scenePromptEntity} onChange={(conflict) => setDraft({ ...draft, conflict })} onGenerate={onGenerate} onActivatePrompt={onActivatePrompt} />
-                    <SceneTextField field="sceneOutcome" label="Wynik" value={draft.outcome} targetEntity={scenePromptEntity} onChange={(outcome) => setDraft({ ...draft, outcome })} onGenerate={onGenerate} onActivatePrompt={onActivatePrompt} />
-                  </div>
-                </section>
-
-                <section className="chapter-edit-section scene-settings-section">
-                  <div className="chapter-section-heading">
-                    <Target size={17} />
-                    <h4>Ustawienia sceny</h4>
-                  </div>
-                  <div className="scene-settings-grid">
-                    <label className="field-label">
-                      Rozdział
-                      <select value={draft.chapterId ?? ""} onChange={(event) => setDraft({ ...draft, chapterId: event.target.value || null })}>
-                        <option value="">Bez rozdziału</option>
-                        {orderedChaptersForPlan(plan).map((chapter) => (
-                          <option key={chapter.id} value={chapter.id}>Rozdział {chapter.number}: {chapter.workingTitle || "Bez tytułu"}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="field-label">
-                      POV
-                      <select value={draft.povCharacterId ?? ""} onChange={(event) => setDraft({ ...draft, povCharacterId: event.target.value || null })}>
-                        <option value="">Brak</option>
-                        {characters.characters.map((character) => <option key={character.id} value={character.id}>{character.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="field-label">
-                      Lokacja
-                      <select value={draft.locationId ?? ""} onChange={(event) => setDraft({ ...draft, locationId: event.target.value || null })}>
-                        <option value="">Brak</option>
-                        {world.elements.map((element) => <option key={element.id} value={element.id}>{element.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="field-label">
-                      Cel słów
-                      <input type="number" min={0} value={draft.targetWordCount ?? ""} onChange={(event) => setDraft({ ...draft, targetWordCount: parseOptionalPositiveInt(event.target.value) })} />
-                    </label>
-                    <label className="field-label">
-                      Status
-                      <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Scene["status"] })}>
-                        <option value="planned">Planowana</option>
-                        <option value="draft">Szkic</option>
-                        <option value="written">Napisana</option>
-                      </select>
-                    </label>
-                  </div>
-                </section>
-              </main>
-
-              <aside className="chapter-edit-sidebar" aria-label="Powiązania sceny">
-                <SceneRelationSection title="Postacie" kind="characters" items={sceneRelationOptions("characters", plan, characters, world).filter((item) => characterIds.includes(item.id))} emptyText="Brak powiązanych postaci" onOpenPicker={setRelationPicker} onRemove={(id) => setCharacterIds((currentIds) => currentIds.filter((item) => item !== id))} />
-                <SceneRelationSection title="Wątki" kind="threads" items={sceneRelationOptions("threads", plan, characters, world).filter((item) => threadIds.includes(item.id))} emptyText="Brak powiązanych wątków" onOpenPicker={setRelationPicker} onRemove={(id) => setThreadIds((currentIds) => currentIds.filter((item) => item !== id))} />
-                <SceneRelationSection title="Elementy świata" kind="elements" items={sceneRelationOptions("elements", plan, characters, world).filter((item) => elementIds.includes(item.id))} emptyText="Brak powiązanych elementów świata" onOpenPicker={setRelationPicker} onRemove={(id) => setElementIds((currentIds) => currentIds.filter((item) => item !== id))} />
-                <SceneRelationSection title="Reguły świata" kind="rules" items={sceneRelationOptions("rules", plan, characters, world).filter((item) => ruleIds.includes(item.id))} emptyText="Brak powiązanych reguł świata" onOpenPicker={setRelationPicker} onRemove={(id) => setRuleIds((currentIds) => currentIds.filter((item) => item !== id))} />
-              </aside>
-            </div>
-
-            {relationPicker ? (
-              <SceneRelationPickerModal
-                kind={relationPicker}
-                plan={plan}
-                characters={characters}
-                world={world}
-                selectedIds={currentRelationIds}
-                onClose={() => setRelationPicker(null)}
-                onAdd={(ids) => {
-                  if (relationPicker === "characters") setCharacterIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
-                  if (relationPicker === "threads") setThreadIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
-                  if (relationPicker === "elements") setElementIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
-                  if (relationPicker === "rules") setRuleIds((currentIds) => uniqueOrderedIds([...currentIds, ...ids]));
-                  setRelationPicker(null);
-                }}
-              />
-            ) : null}
-
-            <footer className="chapter-edit-footer">
-              <div className="chapter-footer-status">
-                <CheckCircle2 size={16} />
-                <span>{completedItems} / {completionItems.length} elementów sceny uzupełnionych</span>
-              </div>
-              <div className="chapter-footer-actions">
-                {scene ? (
-                  <button type="button" className="ghost-button chapter-delete-button" onClick={() => onDelete(scene.id)} disabled={saving}>
-                    <Trash2 size={16} />
-                    Usuń
-                  </button>
-                ) : null}
-                <button type="button" className="ghost-button" onClick={onClose}>
-                  Anuluj
-                </button>
-                <button type="submit" className="primary-button" disabled={saving}>
-                  <Save size={16} />
-                  {saving ? "Zapisuję" : "Zapisz scenę"}
-                </button>
-              </div>
-            </footer>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-
-  return typeof document === "undefined" ? content : createPortal(content, document.body);
-}
-
-function SceneRelationSection({
-  title,
-  kind,
-  items,
-  emptyText,
-  onOpenPicker,
-  onRemove
-}: {
-  title: string;
-  kind: SceneRelationKind;
-  items: Array<{ id: string; label: string; description: string }>;
-  emptyText: string;
-  onOpenPicker: (kind: SceneRelationKind) => void;
-  onRemove: (id: string) => void;
-}) {
-  return (
-    <section className="chapter-side-section scene-side-section">
-      <div className="chapter-side-heading">
-        <Link2 size={16} />
-        <h4>{title}</h4>
-      </div>
-      <div className="chapter-side-chip-list">
-        {items.length > 0 ? (
-          items.map((item) => (
-            <span className={`chapter-side-chip ${sceneRelationDotClass(kind)}`} key={item.id} title={item.description}>
-              {item.label}
-              <button type="button" className="chapter-side-chip-remove" onClick={() => onRemove(item.id)} aria-label={`Odepnij relację: ${item.label}`} title={`Odepnij relację: ${item.label}`}>
-                -
-              </button>
-            </span>
-          ))
-        ) : (
-          <span className="chapter-side-empty">{emptyText}</span>
-        )}
-      </div>
-      <button type="button" className="icon-button chapter-relation-add-button" onClick={() => onOpenPicker(kind)} title={`Dodaj: ${title.toLowerCase()}`} aria-label={`Dodaj relację sceny: ${title}`}>
-        <Plus size={15} />
-      </button>
-    </section>
-  );
-}
-
-function SceneTextField({
-  field,
-  label,
-  value,
-  targetEntity,
-  rows = 3,
-  onChange,
-  onGenerate,
-  onActivatePrompt
-}: {
-  field: PlanFieldKey;
-  label: string;
-  value: string;
-  targetEntity?: PlanPromptEntity;
-  rows?: number;
-  onChange: (value: string) => void;
-  onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
-  onActivatePrompt: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
-}) {
-  const activate = () => onActivatePrompt(field, targetEntity);
-  return (
-    <label className="field-label plan-inline-field scene-inline-field">
-      <span className="plan-inline-label-row">
-        {label}
-        <PlanAiActions
-          field={field}
-          targetEntity={targetEntity}
-          onGenerate={() => onGenerate(field, targetEntity)}
-          onActivatePrompt={activate}
-        />
-      </span>
-      {rows === 1 ? (
-        <input
-          value={value}
-          onFocus={activate}
-          onClick={activate}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      ) : (
-        <textarea
-          value={value}
-          rows={rows}
-          onFocus={activate}
-          onClick={activate}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      )}
-    </label>
-  );
-}
-
 function emptyPlan(): BookPlan {
   const now = new Date().toISOString();
   const planVersion = {
@@ -7285,74 +6506,6 @@ function sceneRelationDotClass(kind: SceneRelationKind): string {
     case "rules":
       return "rule";
   }
-}
-
-function sceneToInput(bookId: string, plan: BookPlan, scene?: Scene, chapterId?: string | null): UpsertSceneInput {
-  return {
-    id: scene?.id,
-    bookId,
-    chapterId: scene?.chapterId ?? chapterId ?? null,
-    orderIndex: scene?.orderIndex ?? orderedScenesForChapter(plan, chapterId ?? null).length,
-    title: scene?.title ?? "Nowa scena",
-    summary: scene?.summary ?? "",
-    goal: scene?.goal ?? "",
-    conflict: scene?.conflict ?? "",
-    outcome: scene?.outcome ?? "",
-    povCharacterId: scene?.povCharacterId ?? null,
-    locationId: scene?.locationId ?? null,
-    targetWordCount: scene?.targetWordCount ?? null,
-    actualWordCount: scene?.actualWordCount ?? null,
-    manuscriptContent: scene?.manuscriptContent ?? "",
-    status: scene?.status ?? "planned"
-  };
-}
-
-function sceneDraftPromptEntity(draft: UpsertSceneInput, id: string): Scene {
-  const now = new Date().toISOString();
-  return {
-    id,
-    bookId: draft.bookId,
-    planVersionId: "",
-    chapterId: draft.chapterId ?? null,
-    orderIndex: draft.orderIndex,
-    title: draft.title,
-    summary: draft.summary,
-    goal: draft.goal,
-    conflict: draft.conflict,
-    outcome: draft.outcome,
-    povCharacterId: draft.povCharacterId ?? null,
-    locationId: draft.locationId ?? null,
-    targetWordCount: draft.targetWordCount ?? null,
-    actualWordCount: draft.actualWordCount ?? null,
-    manuscriptContent: draft.manuscriptContent ?? "",
-    status: draft.status,
-    createdAt: now,
-    updatedAt: now
-  };
-}
-
-function applySceneDraftField(draft: UpsertSceneInput, field: PlanFieldKey, value: string): UpsertSceneInput {
-  if (field === "sceneTitle") {
-    return { ...draft, title: value };
-  }
-  if (field === "sceneSummary") {
-    return { ...draft, summary: value };
-  }
-  if (field === "sceneGoal") {
-    return { ...draft, goal: value };
-  }
-  if (field === "sceneConflict") {
-    return { ...draft, conflict: value };
-  }
-  if (field === "sceneOutcome") {
-    return { ...draft, outcome: value };
-  }
-
-  return draft;
-}
-
-function toggleId(ids: string[], id: string): string[] {
-  return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
 }
 
 function normalizePlanStep(value: string | undefined): PlanStep {
