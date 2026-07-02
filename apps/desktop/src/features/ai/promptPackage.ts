@@ -1,4 +1,5 @@
 import type { AIAction, Book, Project } from "../../shared/api/types";
+import { optionalLine } from "./promptContextLimits";
 
 export type ConceptFieldKey =
   | "title"
@@ -907,9 +908,11 @@ function renderBookContext(
     return "(brak wybranych pól kontekstu)";
   }
 
-  return rows
-    .map((row) => `- ${row.label}: ${emptyFallback(row.value(book))}`)
-    .join("\n");
+  const lines = rows
+    .map((row) => optionalLine(row.label, row.value(book), "- "))
+    .filter(Boolean);
+
+  return lines.length ? lines.join("\n") : "(koncept książki jest pusty)";
 }
 
 function isContextKeyIncluded(

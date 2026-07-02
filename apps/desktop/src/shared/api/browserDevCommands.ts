@@ -1,3 +1,4 @@
+import { DEFAULT_AI_SETTINGS } from "./types";
 import type {
   AcceptGeneratedBookCoverInput,
   AcceptGeneratedCharacterImageInput,
@@ -5,6 +6,7 @@ import type {
   Act,
   AiLogEntry,
   AiProposalRecord,
+  AiSettings,
   AiRunResult,
   ActiveCodexRun,
   Beat,
@@ -1149,6 +1151,36 @@ export async function browserCheckCodexCli(
     message:
       "Podgląd Vite działa bez backendu Tauri. Uruchom aplikację desktopową, aby sprawdzić Codex CLI."
   };
+}
+
+export async function browserCheckClaudeCli(
+  claudePath?: string
+): Promise<CodexCliStatus> {
+  return {
+    available: false,
+    path: claudePath || "claude",
+    authLikelyReady: null,
+    message:
+      "Podgląd Vite działa bez backendu Tauri. Uruchom aplikację desktopową, aby sprawdzić Claude Code CLI."
+  };
+}
+
+const AI_SETTINGS_STORAGE_KEY = "storyforge2.aiSettings";
+
+export async function browserGetAiSettings(): Promise<AiSettings> {
+  try {
+    const raw = window.localStorage.getItem(AI_SETTINGS_STORAGE_KEY);
+    if (raw) {
+      return { ...DEFAULT_AI_SETTINGS, ...(JSON.parse(raw) as Partial<AiSettings>) };
+    }
+  } catch {
+    // ignorujemy uszkodzone dane podglądu
+  }
+  return { ...DEFAULT_AI_SETTINGS };
+}
+
+export async function browserSaveAiSettings(settings: AiSettings): Promise<void> {
+  window.localStorage.setItem(AI_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
 }
 
 export async function browserListCodexModels(

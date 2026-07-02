@@ -6,6 +6,7 @@ import type {
   Scene,
   WorldWorkspace
 } from "../../shared/api/types";
+import { renderCappedStoryBible } from "./promptContextLimits";
 import type { PromptContextControl } from "./promptPackage";
 import type { ScenePromptContext } from "./scenePromptContext";
 import type { SceneEditorInsertMode } from "./sceneEditorProposalTargets";
@@ -172,7 +173,7 @@ ${JSON.stringify(context.sceneContext.book, null, 2)}
 ${JSON.stringify(context.sceneContext, null, 2)}
 
 # Relevant Story Bible
-${JSON.stringify(context.storyBible, null, 2)}
+${renderCappedStoryBible(context.storyBible)}
 
 ${context.manualContextSnippets?.length ? `# Additional Author Context\n${context.manualContextSnippets.map((snippet) => `## ${snippet.label}\n${snippet.content}`).join("\n\n")}\n` : ""}
 # Current Work

@@ -259,6 +259,9 @@ export function DashboardPage() {
             <p className="muted-text">
               Lokalny warsztat pisarski z kanonem, SQLite i Codex CLI Bridge.
             </p>
+            <Link to="/settings" className="muted-text">
+              Ustawienia AI
+            </Link>
           </div>
           <form className="new-project-form" onSubmit={handleSubmit}>
             <label className="field-label">

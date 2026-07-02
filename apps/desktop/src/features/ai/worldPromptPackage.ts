@@ -8,6 +8,7 @@ import type {
   WorldRule,
   WorldWorkspace
 } from "../../shared/api/types";
+import { optionalLine } from "./promptContextLimits";
 import type { PromptContextControl, PromptContextSource } from "./promptPackage";
 
 export type WorldFieldKey =
@@ -312,15 +313,22 @@ function renderBookContext(
     return "(pominieto przez autora)";
   }
 
-  return [
-    `Tytuł roboczy: ${emptyFallback(book.workingTitle)}`,
-    `Premisa: ${emptyFallback(book.premise)}`,
-    `Rozszerzona premisa: ${emptyFallback(book.expandedPremise)}`,
-    `Świat/setting: ${emptyFallback(book.settingSketch)}`,
-    `Gatunek: ${emptyFallback([book.genre, book.subgenre].filter(Boolean).join(", "))}`,
-    `Odbiorca / ton / POV: ${emptyFallback([book.targetAudience, book.tone, book.pointOfView].filter(Boolean).join(", "))}`,
-    isIncluded("styleGuide", contextControl) ? `Style guide: ${emptyFallback(book.styleGuide)}` : ""
-  ].filter(Boolean).join("\n");
+  const lines = [
+    optionalLine("Tytuł roboczy", book.workingTitle),
+    optionalLine("Premisa", book.premise),
+    optionalLine("Rozszerzona premisa", book.expandedPremise),
+    optionalLine("Świat/setting", book.settingSketch),
+    optionalLine("Gatunek", [book.genre, book.subgenre].filter(Boolean).join(", ")),
+    optionalLine(
+      "Odbiorca / ton / POV",
+      [book.targetAudience, book.tone, book.pointOfView].filter(Boolean).join(", ")
+    ),
+    isIncluded("styleGuide", contextControl)
+      ? optionalLine("Style guide", book.styleGuide)
+      : ""
+  ].filter(Boolean);
+
+  return lines.length ? lines.join("\n") : "(koncept książki jest pusty)";
 }
 
 function renderWorkspaceContext(promptPackage: WorldPromptPackage): string {

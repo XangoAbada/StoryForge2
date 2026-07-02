@@ -6,6 +6,7 @@ import type {
   Scene,
   WorldWorkspace
 } from "../../shared/api/types";
+import { parseModelJson } from "./modelJson";
 import type { ScenePromptContext } from "./scenePromptContext";
 
 export const SCENE_STORY_BIBLE_AUDIT_FIELD = "__scene_story_bible_audit__";
@@ -195,14 +196,16 @@ Zwróć JSON:
 }
 
 export function parseSceneStoryBibleAuditResult(rawOutput: string): NormalizedSceneStoryBibleAudit {
-  const parsed = JSON.parse(rawOutput) as unknown;
+  const parsed = parseModelJson(rawOutput, "Analiza Story Bible sceny");
   const record =
     parsed && typeof parsed === "object" && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : {};
 
   if (record.kind !== "scene_story_bible_audit") {
-    throw new Error("AI zwróciło nieprawidłowy typ analizy sceny.");
+    throw new Error(
+      `AI zwróciło nieprawidłowy typ analizy sceny (kind: ${JSON.stringify(record.kind ?? null)}, oczekiwano "scene_story_bible_audit").`
+    );
   }
 
   const rawCandidates = Array.isArray(record.candidates) ? record.candidates : [];

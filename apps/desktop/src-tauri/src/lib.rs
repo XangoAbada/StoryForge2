@@ -17,7 +17,12 @@ use tokio::process::Command;
 use tokio::sync::{watch, Mutex};
 use uuid::Uuid;
 
-const PROVIDER_ID: &str = "codex-cli-bridge";
+mod ai_settings;
+mod providers;
+
+use ai_settings::{get_ai_settings, load_ai_settings, save_ai_settings, AiSettings};
+
+pub(crate) const PROVIDER_ID: &str = "codex-cli-bridge";
 const COVER_GENERATION_EVENT: &str = "cover-generation-progress";
 const MIN_COVER_TIMEOUT_SECONDS: u64 = 600;
 const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
@@ -4245,6 +4250,8 @@ pub(crate) async fn generate_book_cover_in_pool(
     let created_at = Utc::now().to_rfc3339();
     let prompt_package_json = serde_json::to_string(&input.prompt_package_json)?;
     let timeout_seconds = cover_timeout_seconds(input.timeout_seconds);
+    let settings = load_ai_settings(app).await;
+    let image_provider_id = settings.image_provider_id().to_string();
 
     sqlx::query(
         r#"
@@ -4255,8 +4262,14 @@ pub(crate) async fn generate_book_cover_in_pool(
     )
     .bind(&ai_run_id)
     .bind(&input.project_id)
-    .bind(PROVIDER_ID)
-    .bind(input.model.as_deref().unwrap_or(""))
+    .bind(&image_provider_id)
+    .bind(
+        settings
+            .effective_image_model()
+            .or_else(|| input.model.clone())
+            .as_deref()
+            .unwrap_or(""),
+    )
     .bind(input.reasoning_effort.as_deref().unwrap_or(""))
     .bind(&prompt_package_json)
     .bind(&input.prompt)
@@ -4275,9 +4288,26 @@ pub(crate) async fn generate_book_cover_in_pool(
     );
 
     let started_at = Instant::now();
-    let run_result =
+    let run_result = if settings.image_provider == ai_settings::IMAGE_PROVIDER_CODEX {
         execute_codex_image_generation(app, active_codex_runs, &input, &ai_run_id, timeout_seconds)
-            .await;
+            .await
+    } else {
+        execute_direct_image_provider(
+            app,
+            active_codex_runs,
+            &settings,
+            &ai_run_id,
+            &input.project_id,
+            "generate_cover_image",
+            "cover-runs",
+            "cover.png",
+            &input.cover_prompt,
+            &input.cover_negative_prompt,
+            true,
+            timeout_seconds,
+        )
+        .await
+    };
     let duration_ms = started_at.elapsed().as_millis();
     let completed_at = Utc::now().to_rfc3339();
 
@@ -4348,7 +4378,7 @@ pub(crate) async fn generate_book_cover_in_pool(
         book: details.book,
         ai_run: AiRunResult {
             id: ai_run_id,
-            provider_id: PROVIDER_ID.into(),
+            provider_id: image_provider_id,
             prompt_package_id: input.prompt_package_id,
             action: "generate_cover_image".into(),
             status: "success".into(),
@@ -4391,6 +4421,8 @@ pub(crate) async fn generate_character_image_in_pool(
     let created_at = Utc::now().to_rfc3339();
     let prompt_package_json = serde_json::to_string(&input.prompt_package_json)?;
     let timeout_seconds = cover_timeout_seconds(input.timeout_seconds);
+    let settings = load_ai_settings(app).await;
+    let image_provider_id = settings.image_provider_id().to_string();
 
     sqlx::query(
         r#"
@@ -4401,8 +4433,14 @@ pub(crate) async fn generate_character_image_in_pool(
     )
     .bind(&ai_run_id)
     .bind(&input.project_id)
-    .bind(PROVIDER_ID)
-    .bind(input.model.as_deref().unwrap_or(""))
+    .bind(&image_provider_id)
+    .bind(
+        settings
+            .effective_image_model()
+            .or_else(|| input.model.clone())
+            .as_deref()
+            .unwrap_or(""),
+    )
     .bind(input.reasoning_effort.as_deref().unwrap_or(""))
     .bind(&prompt_package_json)
     .bind(&input.prompt)
@@ -4411,14 +4449,32 @@ pub(crate) async fn generate_character_image_in_pool(
     .await?;
 
     let started_at = Instant::now();
-    let run_result = execute_codex_character_image_generation(
-        app,
-        active_codex_runs,
-        &input,
-        &ai_run_id,
-        timeout_seconds,
-    )
-    .await;
+    let run_result = if settings.image_provider == ai_settings::IMAGE_PROVIDER_CODEX {
+        execute_codex_character_image_generation(
+            app,
+            active_codex_runs,
+            &input,
+            &ai_run_id,
+            timeout_seconds,
+        )
+        .await
+    } else {
+        execute_direct_image_provider(
+            app,
+            active_codex_runs,
+            &settings,
+            &ai_run_id,
+            &input.project_id,
+            "generate_character_image",
+            "character-image-runs",
+            "character.png",
+            &input.image_prompt,
+            &input.negative_prompt,
+            true,
+            timeout_seconds,
+        )
+        .await
+    };
     let duration_ms = started_at.elapsed().as_millis();
     let completed_at = Utc::now().to_rfc3339();
 
@@ -4493,7 +4549,7 @@ pub(crate) async fn generate_character_image_in_pool(
         visual_asset: proposed_asset,
         ai_run: AiRunResult {
             id: ai_run_id,
-            provider_id: PROVIDER_ID.into(),
+            provider_id: image_provider_id,
             prompt_package_id: input.prompt_package_id,
             action: "generate_character_image".into(),
             status: "success".into(),
@@ -4768,6 +4824,8 @@ pub(crate) async fn generate_export_artwork_in_pool(
     let created_at = Utc::now().to_rfc3339();
     let prompt_package_json = serde_json::to_string(&input.prompt_package_json)?;
     let timeout_seconds = cover_timeout_seconds(input.timeout_seconds);
+    let settings = load_ai_settings(app).await;
+    let image_provider_id = settings.image_provider_id().to_string();
 
     sqlx::query(
         r#"
@@ -4778,8 +4836,14 @@ pub(crate) async fn generate_export_artwork_in_pool(
     )
     .bind(&ai_run_id)
     .bind(&input.project_id)
-    .bind(PROVIDER_ID)
-    .bind(input.model.as_deref().unwrap_or(""))
+    .bind(&image_provider_id)
+    .bind(
+        settings
+            .effective_image_model()
+            .or_else(|| input.model.clone())
+            .as_deref()
+            .unwrap_or(""),
+    )
     .bind(input.reasoning_effort.as_deref().unwrap_or(""))
     .bind(&prompt_package_json)
     .bind(&input.prompt)
@@ -4788,14 +4852,32 @@ pub(crate) async fn generate_export_artwork_in_pool(
     .await?;
 
     let started_at = Instant::now();
-    let run_result = execute_codex_export_artwork_generation(
-        app,
-        active_codex_runs,
-        &input,
-        &ai_run_id,
-        timeout_seconds,
-    )
-    .await;
+    let run_result = if settings.image_provider == ai_settings::IMAGE_PROVIDER_CODEX {
+        execute_codex_export_artwork_generation(
+            app,
+            active_codex_runs,
+            &input,
+            &ai_run_id,
+            timeout_seconds,
+        )
+        .await
+    } else {
+        execute_direct_image_provider(
+            app,
+            active_codex_runs,
+            &settings,
+            &ai_run_id,
+            &input.project_id,
+            "generate_export_artwork",
+            "export-artwork-runs",
+            "export-artwork.png",
+            &input.image_prompt,
+            &input.negative_prompt,
+            false,
+            timeout_seconds,
+        )
+        .await
+    };
     let duration_ms = started_at.elapsed().as_millis();
     let completed_at = Utc::now().to_rfc3339();
     let (stdout, stderr, generated_image_path) = match run_result {
@@ -4869,7 +4951,7 @@ pub(crate) async fn generate_export_artwork_in_pool(
         visual_asset,
         ai_run: AiRunResult {
             id: ai_run_id,
-            provider_id: PROVIDER_ID.into(),
+            provider_id: image_provider_id,
             prompt_package_id: input.prompt_package_id,
             action: "generate_export_artwork".into(),
             status: "success".into(),
@@ -6140,6 +6222,166 @@ async fn check_codex_cli(codex_path: Option<String>) -> Result<CodexCliStatus, S
 }
 
 #[tauri::command]
+async fn check_codex_login(codex_path: Option<String>) -> Result<CodexCliStatus, String> {
+    let path = codex_path.unwrap_or_else(|| "codex".to_string());
+    let command_spec = resolve_codex_command(&path).await;
+    let mut command = Command::new(&command_spec.program);
+    command
+        .args(&command_spec.prefix_args)
+        .arg("login")
+        .arg("status")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    match command.output().await {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let message = if stdout.is_empty() { stderr } else { stdout };
+            Ok(CodexCliStatus {
+                available: true,
+                path: Some(command_spec.display_path),
+                version: None,
+                auth_likely_ready: Some(output.status.success()),
+                message: Some(if message.is_empty() {
+                    if output.status.success() {
+                        "Zalogowano w Codex CLI.".into()
+                    } else {
+                        "Codex CLI nie jest zalogowany. Użyj przycisku logowania.".into()
+                    }
+                } else {
+                    message
+                }),
+            })
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(CodexCliStatus {
+            available: false,
+            path: Some(command_spec.display_path),
+            version: None,
+            auth_likely_ready: Some(false),
+            message: Some("Nie znaleziono Codex CLI w PATH ani pod skonfigurowaną ścieżką.".into()),
+        }),
+        Err(error) => Ok(CodexCliStatus {
+            available: false,
+            path: Some(command_spec.display_path),
+            version: None,
+            auth_likely_ready: Some(false),
+            message: Some(format!("Nie udało się uruchomić Codex CLI: {error}")),
+        }),
+    }
+}
+
+fn claude_auth_heuristic() -> bool {
+    let Some(home) = env::var_os("USERPROFILE").or_else(|| env::var_os("HOME")) else {
+        return false;
+    };
+    let home = PathBuf::from(home);
+    if home.join(".claude").join(".credentials.json").is_file() {
+        return true;
+    }
+    std::fs::read_to_string(home.join(".claude.json"))
+        .map(|text| text.contains("oauthAccount"))
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+async fn check_claude_cli(claude_path: Option<String>) -> Result<CodexCliStatus, String> {
+    let path = claude_path.unwrap_or_else(|| "claude".to_string());
+    let command_spec = resolve_codex_command(&path).await;
+    let mut command = Command::new(&command_spec.program);
+    command
+        .args(&command_spec.prefix_args)
+        .arg("--version")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    match command.output().await {
+        Ok(output) if output.status.success() => {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let version = if stdout.is_empty() { stderr } else { stdout };
+            let auth_ready = claude_auth_heuristic();
+            Ok(CodexCliStatus {
+                available: true,
+                path: Some(command_spec.display_path),
+                version: if version.is_empty() { None } else { Some(version) },
+                auth_likely_ready: Some(auth_ready),
+                message: Some(if auth_ready {
+                    "Claude Code CLI jest dostępny i wygląda na zalogowany (heurystyka na podstawie plików logowania).".into()
+                } else {
+                    "Claude Code CLI jest dostępny, ale nie znaleziono danych logowania. Zaloguj się przez terminal (/login).".into()
+                }),
+            })
+        }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Ok(CodexCliStatus {
+                available: false,
+                path: Some(command_spec.display_path),
+                version: None,
+                auth_likely_ready: Some(false),
+                message: Some(if stderr.is_empty() {
+                    "Claude Code CLI zwrócił niezerowy status dla --version.".into()
+                } else {
+                    stderr
+                }),
+            })
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(CodexCliStatus {
+            available: false,
+            path: Some(command_spec.display_path),
+            version: None,
+            auth_likely_ready: Some(false),
+            message: Some(
+                "Nie znaleziono Claude Code CLI. Zainstaluj: npm install -g @anthropic-ai/claude-code".into(),
+            ),
+        }),
+        Err(error) => Ok(CodexCliStatus {
+            available: false,
+            path: Some(command_spec.display_path),
+            version: None,
+            auth_likely_ready: Some(false),
+            message: Some(format!("Nie udało się uruchomić Claude Code CLI: {error}")),
+        }),
+    }
+}
+
+#[tauri::command]
+async fn start_codex_login(codex_path: Option<String>) -> Result<(), String> {
+    let path = codex_path.unwrap_or_else(|| "codex".to_string());
+    let command_spec = resolve_codex_command(&path).await;
+    let mut command = Command::new(&command_spec.program);
+    command
+        .args(&command_spec.prefix_args)
+        .arg("login")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("Nie udało się uruchomić logowania Codex CLI: {error}"))
+}
+
+#[tauri::command]
+async fn start_claude_login(claude_path: Option<String>) -> Result<(), String> {
+    let path = claude_path.unwrap_or_else(|| "claude".to_string());
+    let command_spec = resolve_codex_command(&path).await;
+
+    if cfg!(windows) {
+        // Otwórz osobne okno terminala z REPL claude — użytkownik wpisuje /login.
+        StdCommand::new("cmd.exe")
+            .args(["/C", "start", "", "cmd", "/K", &command_spec.display_path])
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| format!("Nie udało się otworzyć terminala logowania: {error}"))
+    } else {
+        Err("Uruchom `claude` w terminalu i wpisz /login, aby zalogować się subskrypcją Anthropic."
+            .into())
+    }
+}
+
+#[tauri::command]
 async fn list_codex_models(codex_path: Option<String>) -> Result<CodexModelCatalog, String> {
     let path = codex_path.unwrap_or_else(|| "codex".to_string());
     let command_spec = resolve_codex_command(&path).await;
@@ -6250,12 +6492,16 @@ pub(crate) async fn generate_new_project_title_with_codex(
         reasoning_effort: request.reasoning_effort,
     };
 
+    let settings = load_ai_settings(app).await;
+    let provider_id = settings.text_provider_id().to_string();
+
     let started_at = Instant::now();
-    let run_result = execute_codex(
+    let run_result = execute_text_provider(
         app,
         active_codex_runs,
         &ai_run_id,
         &codex_request,
+        &settings,
         timeout_seconds,
     )
     .await;
@@ -6291,7 +6537,7 @@ pub(crate) async fn generate_new_project_title_with_codex(
 
     Ok(AiRunResult {
         id: ai_run_id,
-        provider_id: PROVIDER_ID.into(),
+        provider_id,
         prompt_package_id: codex_request.prompt_package_id,
         action: codex_request.action,
         status,
@@ -6312,6 +6558,11 @@ pub(crate) async fn run_codex_prompt_in_pool(
     let created_at = Utc::now().to_rfc3339();
     let prompt_package_json = serde_json::to_string(&request.prompt_package_json)?;
     let timeout_seconds = request.timeout_seconds.unwrap_or(180);
+    let settings = load_ai_settings(app).await;
+    let provider_id = settings.text_provider_id().to_string();
+    let effective_model = settings
+        .effective_text_model()
+        .or_else(|| request.model.clone());
 
     sqlx::query(
         r#"
@@ -6322,8 +6573,8 @@ pub(crate) async fn run_codex_prompt_in_pool(
     )
     .bind(&ai_run_id)
     .bind(&request.project_id)
-    .bind(PROVIDER_ID)
-    .bind(request.model.as_deref().unwrap_or(""))
+    .bind(&provider_id)
+    .bind(effective_model.as_deref().unwrap_or(""))
     .bind(request.reasoning_effort.as_deref().unwrap_or(""))
     .bind(&request.action)
     .bind(&prompt_package_json)
@@ -6333,11 +6584,12 @@ pub(crate) async fn run_codex_prompt_in_pool(
     .await?;
 
     let started_at = Instant::now();
-    let run_result = execute_codex(
+    let run_result = execute_text_provider(
         app,
         active_codex_runs,
         &ai_run_id,
         &request,
+        &settings,
         timeout_seconds,
     )
     .await;
@@ -6389,7 +6641,7 @@ pub(crate) async fn run_codex_prompt_in_pool(
 
     Ok(AiRunResult {
         id: ai_run_id,
-        provider_id: PROVIDER_ID.into(),
+        provider_id,
         prompt_package_id: request.prompt_package_id,
         action: request.action,
         status,
@@ -6398,6 +6650,100 @@ pub(crate) async fn run_codex_prompt_in_pool(
         error_message,
         duration_ms,
     })
+}
+
+async fn execute_text_provider(
+    app: &AppHandle,
+    active_codex_runs: &ActiveCodexRunRegistry,
+    ai_run_id: &str,
+    request: &RunCodexPromptRequest,
+    settings: &AiSettings,
+    timeout_seconds: u64,
+) -> Result<(String, String), AppError> {
+    match settings.text_provider.as_str() {
+        ai_settings::TEXT_PROVIDER_CLAUDE => {
+            providers::execute_claude_cli(
+                app,
+                active_codex_runs,
+                ai_run_id,
+                request,
+                settings,
+                timeout_seconds,
+            )
+            .await
+        }
+        ai_settings::TEXT_PROVIDER_OPENAI_API => {
+            providers::execute_openai_text(
+                active_codex_runs,
+                ai_run_id,
+                request,
+                settings,
+                timeout_seconds,
+            )
+            .await
+        }
+        ai_settings::TEXT_PROVIDER_ANTHROPIC_API => {
+            providers::execute_anthropic_text(
+                active_codex_runs,
+                ai_run_id,
+                request,
+                settings,
+                timeout_seconds,
+            )
+            .await
+        }
+        _ => execute_codex(app, active_codex_runs, ai_run_id, request, timeout_seconds).await,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn execute_direct_image_provider(
+    app: &AppHandle,
+    active_codex_runs: &ActiveCodexRunRegistry,
+    settings: &AiSettings,
+    ai_run_id: &str,
+    project_id: &str,
+    action: &str,
+    subdir: &str,
+    file_name: &str,
+    visual_prompt: &str,
+    negative_prompt: &str,
+    portrait: bool,
+    timeout_seconds: u64,
+) -> Result<(String, String, PathBuf), AppError> {
+    let app_data_dir = app.path().app_data_dir().map_err(|error| {
+        AppError::Process(format!(
+            "Nie udało się ustalić katalogu danych aplikacji: {error}"
+        ))
+    })?;
+    let image_path = app_data_dir
+        .join("codex-workspaces")
+        .join(project_id)
+        .join(subdir)
+        .join(ai_run_id)
+        .join(file_name);
+
+    providers::execute_direct_image_generation(
+        active_codex_runs,
+        ActiveCodexRun {
+            ai_run_id: ai_run_id.to_string(),
+            project_id: project_id.to_string(),
+            action: action.to_string(),
+            started_at: Utc::now().to_rfc3339(),
+            model: settings.effective_image_model(),
+            reasoning_effort: None,
+            phase: "image_generation".into(),
+        },
+        settings,
+        providers::DirectImageJob {
+            visual_prompt,
+            negative_prompt,
+            portrait,
+            out_path: &image_path,
+        },
+        timeout_seconds,
+    )
+    .await
 }
 
 async fn complete_ai_run(
@@ -7683,7 +8029,13 @@ pub fn run() {
             list_active_codex_runs,
             cancel_active_codex_run,
             generate_new_project_title,
-            run_codex_prompt
+            run_codex_prompt,
+            get_ai_settings,
+            save_ai_settings,
+            check_codex_login,
+            check_claude_cli,
+            start_codex_login,
+            start_claude_login
         ])
         .run(tauri::generate_context!())
         .expect("error while running StoryForge2");

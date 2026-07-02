@@ -12,6 +12,7 @@ import type {
   Scene,
   WorldWorkspace
 } from "../../shared/api/types";
+import { optionalLine, renderCappedEntityList } from "./promptContextLimits";
 import type { PromptContextControl, PromptContextSource } from "./promptPackage";
 
 type PlanContextKey =
@@ -762,28 +763,32 @@ function renderBookContext(
     return "(pominięto przez autora)";
   }
 
-  return [
-    `- Tytuł roboczy: ${emptyFallback(book.workingTitle)}`,
-    `- Premise: ${emptyFallback(book.premise)}`,
-    `- Rozszerzona premisa: ${emptyFallback(book.expandedPremise)}`,
-    `- Logline: ${emptyFallback(book.logline)}`,
-    `- Konflikt centralny: ${emptyFallback(book.centralConflict)}`,
-    `- Siła przeciwna: ${emptyFallback(book.antagonistForce)}`,
-    `- Stawki: ${emptyFallback(book.stakes)}`,
-    `- Setting: ${emptyFallback(book.settingSketch)}`,
-    `- Kierunek zakończenia: ${emptyFallback(book.endingDirection)}`,
-    `- Gatunek: ${emptyFallback([book.genre, book.subgenre].filter(Boolean).join(", "))}`,
-    `- Odbiorcy: ${emptyFallback(book.targetAudience)}`,
-    `- Ton: ${emptyFallback(book.tone)}`,
-    `- POV: ${emptyFallback(book.pointOfView)}`,
-    `- Docelowa liczba słów: ${book.targetWordCount ?? "(brak)"}`,
-    `- Tematy: ${emptyFallback(renderJsonList(book.themesJson))}`,
-    `- Style guide: ${
-      !contextControl || isContextKeyIncluded("styleGuide", contextControl)
-        ? emptyFallback(book.styleGuide)
-        : "(pominięto przez autora)"
-    }`
-  ].join("\n");
+  const lines = [
+    optionalLine("Tytuł roboczy", book.workingTitle, "- "),
+    optionalLine("Premise", book.premise, "- "),
+    optionalLine("Rozszerzona premisa", book.expandedPremise, "- "),
+    optionalLine("Logline", book.logline, "- "),
+    optionalLine("Konflikt centralny", book.centralConflict, "- "),
+    optionalLine("Siła przeciwna", book.antagonistForce, "- "),
+    optionalLine("Stawki", book.stakes, "- "),
+    optionalLine("Setting", book.settingSketch, "- "),
+    optionalLine("Kierunek zakończenia", book.endingDirection, "- "),
+    optionalLine(
+      "Gatunek",
+      [book.genre, book.subgenre].filter(Boolean).join(", "),
+      "- "
+    ),
+    optionalLine("Odbiorcy", book.targetAudience, "- "),
+    optionalLine("Ton", book.tone, "- "),
+    optionalLine("POV", book.pointOfView, "- "),
+    optionalLine("Docelowa liczba słów", book.targetWordCount, "- "),
+    optionalLine("Tematy", renderJsonList(book.themesJson), "- "),
+    !contextControl || isContextKeyIncluded("styleGuide", contextControl)
+      ? optionalLine("Style guide", book.styleGuide, "- ")
+      : "- Style guide: (pominięto przez autora)"
+  ].filter(Boolean);
+
+  return lines.length ? lines.join("\n") : "(koncept książki jest pusty)";
 }
 
 function renderPlanContext(
@@ -901,13 +906,13 @@ function renderStoryBibleContext(
 ): string {
   const sections = [
     isContextKeyIncluded("allCharacters", contextControl)
-      ? `Istniejące postacie: ${JSON.stringify(storyBible.characters)}`
+      ? `Istniejące postacie: ${renderCappedEntityList(storyBible.characters, 30)}`
       : "",
     isContextKeyIncluded("allWorldElements", contextControl)
-      ? `Istniejące elementy świata: ${JSON.stringify(storyBible.worldElements)}`
+      ? `Istniejące elementy świata: ${renderCappedEntityList(storyBible.worldElements, 40)}`
       : "",
     isContextKeyIncluded("allWorldRules", contextControl)
-      ? `Istniejące reguły świata: ${JSON.stringify(storyBible.worldRules)}`
+      ? `Istniejące reguły świata: ${renderCappedEntityList(storyBible.worldRules, 40)}`
       : ""
   ].filter(Boolean);
 

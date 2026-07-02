@@ -3,6 +3,9 @@ import {
   browserAcceptGeneratedBookCover,
   browserAcceptGeneratedCharacterImage,
   browserCheckCodexCli,
+  browserCheckClaudeCli,
+  browserGetAiSettings,
+  browserSaveAiSettings,
   browserCancelActiveCodexRun,
   browserCreatePlanVersionFromActive,
   browserDeletePlanVersion,
@@ -71,6 +74,7 @@ import type {
   AcceptGeneratedCharacterImageInput,
   AcceptGeneratedExportArtworkInput,
   AiRunResult,
+  AiSettings,
   ActiveCodexRun,
   AiLogEntry,
   AiProposalRecord,
@@ -541,6 +545,54 @@ export function checkCodexCli(codexPath?: string): Promise<CodexCliStatus> {
   }
 
   return invoke("check_codex_cli", { codexPath: codexPath || undefined });
+}
+
+export function checkCodexLogin(codexPath?: string): Promise<CodexCliStatus> {
+  if (!isTauriRuntime()) {
+    return browserCheckCodexCli(codexPath);
+  }
+
+  return invoke("check_codex_login", { codexPath: codexPath || undefined });
+}
+
+export function checkClaudeCli(claudePath?: string): Promise<CodexCliStatus> {
+  if (!isTauriRuntime()) {
+    return browserCheckClaudeCli(claudePath);
+  }
+
+  return invoke("check_claude_cli", { claudePath: claudePath || undefined });
+}
+
+export function startCodexLogin(codexPath?: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    return Promise.resolve();
+  }
+
+  return invoke("start_codex_login", { codexPath: codexPath || undefined });
+}
+
+export function startClaudeLogin(claudePath?: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    return Promise.resolve();
+  }
+
+  return invoke("start_claude_login", { claudePath: claudePath || undefined });
+}
+
+export function getAiSettings(): Promise<AiSettings> {
+  if (!isTauriRuntime()) {
+    return browserGetAiSettings();
+  }
+
+  return invoke("get_ai_settings");
+}
+
+export function saveAiSettings(settings: AiSettings): Promise<void> {
+  if (!isTauriRuntime()) {
+    return browserSaveAiSettings(settings);
+  }
+
+  return invoke("save_ai_settings", { settings });
 }
 
 export function listCodexModels(codexPath?: string): Promise<CodexModelCatalog> {

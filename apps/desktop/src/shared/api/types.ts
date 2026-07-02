@@ -705,6 +705,48 @@ export type CodexCliStatus = {
   message?: string;
 };
 
+export type TextProviderId =
+  | "codex-cli"
+  | "claude-cli"
+  | "openai-api"
+  | "anthropic-api";
+
+export type ImageProviderId =
+  | "codex-cli"
+  | "openai-api"
+  | "local-sdwebui"
+  | "local-comfyui";
+
+export type AiSettings = {
+  textProvider: TextProviderId;
+  imageProvider: ImageProviderId;
+  claudePath: string;
+  claudeModel: string;
+  openaiApiKey: string;
+  openaiTextModel: string;
+  openaiImageModel: string;
+  anthropicApiKey: string;
+  anthropicModel: string;
+  sdwebuiBaseUrl: string;
+  comfyuiBaseUrl: string;
+  comfyuiWorkflowJson: string;
+};
+
+export const DEFAULT_AI_SETTINGS: AiSettings = {
+  textProvider: "codex-cli",
+  imageProvider: "codex-cli",
+  claudePath: "claude",
+  claudeModel: "sonnet",
+  openaiApiKey: "",
+  openaiTextModel: "gpt-5.5",
+  openaiImageModel: "gpt-image-1",
+  anthropicApiKey: "",
+  anthropicModel: "claude-sonnet-5",
+  sdwebuiBaseUrl: "http://127.0.0.1:7860",
+  comfyuiBaseUrl: "http://127.0.0.1:8188",
+  comfyuiWorkflowJson: ""
+};
+
 export type CodexModelReasoningLevel = {
   effort: ReasoningEffort | string;
   description?: string;

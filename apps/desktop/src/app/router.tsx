@@ -7,7 +7,7 @@ import { CharactersPage } from "../features/characters/CharactersPage";
 import { WorldPage } from "../features/world/WorldPage";
 import { SceneEditorPage } from "../features/scenes/SceneEditorPage";
 import { ExportPage } from "../features/export/ExportPage";
-import { CodexSettingsPage } from "../features/ai/CodexSettingsPage";
+import { AiSettingsPage } from "../features/ai/AiSettingsPage";
 import { AiLogPage } from "../features/ai/AiLogPage";
 
 const rootRoute = createRootRoute({
@@ -74,8 +74,15 @@ const projectAiLogRoute = createRoute({
   component: ProjectAiLogRoute
 });
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  component: SettingsRoute
+});
+
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
+  settingsRoute,
   projectRoute,
   projectConceptRoute,
   projectPlanRoute,
@@ -154,8 +161,16 @@ function ProjectAiRoute() {
   const projectId = useProjectId();
   return (
     <ProjectShell projectId={projectId} activeSection="ai">
-      <CodexSettingsPage />
+      <AiSettingsPage />
     </ProjectShell>
+  );
+}
+
+function SettingsRoute() {
+  return (
+    <main className="app-shell">
+      <AiSettingsPage />
+    </main>
   );
 }
 

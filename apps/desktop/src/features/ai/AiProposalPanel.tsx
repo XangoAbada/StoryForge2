@@ -84,6 +84,7 @@ import {
   renderWorldPromptPackage
 } from "./worldPromptPackage";
 import { applyWorldDraftField } from "./worldDraftFieldTargets";
+import { parseModelJson } from "./modelJson";
 import {
   parseSceneEditorResult,
   sceneEditorFieldLabel,
@@ -2462,7 +2463,7 @@ function parseCharacterSuggestion(
   rawOutput: string,
   expectedField: CharacterFieldKey
 ): ParsedAiProposal {
-  const parsed = JSON.parse(rawOutput) as unknown;
+  const parsed = parseModelJson(rawOutput, "Propozycja postaci");
   const record =
     parsed && typeof parsed === "object" && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
@@ -2504,10 +2505,14 @@ function parseCharacterSuggestion(
   }
 
   if (record.kind !== "character_field_suggestion") {
-    throw new Error("AI zwróciło nieprawidłowy typ propozycji postaci.");
+    throw new Error(
+      `AI zwróciło nieprawidłowy typ propozycji postaci (kind: ${JSON.stringify(record.kind ?? null)}).`
+    );
   }
   if (record.field !== expectedField) {
-    throw new Error("AI zwróciło propozycję dla innego pola postaci.");
+    throw new Error(
+      `AI zwróciło propozycję dla pola ${JSON.stringify(record.field ?? null)}, oczekiwano ${expectedField}.`
+    );
   }
   const rawValue = record.value;
   const textValue = Array.isArray(rawValue)
@@ -2531,7 +2536,7 @@ function parseWorldSuggestion(
   rawOutput: string,
   expectedField: WorldFieldKey
 ): ParsedAiProposal {
-  const parsed = JSON.parse(rawOutput) as unknown;
+  const parsed = parseModelJson(rawOutput, "Propozycja świata");
   const record =
     parsed && typeof parsed === "object" && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
@@ -2558,10 +2563,14 @@ function parseWorldSuggestion(
   }
 
   if (record.kind !== "world_field_suggestion") {
-    throw new Error("AI zwróciło nieprawidłowy typ propozycji świata.");
+    throw new Error(
+      `AI zwróciło nieprawidłowy typ propozycji świata (kind: ${JSON.stringify(record.kind ?? null)}).`
+    );
   }
   if (record.field !== expectedField) {
-    throw new Error("AI zwróciło propozycję dla innego pola świata.");
+    throw new Error(
+      `AI zwróciło propozycję dla pola ${JSON.stringify(record.field ?? null)}, oczekiwano ${expectedField}.`
+    );
   }
 
   return {
@@ -2926,7 +2935,7 @@ function parsePlanSuggestion(
   rawOutput: string,
   expectedField: PlanFieldKey
 ): ParsedAiProposal {
-  const parsed = JSON.parse(rawOutput) as unknown;
+  const parsed = parseModelJson(rawOutput, "Propozycja planu");
   const value =
     parsed && typeof parsed === "object"
       ? parsed

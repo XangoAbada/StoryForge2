@@ -1,0 +1,2187 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StoryForge2 - design system v2</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07080f;
+      --bg-soft: #0b0d18;
+      --surface: #111320;
+      --surface-raised: #191b2b;
+      --surface-warm: #221b19;
+      --surface-cool: #131a2d;
+      --line: #2a2e42;
+      --line-strong: #3c4159;
+      --text: #f7f3ea;
+      --text-soft: #bbb5c6;
+      --text-muted: #827d91;
+      --gold: #f6c66d;
+      --gold-strong: #ffb955;
+      --gold-soft: #3b2b18;
+      --violet: #8b5cf6;
+      --violet-soft: #22183f;
+      --emerald: #19b98d;
+      --emerald-soft: #112f2a;
+      --rose: #e34b7c;
+      --rose-soft: #351723;
+      --blue: #6ea8ff;
+      --blue-soft: #14243c;
+      --orange: #f58b3d;
+      --danger: #ff6868;
+      --radius: 8px;
+      --shadow: 0 18px 44px rgba(0, 0, 0, 0.36);
+      --glow-gold: 0 0 0 1px rgba(246, 198, 109, 0.22), 0 16px 44px rgba(246, 198, 109, 0.12);
+      --font-ui: "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
+      --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+      --font-mono: "Cascadia Mono", Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        linear-gradient(90deg, rgba(246, 198, 109, 0.035) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(110, 168, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(135deg, #07080f 0%, #0d1020 46%, #09080f 100%);
+      background-size: 48px 48px, 48px 48px, auto;
+      color: var(--text);
+      font-family: var(--font-ui);
+      line-height: 1.5;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    p,
+    h1,
+    h2,
+    h3,
+    h4,
+    ul {
+      margin: 0;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    code {
+      padding: 2px 6px;
+      border: 1px solid rgba(246, 198, 109, 0.18);
+      border-radius: 6px;
+      background: rgba(246, 198, 109, 0.08);
+      color: #ffe2a5;
+      font-family: var(--font-mono);
+      font-size: 0.92em;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(9, 10, 18, 0.72);
+      color: var(--text);
+      outline: none;
+    }
+
+    input,
+    select {
+      min-height: 40px;
+      padding: 0 12px;
+    }
+
+    textarea {
+      min-height: 110px;
+      padding: 12px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus,
+    button:focus-visible,
+    a:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 22px;
+      height: 100vh;
+      padding: 22px 18px;
+      border-right: 1px solid rgba(246, 198, 109, 0.12);
+      background:
+        linear-gradient(180deg, rgba(246, 198, 109, 0.05), transparent 28%),
+        rgba(7, 8, 15, 0.94);
+      overflow: auto;
+    }
+
+    .brand {
+      display: grid;
+      gap: 12px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand img {
+      width: 204px;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .brand strong {
+      color: var(--gold);
+      font-family: var(--font-display);
+      font-size: 25px;
+      line-height: 1.05;
+    }
+
+    .brand span {
+      color: var(--text-soft);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .nav-list {
+      display: grid;
+      gap: 7px;
+      align-content: start;
+    }
+
+    .nav-list a {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 11px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      color: var(--text-soft);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .nav-list a:hover,
+    .nav-list a:focus-visible {
+      border-color: rgba(246, 198, 109, 0.28);
+      background: rgba(246, 198, 109, 0.08);
+      color: var(--text);
+    }
+
+    .nav-list small {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .rail-note {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid rgba(246, 198, 109, 0.18);
+      border-radius: var(--radius);
+      background: rgba(246, 198, 109, 0.07);
+      color: var(--text-soft);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    .hero {
+      display: grid;
+      gap: 28px;
+      padding: 34px clamp(20px, 4vw, 58px) 38px;
+      border-bottom: 1px solid rgba(246, 198, 109, 0.12);
+      background:
+        linear-gradient(180deg, rgba(246, 198, 109, 0.08), transparent 42%),
+        linear-gradient(120deg, rgba(139, 92, 246, 0.11), transparent 36%),
+        rgba(8, 9, 16, 0.62);
+    }
+
+    .hero-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 430px);
+      gap: clamp(22px, 5vw, 64px);
+      align-items: end;
+    }
+
+    .eyebrow {
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: var(--font-display);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 980px;
+      margin-top: 10px;
+      font-size: 68px;
+      font-weight: 700;
+    }
+
+    .hero-copy {
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero-copy p:not(.eyebrow) {
+      max-width: 830px;
+      color: var(--text-soft);
+      font-size: 17px;
+      font-weight: 650;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat-tile {
+      display: grid;
+      gap: 5px;
+      min-height: 92px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(17, 19, 32, 0.82);
+    }
+
+    .stat-tile strong {
+      color: var(--gold);
+      font-family: var(--font-display);
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .stat-tile span {
+      color: var(--text-soft);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .app-preview {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid rgba(246, 198, 109, 0.18);
+      border-radius: var(--radius);
+      background: rgba(13, 15, 28, 0.76);
+      box-shadow: var(--shadow);
+    }
+
+    .preview-topbar,
+    .mini-topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .search-pill {
+      min-height: 38px;
+      padding: 0 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 9, 16, 0.74);
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .preview-workspace {
+      display: grid;
+      grid-template-columns: 1fr 0.48fr;
+      gap: 12px;
+      min-height: 260px;
+    }
+
+    .preview-editor,
+    .preview-panel,
+    .preview-strip {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01));
+    }
+
+    .preview-editor {
+      display: grid;
+      grid-template-rows: 90px auto;
+      overflow: hidden;
+    }
+
+    .cover-row {
+      display: grid;
+      grid-template-columns: 118px minmax(0, 1fr);
+      gap: 14px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .cover-thumb {
+      border-radius: 6px;
+      background:
+        linear-gradient(145deg, rgba(246, 198, 109, 0.5), rgba(12, 13, 24, 0.2)),
+        linear-gradient(35deg, #12131f 0%, #2f2443 48%, #12131f 100%);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .title-stack {
+      display: grid;
+      align-content: center;
+      gap: 8px;
+    }
+
+    .title-stack h2 {
+      font-size: 25px;
+    }
+
+    .preview-strip {
+      display: grid;
+      gap: 12px;
+      margin: 12px;
+      padding: 12px;
+    }
+
+    .act-row,
+    .beat-row,
+    .meter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .chapter-dot {
+      display: inline-grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-soft);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .chapter-dot.active {
+      border-color: var(--gold);
+      background: rgba(246, 198, 109, 0.16);
+      color: var(--gold);
+      box-shadow: var(--glow-gold);
+    }
+
+    .preview-panel {
+      display: grid;
+      align-content: start;
+      gap: 9px;
+      padding: 12px;
+    }
+
+    .ai-action {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 58px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .ai-action strong {
+      font-size: 13px;
+    }
+
+    .ai-action span {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .content {
+      display: grid;
+      gap: 64px;
+      padding: 42px clamp(20px, 4vw, 58px) 72px;
+    }
+
+    .section {
+      display: grid;
+      gap: 20px;
+      scroll-margin-top: 24px;
+    }
+
+    .section-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 22px;
+      align-items: end;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(246, 198, 109, 0.13);
+    }
+
+    .section-header h2 {
+      margin-top: 6px;
+      color: var(--text);
+      font-size: 38px;
+    }
+
+    .section-header p:not(.eyebrow) {
+      max-width: 860px;
+      color: var(--text-soft);
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .section-index {
+      display: inline-grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(246, 198, 109, 0.24);
+      border-radius: var(--radius);
+      background: rgba(246, 198, 109, 0.08);
+      color: var(--gold);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .extract-grid,
+    .token-grid,
+    .component-grid,
+    .pattern-grid,
+    .screen-grid,
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .extract-card,
+    .token,
+    .component,
+    .pattern,
+    .screen-card,
+    .source-card,
+    .rule-card {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(17, 19, 32, 0.82);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+    }
+
+    .extract-card {
+      min-height: 210px;
+      align-content: start;
+    }
+
+    .extract-card strong,
+    .token strong,
+    .component h3,
+    .pattern h3,
+    .screen-card h3,
+    .source-card strong,
+    .rule-card strong {
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.2;
+    }
+
+    .extract-card p,
+    .token p,
+    .component p,
+    .pattern p,
+    .screen-card p,
+    .source-card li,
+    .rule-card p {
+      color: var(--text-soft);
+      font-size: 13px;
+      font-weight: 650;
+      line-height: 1.48;
+    }
+
+    .tag-row,
+    .chip-row,
+    .button-row,
+    .status-row,
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .tag,
+    .chip,
+    .status,
+    .source-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-soft);
+      font-size: 12px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .tag.gold,
+    .status.gold {
+      border-color: rgba(246, 198, 109, 0.32);
+      background: rgba(246, 198, 109, 0.12);
+      color: var(--gold);
+    }
+
+    .tag.violet,
+    .status.violet {
+      border-color: rgba(139, 92, 246, 0.34);
+      background: rgba(139, 92, 246, 0.12);
+      color: #c7b6ff;
+    }
+
+    .tag.emerald,
+    .status.emerald {
+      border-color: rgba(25, 185, 141, 0.32);
+      background: rgba(25, 185, 141, 0.12);
+      color: #7de6c8;
+    }
+
+    .tag.rose,
+    .status.rose {
+      border-color: rgba(227, 75, 124, 0.34);
+      background: rgba(227, 75, 124, 0.12);
+      color: #ff9ab8;
+    }
+
+    .token {
+      grid-template-rows: 76px auto auto auto;
+    }
+
+    .swatch {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius);
+      background: var(--swatch);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .type-showcase {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      gap: 14px;
+    }
+
+    .type-card {
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(17, 19, 32, 0.82);
+    }
+
+    .type-card .display-sample {
+      color: var(--text);
+      font-family: var(--font-display);
+      font-size: 84px;
+      line-height: 0.94;
+    }
+
+    .type-card .body-sample {
+      color: var(--text-soft);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .demo {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: var(--radius);
+      background: rgba(7, 8, 15, 0.52);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 0 14px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #ffe0a3, var(--gold-strong));
+      color: #17100a;
+      box-shadow: var(--glow-gold);
+    }
+
+    .btn-secondary {
+      border-color: rgba(246, 198, 109, 0.3);
+      background: rgba(246, 198, 109, 0.09);
+      color: var(--gold);
+    }
+
+    .btn-ghost {
+      border-color: var(--line);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-soft);
+    }
+
+    .btn-danger {
+      border-color: rgba(255, 104, 104, 0.3);
+      background: rgba(255, 104, 104, 0.1);
+      color: #ffaaa4;
+    }
+
+    .icon-btn {
+      display: inline-grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      min-height: 38px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-soft);
+      font-weight: 900;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+      color: var(--text-soft);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .field-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .ai-field {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 42px 38px;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .ai-field textarea {
+      grid-column: 1 / -1;
+    }
+
+    .ai-local {
+      border-color: rgba(246, 198, 109, 0.32);
+      background: rgba(246, 198, 109, 0.1);
+      color: var(--gold);
+    }
+
+    .ai-add {
+      border-color: rgba(110, 168, 255, 0.22);
+      color: var(--blue);
+    }
+
+    .ai-add:disabled {
+      color: var(--text-muted);
+    }
+
+    .segmented {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 9, 16, 0.74);
+    }
+
+    .segmented button {
+      min-height: 32px;
+      padding: 0 11px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-soft);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .segmented button.active {
+      background: rgba(246, 198, 109, 0.16);
+      color: var(--gold);
+    }
+
+    .progress {
+      position: relative;
+      height: 7px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .progress span {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: var(--value);
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--gold), #ff8f4f);
+      box-shadow: 0 0 18px rgba(246, 198, 109, 0.34);
+    }
+
+    .relation-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 29px;
+      padding: 0 7px 0 10px;
+      border: 1px solid rgba(25, 185, 141, 0.32);
+      border-radius: 999px;
+      background: rgba(25, 185, 141, 0.12);
+      color: #8eeed1;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .relation-chip.beat {
+      border-color: rgba(110, 168, 255, 0.32);
+      background: rgba(110, 168, 255, 0.11);
+      color: #a7c9ff;
+    }
+
+    .relation-chip.thread {
+      border-color: rgba(246, 198, 109, 0.32);
+      background: rgba(246, 198, 109, 0.12);
+      color: var(--gold);
+    }
+
+    .relation-chip button {
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      min-height: 18px;
+      padding: 0;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      background: transparent;
+      color: inherit;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .relation-add {
+      display: inline-grid;
+      place-items: center;
+      width: 29px;
+      height: 29px;
+      min-height: 29px;
+      padding: 0;
+      border: 1px dashed rgba(246, 198, 109, 0.46);
+      border-radius: 999px;
+      background: rgba(246, 198, 109, 0.08);
+      color: var(--gold);
+      font-weight: 900;
+    }
+
+    .mini-shell {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr) 260px;
+      gap: 12px;
+      min-height: 440px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(7, 8, 15, 0.62);
+      overflow: auto;
+    }
+
+    .mini-rail,
+    .mini-main,
+    .mini-aside {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(17, 19, 32, 0.76);
+    }
+
+    .nav-item {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      gap: 9px;
+      align-items: center;
+      min-height: 36px;
+      padding: 0 10px;
+      border-radius: var(--radius);
+      color: var(--text-soft);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .nav-item.active {
+      border: 1px solid rgba(246, 198, 109, 0.38);
+      background: rgba(246, 198, 109, 0.1);
+      color: var(--gold);
+      box-shadow: var(--glow-gold);
+    }
+
+    .plan-board {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(190px, 1fr));
+      gap: 10px;
+      overflow: auto;
+    }
+
+    .act-column {
+      display: grid;
+      gap: 10px;
+      min-height: 250px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 9, 16, 0.45);
+    }
+
+    .chapter-card {
+      display: grid;
+      gap: 9px;
+      padding: 12px;
+      border: 1px solid rgba(246, 198, 109, 0.18);
+      border-radius: var(--radius);
+      background: rgba(25, 27, 43, 0.84);
+    }
+
+    .chapter-card header,
+    .story-card header,
+    .proposal header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .chapter-number {
+      display: inline-grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      background: rgba(246, 198, 109, 0.16);
+      color: var(--gold);
+      font-weight: 900;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 9, 16, 0.45);
+      overflow: auto;
+    }
+
+    .timeline-track {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr));
+      gap: 18px;
+      min-width: 690px;
+      padding: 14px 0 4px;
+    }
+
+    .timeline-track::before {
+      position: absolute;
+      top: 26px;
+      left: 12px;
+      right: 12px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--gold), rgba(246, 198, 109, 0.1));
+      content: "";
+    }
+
+    .beat {
+      position: relative;
+      display: grid;
+      justify-items: center;
+      gap: 8px;
+      color: var(--text-soft);
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .beat::before {
+      display: block;
+      width: 20px;
+      height: 20px;
+      border: 4px solid var(--bg);
+      border-radius: 999px;
+      background: var(--gold);
+      box-shadow: 0 0 20px rgba(246, 198, 109, 0.34);
+      content: "";
+      z-index: 1;
+    }
+
+    .context-builder {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid rgba(139, 92, 246, 0.28);
+      border-radius: var(--radius);
+      background: rgba(139, 92, 246, 0.08);
+    }
+
+    .context-source {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      gap: 9px;
+      align-items: center;
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(9, 10, 18, 0.52);
+      color: var(--text-soft);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .context-source.required {
+      border-color: rgba(246, 198, 109, 0.34);
+      background: rgba(246, 198, 109, 0.09);
+      color: var(--gold);
+    }
+
+    .proposal-flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .proposal {
+      display: grid;
+      gap: 10px;
+      min-height: 150px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 9, 16, 0.45);
+    }
+
+    .editor-demo {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr) 230px;
+      gap: 10px;
+      min-height: 430px;
+      overflow: auto;
+    }
+
+    .scene-list,
+    .editor-surface,
+    .comment-panel {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 9, 16, 0.45);
+    }
+
+    .scene-item {
+      display: grid;
+      gap: 4px;
+      min-height: 64px;
+      padding: 10px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--text-soft);
+      text-align: left;
+    }
+
+    .scene-item.active {
+      border-color: rgba(246, 198, 109, 0.38);
+      color: var(--text);
+    }
+
+    .format-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .manuscript {
+      display: grid;
+      gap: 16px;
+      padding: 18px;
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 16px;
+      line-height: 1.72;
+    }
+
+    .manuscript h3 {
+      color: var(--gold);
+      font-size: 28px;
+    }
+
+    .story-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+    }
+
+    .story-card {
+      display: grid;
+      gap: 10px;
+      min-height: 150px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 9, 16, 0.45);
+    }
+
+    .portrait,
+    .place-thumb {
+      width: 56px;
+      height: 66px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(145deg, rgba(246, 198, 109, 0.42), transparent),
+        linear-gradient(35deg, #201826, #101522);
+    }
+
+    .place-thumb {
+      width: 72px;
+      background:
+        linear-gradient(145deg, rgba(110, 168, 255, 0.4), transparent),
+        linear-gradient(35deg, #12131f, #1e2738);
+    }
+
+    .modal-demo {
+      position: relative;
+      display: grid;
+      min-height: 340px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 9, 16, 0.62);
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.56);
+    }
+
+    .modal-shell {
+      position: relative;
+      z-index: 1;
+      align-self: center;
+      justify-self: center;
+      display: grid;
+      width: min(520px, calc(100% - 28px));
+      max-height: calc(100% - 28px);
+      overflow: hidden;
+      border: 1px solid rgba(246, 198, 109, 0.24);
+      border-radius: var(--radius);
+      background: #111320;
+      box-shadow: var(--shadow);
+    }
+
+    .modal-header,
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-body {
+      display: grid;
+      gap: 9px;
+      max-height: 210px;
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .modal-footer {
+      justify-content: flex-end;
+      border-top: 1px solid var(--line);
+      border-bottom: 0;
+    }
+
+    .option-row {
+      display: grid;
+      gap: 4px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 9, 16, 0.46);
+      text-align: left;
+    }
+
+    .option-row.selected {
+      border-color: rgba(246, 198, 109, 0.34);
+      background: rgba(246, 198, 109, 0.09);
+    }
+
+    .export-demo {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .export-settings,
+    .book-preview {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(8, 9, 16, 0.45);
+    }
+
+    .book-preview {
+      min-height: 360px;
+      background:
+        linear-gradient(90deg, rgba(246, 198, 109, 0.04) 1px, transparent 1px),
+        #f4ecdc;
+      background-size: 28px 28px;
+      color: #201813;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    .book-cover {
+      display: grid;
+      place-items: center;
+      justify-self: center;
+      width: min(100%, 200px);
+      aspect-ratio: 2 / 3;
+      margin-bottom: 12px;
+      border: 1px solid rgba(32, 24, 19, 0.22);
+      border-radius: 6px;
+      background:
+        linear-gradient(145deg, rgba(246, 198, 109, 0.52), rgba(52, 31, 27, 0.15)),
+        linear-gradient(30deg, #17141b, #4a3426);
+      color: #ffe2a5;
+      text-align: center;
+      box-shadow: 0 18px 34px rgba(32, 24, 19, 0.18);
+    }
+
+    .rule-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .source-card ul,
+    .rule-card ul,
+    .screen-card ul {
+      display: grid;
+      gap: 7px;
+      color: var(--text-soft);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .jump-note {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 5;
+      display: none;
+    }
+
+    @media (max-width: 1180px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        position: static;
+        height: auto;
+      }
+
+      .nav-list {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+
+      .hero-top,
+      .type-showcase,
+      .export-demo {
+        grid-template-columns: 1fr;
+      }
+
+      .mini-shell,
+      .editor-demo {
+        grid-template-columns: minmax(180px, 0.4fr) minmax(360px, 1fr);
+      }
+
+      .mini-aside,
+      .comment-panel {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .hero,
+      .content {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      .section-header {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 46px;
+      }
+
+      .section-header h2 {
+        font-size: 32px;
+      }
+
+      .type-card .display-sample {
+        font-size: 64px;
+      }
+
+      .hero-stats,
+      .preview-workspace,
+      .proposal-flow,
+      .mini-shell,
+      .editor-demo {
+        grid-template-columns: 1fr;
+      }
+
+      .cover-row {
+        grid-template-columns: 1fr;
+      }
+
+      .cover-thumb {
+        min-height: 96px;
+      }
+
+      .plan-board {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" aria-label="Nawigacja design systemu">
+      <div class="brand">
+        <img src="assets/storyforge-logo-gold.png" alt="StoryForge">
+        <strong>Design system v2</strong>
+        <span>Ciemny atlas decyzji UI: fundamenty, komponenty i wzorce domenowe.</span>
+      </div>
+
+      <nav class="nav-list">
+        <a href="#ekstrakt"><span>01</span><span>Ekstrakt</span><small>mapa</small></a>
+        <a href="#fundamenty"><span>02</span><span>Fundamenty</span><small>tokeny</small></a>
+        <a href="#komponenty"><span>03</span><span>Komponenty</span><small>UI</small></a>
+        <a href="#wzorce"><span>04</span><span>Wzorce domenowe</span><small>produkt</small></a>
+        <a href="#ekrany"><span>05</span><span>Ekrany</span><small>mapa</small></a>
+        <a href="#reguly"><span>06</span><span>Reguły wdrożenia</span><small>zasady</small></a>
+        <a href="#zrodla"><span>07</span><span>Źródła</span><small>pliki</small></a>
+      </nav>
+
+      <div class="rail-note">
+        <strong>Kierunek wizualny</strong>
+        <span>Warsztat autora fantasy: głęboka czerń, złoto logo, ciche panele, fiolet i zieleń wyłącznie jako funkcjonalne akcenty.</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="hero">
+        <div class="hero-top">
+          <div class="hero-copy">
+            <div>
+              <p class="eyebrow">StoryForge2 / atlas UI</p>
+              <h1>System dla aplikacji, która wygląda jak nocne studio pisarskie.</h1>
+            </div>
+            <p>
+              Nowy dokument wyciąga z istniejącego atlasu fundamenty, komponenty bazowe i wzorce domenowe,
+              a następnie układa je w ciemny design zgodny z nowym logo oraz referencjami dashboardu.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#fundamenty">Przejdź do fundamentów</a>
+              <a class="btn btn-secondary" href="#wzorce">Zobacz wzorce domenowe</a>
+              <a class="btn btn-ghost" href="storyforge2-ui-design-system.html">Otwórz poprzedni atlas</a>
+            </div>
+          </div>
+
+          <div class="hero-stats" aria-label="Zakres dokumentu">
+            <div class="stat-tile"><strong>3</strong><span>warstwy: fundamenty, komponenty, domena</span></div>
+            <div class="stat-tile"><strong>7</strong><span>sekcji roboczych z mapą źródeł</span></div>
+            <div class="stat-tile"><strong>12</strong><span>kluczowych wzorców produktu</span></div>
+            <div class="stat-tile"><strong>PL</strong><span>copy z poprawnymi polskimi znakami</span></div>
+          </div>
+        </div>
+
+        <section class="app-preview" aria-label="Podgląd kierunku aplikacji">
+          <div class="preview-topbar">
+            <div class="search-pill">Szukaj w projekcie...  ⌘ K</div>
+            <button class="btn btn-primary" type="button">+ Nowy rozdział</button>
+          </div>
+          <div class="preview-workspace">
+            <div class="preview-editor">
+              <div class="cover-row">
+                <div class="cover-thumb" aria-hidden="true"></div>
+                <div class="title-stack">
+                  <h2>Cienie Przeszłości</h2>
+                  <div class="tag-row">
+                    <span class="tag gold">Fantasy</span>
+                    <span class="tag violet">Tajemnica</span>
+                    <span class="tag emerald">62% celu</span>
+                  </div>
+                  <div class="progress" style="--value:62%"><span></span></div>
+                </div>
+              </div>
+              <div class="preview-strip">
+                <div class="act-row">
+                  <span class="tag gold">Akt II</span>
+                  <span class="chapter-dot">10</span>
+                  <span class="chapter-dot">11</span>
+                  <span class="chapter-dot active">12</span>
+                  <span class="chapter-dot">13</span>
+                  <span class="chapter-dot">14</span>
+                  <span class="chapter-dot">15</span>
+                </div>
+                <div class="beat-row">
+                  <span class="relation-chip beat">Beat 1</span>
+                  <span class="relation-chip thread">Konflikt</span>
+                  <span class="relation-chip">Odkrycie</span>
+                  <button class="relation-add" type="button" aria-label="Dodaj relację">+</button>
+                </div>
+                <div>
+                  <h3>Rozdział 12: Cień prawdy</h3>
+                  <p style="color: var(--text-soft); max-width: 74ch;">
+                    Mrok korytarza zdawał się gęstnieć z każdym krokiem. System pokazuje tekst,
+                    relacje i kontekst AI bez odciągania autora od sceny.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <aside class="preview-panel">
+              <p class="eyebrow">AI Asystent</p>
+              <div class="ai-action"><span class="icon-btn">✦</span><span><strong>Generuj scenę</strong><br>Utwórz scenę z kontekstu rozdziału</span><span>›</span></div>
+              <div class="ai-action"><span class="icon-btn">A</span><span><strong>Ulepsz styl</strong><br>Popraw rytm, tempo i język</span><span>›</span></div>
+              <div class="ai-action"><span class="icon-btn">?</span><span><strong>Sprawdź spójność</strong><br>Znajdź konflikty w historii</span><span>›</span></div>
+              <div class="demo">
+                <strong>Podsumowanie AI</strong>
+                <p style="color: var(--text-soft); font-size: 12px;">Rozdział buduje napięcie i prowadzi czytelnika w głąb tajemnicy.</p>
+                <div class="meter-row">
+                  <span class="status gold">85% jakości</span>
+                  <span class="tag">Napięcie</span>
+                  <span class="tag">Tajemnica</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </header>
+
+      <div class="content">
+        <section class="section" id="ekstrakt">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Ekstrakt</p>
+              <h2>Trzy warstwy wyciągnięte ze starego atlasu</h2>
+              <p>
+                Poprzedni dokument mapował komponenty aplikacji. Wersja v2 porządkuje je jako decyzje,
+                które można bezpośrednio wdrażać w ekranach StoryForge2.
+              </p>
+            </div>
+            <span class="section-index">01</span>
+          </header>
+
+          <div class="extract-grid">
+            <article class="extract-card">
+              <span class="tag gold">Fundamenty</span>
+              <strong>Tokeny i zasady bazowe</strong>
+              <p>Paleta, typografia, promienie, cienie, gęstość, focus, statusy i język UI. To warstwa, która utrzymuje spójność każdej powierzchni.</p>
+              <div class="tag-row">
+                <span class="source-pill">kolory</span>
+                <span class="source-pill">typografia</span>
+                <span class="source-pill">spacing</span>
+                <span class="source-pill">focus</span>
+              </div>
+            </article>
+            <article class="extract-card">
+              <span class="tag violet">Komponenty</span>
+              <strong>Elementy bazowe interfejsu</strong>
+              <p>Przyciski, pola, AI przy polu, chipy relacji, zakładki, statusy, karty, panele, modale i komunikaty. Każdy element ma pełne stany.</p>
+              <div class="tag-row">
+                <span class="source-pill">buttons</span>
+                <span class="source-pill">inputs</span>
+                <span class="source-pill">cards</span>
+                <span class="source-pill">modals</span>
+              </div>
+            </article>
+            <article class="extract-card">
+              <span class="tag emerald">Wzorce domenowe</span>
+              <strong>Mechanika pracy autora</strong>
+              <p>Rama projektu, plan rozdziałów, relacje <code>+/-</code>, panel kontekstu AI, propozycje z akceptacją, edytor scen i eksport książki.</p>
+              <div class="tag-row">
+                <span class="source-pill">AI flow</span>
+                <span class="source-pill">plan</span>
+                <span class="source-pill">Story Bible</span>
+                <span class="source-pill">eksport</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="fundamenty">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Fundamenty</p>
+              <h2>Tokeny bazowe nowego kierunku</h2>
+              <p>
+                Kierunek bierze złoto i pióro z logo, ciemną gęstość dashboardu oraz praktyczność dokumentu systemowego.
+                Fiolet, zieleń i błękit są akcentami funkcjonalnymi, a nie dekoracją.
+              </p>
+            </div>
+            <span class="section-index">02</span>
+          </header>
+
+          <div class="token-grid">
+            <article class="token" style="--swatch:#07080f">
+              <div class="swatch"></div>
+              <strong>Tło aplikacji</strong>
+              <p>Nocne studio, nie czarna pustka. Używane jako baza całej aplikacji.</p>
+              <code>--bg #07080f</code>
+            </article>
+            <article class="token" style="--swatch:#111320">
+              <div class="swatch"></div>
+              <strong>Panel roboczy</strong>
+              <p>Karty, boczne panele, edytory i powierzchnie dashboardu.</p>
+              <code>--surface #111320</code>
+            </article>
+            <article class="token" style="--swatch:#191b2b">
+              <div class="swatch"></div>
+              <strong>Panel podniesiony</strong>
+              <p>Warstwa dla aktywnych kart, popoverów i paneli AI.</p>
+              <code>--surface-raised #191b2b</code>
+            </article>
+            <article class="token" style="--swatch:#f7f3ea">
+              <div class="swatch"></div>
+              <strong>Tekst podstawowy</strong>
+              <p>Nagłówki, ważne etykiety i tekst w edytorze scen.</p>
+              <code>--text #f7f3ea</code>
+            </article>
+            <article class="token" style="--swatch:#bbb5c6">
+              <div class="swatch"></div>
+              <strong>Tekst pomocniczy</strong>
+              <p>Opisy pól, metadane, puste stany i informacje drugorzędne.</p>
+              <code>--text-soft #bbb5c6</code>
+            </article>
+            <article class="token" style="--swatch:#f6c66d">
+              <div class="swatch"></div>
+              <strong>Złoto marki</strong>
+              <p>Logo, akcja główna, aktywny rozdział, focus i najważniejsze akcenty.</p>
+              <code>--gold #f6c66d</code>
+            </article>
+            <article class="token" style="--swatch:#8b5cf6">
+              <div class="swatch"></div>
+              <strong>AI i narzędzia</strong>
+              <p>Drugorzędny akcent dla paneli AI, sugestii i trybów generowania.</p>
+              <code>--violet #8b5cf6</code>
+            </article>
+            <article class="token" style="--swatch:#19b98d">
+              <div class="swatch"></div>
+              <strong>Spójność i sukces</strong>
+              <p>Gotowość, poprawność, aktywne wątki i pozytywne statusy.</p>
+              <code>--emerald #19b98d</code>
+            </article>
+            <article class="token" style="--swatch:#6ea8ff">
+              <div class="swatch"></div>
+              <strong>Beaty i informacja</strong>
+              <p>Relacje beatów, metadane, linki i spokojne wyróżnienia.</p>
+              <code>--blue #6ea8ff</code>
+            </article>
+            <article class="token" style="--swatch:#e34b7c">
+              <div class="swatch"></div>
+              <strong>Napięcie i ostrzeżenie</strong>
+              <p>Konflikty, ryzyka fabularne i ostrzeżenia niedestrukcyjne.</p>
+              <code>--rose #e34b7c</code>
+            </article>
+            <article class="token" style="--swatch:#ff6868">
+              <div class="swatch"></div>
+              <strong>Błąd i destrukcja</strong>
+              <p>Usuwanie, błędy zapisu, niedostępny backend i akcje ryzykowne.</p>
+              <code>--danger #ff6868</code>
+            </article>
+            <article class="token" style="--swatch:linear-gradient(135deg,#ffe0a3,#ffb955)">
+              <div class="swatch"></div>
+              <strong>Akcja główna</strong>
+              <p>Jeden mocny gradient tylko dla najważniejszych akcji ekranu.</p>
+              <code>primary gradient</code>
+            </article>
+          </div>
+
+          <div class="type-showcase">
+            <article class="type-card">
+              <p class="eyebrow">Typografia display</p>
+              <div class="display-sample">Aa</div>
+              <strong>Playfair Display / Georgia fallback</strong>
+              <p class="body-sample">Nagłówki mają literacki ciężar: tytuły projektów, rozdziały, hero, nazwy encji Story Bible.</p>
+            </article>
+            <article class="type-card">
+              <p class="eyebrow">Typografia robocza</p>
+              <p class="body-sample">
+                Interfejs używa neutralnego fontu systemowego o dobrej czytelności w gęstych panelach.
+                Etykiety są krótkie, statusy konkretne, a pomocnicze opisy nie zastępują właściwej hierarchii.
+              </p>
+              <div class="tag-row">
+                <span class="tag gold">H1 56-82 / 1.08</span>
+                <span class="tag">H2 28-42 / 1.08</span>
+                <span class="tag">Body 14-16 / 1.5</span>
+                <span class="tag">Caption 12 / 1.4</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="komponenty">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Komponenty</p>
+              <h2>Biblioteka bazowa z pełnymi stanami</h2>
+              <p>
+                Komponenty są ciemne, gęste i spokojne. Każdy musi mieć stan domyślny, hover, focus,
+                aktywny, disabled, loading, empty oraz błąd, jeśli może obsługiwać dane.
+              </p>
+            </div>
+            <span class="section-index">03</span>
+          </header>
+
+          <div class="component-grid">
+            <article class="component">
+              <h3>Przyciski i akcje</h3>
+              <p>Jeden główny CTA na powierzchnię. Akcje ikonowe dla narzędzi i sterowania, tekstowe dla poleceń o wysokiej czytelności.</p>
+              <div class="demo">
+                <div class="button-row">
+                  <button class="btn btn-primary" type="button">+ Nowy rozdział</button>
+                  <button class="btn btn-secondary" type="button">Generuj AI</button>
+                  <button class="btn btn-ghost" type="button">Zapisz szkic</button>
+                  <button class="btn btn-danger" type="button">Usuń</button>
+                  <button class="icon-btn" type="button" aria-label="Więcej opcji">•••</button>
+                  <button class="icon-btn" type="button" aria-label="Zamknij">×</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="component">
+              <h3>Pola tekstowe z AI</h3>
+              <p>Każdy input lub textarea dodany do aplikacji ma lokalny przycisk AI dla tego konkretnego pola oraz przycisk dodania źródła do kontekstu.</p>
+              <div class="demo">
+                <label class="field">
+                  <span class="field-head">
+                    <span>Tytuł sceny</span>
+                    <span class="status gold">aktywne pole AI</span>
+                  </span>
+                  <span class="ai-field">
+                    <input value="Komnata wspomnień">
+                    <button class="icon-btn ai-local" type="button" aria-label="Wygeneruj tytuł sceny">AI</button>
+                    <button class="icon-btn ai-add" type="button" aria-label="Dodaj tytuł sceny do kontekstu">+</button>
+                  </span>
+                </label>
+                <label class="field">
+                  Opis konfliktu
+                  <span class="ai-field">
+                    <textarea>Kael musi zdecydować, czy ujawnić prawdę, która ocali sojusznika, ale zniszczy jego lojalność.</textarea>
+                    <button class="icon-btn ai-local" type="button" aria-label="Wygeneruj opis konfliktu">AI</button>
+                    <button class="icon-btn ai-add" type="button" aria-label="Źródło już dodane" disabled>+</button>
+                  </span>
+                </label>
+              </div>
+            </article>
+
+            <article class="component">
+              <h3>Statusy, alerty i postęp</h3>
+              <p>Statusy są semantyczne, a nie kolorystyczne: złoto dla jakości lub aktywnej pracy, zieleń dla gotowości, róż dla napięcia, czerwień dla błędu.</p>
+              <div class="demo">
+                <div class="status-row">
+                  <span class="status emerald">Zapisano</span>
+                  <span class="status gold">AI pracuje</span>
+                  <span class="status rose">Napięcie niskie</span>
+                  <span class="status">Szkic</span>
+                </div>
+                <div class="progress" style="--value:62%"><span></span></div>
+                <p style="color: var(--text-soft); font-size: 12px;">62% celu projektu - 62 450 z 100 000 słów.</p>
+              </div>
+            </article>
+
+            <article class="component">
+              <h3>Chipy relacji i tagi</h3>
+              <p>Minus usuwa tylko relację, nigdy encję kanoniczną. Plus otwiera picker istniejących encji i blokuje duplikaty.</p>
+              <div class="demo">
+                <div class="chip-row">
+                  <span class="relation-chip thread">Wątek: prawda <button type="button" aria-label="Odepnij wątek prawda">-</button></span>
+                  <span class="relation-chip beat">Beat: odkrycie <button type="button" aria-label="Odepnij beat odkrycie">-</button></span>
+                  <span class="relation-chip">Postać: Kael <button type="button" aria-label="Odepnij postać Kael">-</button></span>
+                  <button class="relation-add" type="button" aria-label="Dodaj istniejącą relację">+</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="component">
+              <h3>Zakładki, segmenty i filtry</h3>
+              <p>Segmenty obsługują małe zbiory trybów, zakładki przełączają widok jednej encji, a select zostaje dla dłuższych list.</p>
+              <div class="demo">
+                <div class="segmented" role="tablist" aria-label="Widok planu">
+                  <button class="active" type="button">Struktura</button>
+                  <button type="button">Oś czasu</button>
+                  <button type="button">Tablica</button>
+                </div>
+                <label class="field">Widok
+                  <select>
+                    <option>Pełna struktura</option>
+                    <option>Tylko aktywne rozdziały</option>
+                    <option>Rozdziały bez relacji</option>
+                  </select>
+                </label>
+              </div>
+            </article>
+
+            <article class="component">
+              <h3>Karty robocze</h3>
+              <p>Karta ma gęstą hierarchię: nagłówek, metadane, treść, relacje i akcje. Nie tworzy marketingowego układu.</p>
+              <div class="demo">
+                <article class="chapter-card">
+                  <header>
+                    <span class="chapter-number">12</span>
+                    <span class="status gold">1 250 słów</span>
+                  </header>
+                  <strong>Rozdział 12: Cień prawdy</strong>
+                  <p style="color: var(--text-soft); font-size: 13px;">Kael odnajduje księgę, która łączy twierdzę z dawną zdradą.</p>
+                  <div class="chip-row">
+                    <span class="relation-chip beat">odkrycie <button type="button">-</button></span>
+                    <span class="relation-chip thread">tajemnica <button type="button">-</button></span>
+                  </div>
+                </article>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="wzorce">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Wzorce domenowe</p>
+              <h2>Mechanika produktu StoryForge2</h2>
+              <p>
+                To elementy, których nie załatwia zwykły UI kit: relacje planu, lokalne AI,
+                Story Bible, edytor scen i przepływ eksportu książki.
+              </p>
+            </div>
+            <span class="section-index">04</span>
+          </header>
+
+          <div class="pattern-grid">
+            <article class="pattern">
+              <h3>Project Shell</h3>
+              <p>Stała rama projektu: lewa nawigacja, wyszukiwarka, wybór projektu, główny obszar pracy i prawy panel AI.</p>
+              <div class="mini-shell">
+                <aside class="mini-rail">
+                  <span class="nav-item active"><span>⌂</span><span>Dashboard</span></span>
+                  <span class="nav-item"><span>□</span><span>Story Bible</span></span>
+                  <span class="nav-item"><span>≡</span><span>Plan</span></span>
+                  <span class="nav-item"><span>¶</span><span>Rozdziały</span></span>
+                  <span class="nav-item"><span>✦</span><span>AI Tools</span></span>
+                </aside>
+                <section class="mini-main">
+                  <div class="mini-topbar">
+                    <div class="search-pill">Cienie Przeszłości</div>
+                    <span class="status gold">autosave</span>
+                  </div>
+                  <div class="preview-strip">
+                    <h3>Plan rozdziału</h3>
+                    <p style="color: var(--text-soft);">Kontekst, relacje i treść pozostają w jednym miejscu roboczym.</p>
+                    <div class="progress" style="--value:62%"><span></span></div>
+                  </div>
+                </section>
+                <aside class="mini-aside">
+                  <p class="eyebrow">AI Asystent</p>
+                  <div class="ai-action"><span class="icon-btn">✦</span><span><strong>Generuj scenę</strong><br>z kontekstu rozdziału</span><span>›</span></div>
+                  <div class="ai-action"><span class="icon-btn">A</span><span><strong>Ulepsz styl</strong><br>rytm i język tekstu</span><span>›</span></div>
+                </aside>
+              </div>
+            </article>
+
+            <article class="pattern">
+              <h3>Plan: akty, rozdziały, beaty i wątki</h3>
+              <p>Rozdział jest kontenerem celu, konfliktu i relacji. Widok planu musi chronić <code>chapterBeats</code> i <code>chapterThreads</code> przed przypadkową utratą.</p>
+              <div class="plan-board">
+                <section class="act-column">
+                  <strong>Akt I</strong>
+                  <article class="chapter-card">
+                    <header><span class="chapter-number">3</span><span class="status">wezwanie</span></header>
+                    <strong>Zaproszenie do zamku</strong>
+                    <div class="chip-row">
+                      <span class="relation-chip beat">inciting incident <button type="button">-</button></span>
+                      <button class="relation-add" type="button" aria-label="Dodaj beat">+</button>
+                    </div>
+                  </article>
+                </section>
+                <section class="act-column">
+                  <strong>Akt II</strong>
+                  <article class="chapter-card">
+                    <header><span class="chapter-number">12</span><span class="status gold">aktywny</span></header>
+                    <strong>Cień prawdy</strong>
+                    <div class="chip-row">
+                      <span class="relation-chip thread">tajemnica <button type="button">-</button></span>
+                      <span class="relation-chip beat">midpoint <button type="button">-</button></span>
+                      <button class="relation-add" type="button" aria-label="Dodaj relację">+</button>
+                    </div>
+                  </article>
+                </section>
+                <section class="act-column">
+                  <strong>Akt III</strong>
+                  <article class="chapter-card">
+                    <header><span class="chapter-number">24</span><span class="status emerald">finał</span></header>
+                    <strong>Konfrontacja</strong>
+                    <p style="color: var(--text-soft); font-size: 13px;">Domknięcie wątków i konsekwencji.</p>
+                  </article>
+                </section>
+              </div>
+              <div class="timeline">
+                <strong>Oś scen i beatów</strong>
+                <div class="timeline-track">
+                  <span class="beat">Scena 1<br>Punkt zwrotny</span>
+                  <span class="beat">Scena 2<br>Konflikt</span>
+                  <span class="beat">Scena 3<br>Odkrycie</span>
+                  <span class="beat">Scena 4<br>Decyzja</span>
+                  <span class="beat">Scena 5<br>Koszt</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="pattern">
+              <h3>Panel kontekstu promptu AI</h3>
+              <p>Fokus na polu AI aktywuje prawy panel. Źródła wymagane zostają włączone, a duplikaty są blokowane na poziomie UI i store.</p>
+              <div class="context-builder">
+                <div class="field-head">
+                  <div>
+                    <p class="eyebrow">Kontekst promptu</p>
+                    <strong>Opis konfliktu rozdziału</strong>
+                  </div>
+                  <span class="status violet">4 źródła</span>
+                </div>
+                <label class="context-source required"><input type="checkbox" checked disabled><span>Treść aktywnego pola</span><span>wymagane</span></label>
+                <label class="context-source required"><input type="checkbox" checked disabled><span>Cel rozdziału</span><span>wymagane</span></label>
+                <label class="context-source"><input type="checkbox" checked><span>Powiązane wątki</span><button class="icon-btn ai-add" type="button" aria-label="Źródło już dodane" disabled>+</button></label>
+                <label class="context-source"><input type="checkbox"><span>Notatki autora</span><button class="icon-btn ai-add" type="button" aria-label="Dodaj notatki autora">+</button></label>
+                <button class="btn btn-secondary" type="button">Wyślij do AI</button>
+              </div>
+            </article>
+
+            <article class="pattern">
+              <h3>Propozycja AI i akceptacja</h3>
+              <p>Treść wygenerowana przez AI nigdy nie zapisuje się trwale bez potwierdzenia autora. Różnica między szkicem, propozycją i zapisem musi być widoczna.</p>
+              <div class="proposal-flow">
+                <article class="proposal">
+                  <header><strong>1. Generowanie</strong><span class="status gold">AI pracuje</span></header>
+                  <p style="color: var(--text-soft); font-size: 13px;">Kolejka pokazuje cel, użyty kontekst i możliwość anulowania.</p>
+                  <div class="progress" style="--value:38%"><span></span></div>
+                </article>
+                <article class="proposal">
+                  <header><strong>2. Propozycja</strong><span class="status violet">do oceny</span></header>
+                  <textarea>Kael zrozumiał, że cisza komnaty była starannie zaprojektowaną pułapką.</textarea>
+                </article>
+                <article class="proposal">
+                  <header><strong>3. Decyzja</strong><span class="status emerald">autor wybiera</span></header>
+                  <div class="button-row">
+                    <button class="btn btn-primary" type="button">Akceptuj</button>
+                    <button class="btn btn-ghost" type="button">Edytuj</button>
+                    <button class="btn btn-danger" type="button">Odrzuć</button>
+                  </div>
+                </article>
+              </div>
+            </article>
+
+            <article class="pattern">
+              <h3>Edytor scen</h3>
+              <p>Najważniejszy ekran pracy: lista scen, surface pisania, toolbar formatowania, komentarze, AI dla zaznaczenia i status zapisu.</p>
+              <div class="editor-demo">
+                <aside class="scene-list">
+                  <button class="scene-item active" type="button"><strong>Scena 1</strong><span>1 250 słów</span></button>
+                  <button class="scene-item" type="button"><strong>Scena 2</strong><span>szkic</span></button>
+                  <button class="btn btn-secondary" type="button">+ Scena</button>
+                </aside>
+                <section class="editor-surface">
+                  <div class="format-bar">
+                    <button class="icon-btn" type="button" aria-label="Pogrubienie">B</button>
+                    <button class="icon-btn" type="button" aria-label="Kursywa">I</button>
+                    <button class="icon-btn" type="button" aria-label="Lista">≡</button>
+                    <button class="icon-btn ai-local" type="button" aria-label="AI dla zaznaczenia">AI</button>
+                    <span class="status emerald">Zapisano 2 min temu</span>
+                  </div>
+                  <div class="manuscript">
+                    <h3>Komnata wspomnień</h3>
+                    <p>Wszedł powoli. W środku unosił się zapach starego pergaminu i kurzu. Na środku stał stół, a na nim księga oprawiona w czarną skórę.</p>
+                    <p>Światło z wnętrza komnaty rysowało na podłodze smugi złota.</p>
+                  </div>
+                </section>
+                <aside class="comment-panel">
+                  <strong>Komentarze</strong>
+                  <div class="proposal">
+                    <span class="status">Anna</span>
+                    <p style="color: var(--text-soft); font-size: 13px;">Może dodać więcej szczegółów zmysłowych?</p>
+                    <button class="btn btn-ghost" type="button">Odpowiedz</button>
+                  </div>
+                </aside>
+              </div>
+            </article>
+
+            <article class="pattern">
+              <h3>Story Bible: postacie, miejsca i pamięć</h3>
+              <p>Kanon działa jak sieć: postać, miejsce, reguła i wspomnienie mają profil, relacje, źródła AI oraz historię zmian.</p>
+              <div class="story-grid">
+                <article class="story-card">
+                  <header>
+                    <div class="portrait" aria-hidden="true"></div>
+                    <span class="status gold">Postać</span>
+                  </header>
+                  <strong>Kael</strong>
+                  <p style="color: var(--text-soft); font-size: 13px;">Główny bohater, rozdarty między odwagą a lojalnością.</p>
+                  <div class="chip-row">
+                    <span class="tag">Odwaga</span>
+                    <span class="tag">Lojalność</span>
+                  </div>
+                </article>
+                <article class="story-card">
+                  <header>
+                    <div class="place-thumb" aria-hidden="true"></div>
+                    <span class="status violet">Miejsce</span>
+                  </header>
+                  <strong>Zamek Noirvil</strong>
+                  <p style="color: var(--text-soft); font-size: 13px;">Twierdza połączona z wątkiem przepowiedni.</p>
+                  <div class="chip-row">
+                    <span class="relation-chip thread">Przepowiednia <button type="button">-</button></span>
+                  </div>
+                </article>
+                <article class="story-card">
+                  <header>
+                    <span class="status emerald">Pamięć</span>
+                    <button class="relation-add" type="button" aria-label="Dodaj wspomnienie">+</button>
+                  </header>
+                  <strong>Obietnica z dzieciństwa</strong>
+                  <p style="color: var(--text-soft); font-size: 13px;">Wspomnienie używane jako kontekst dla decyzji bohatera.</p>
+                </article>
+              </div>
+            </article>
+
+            <article class="pattern">
+              <h3>Modale i pickery relacji</h3>
+              <p>Modale renderują się przez portal do <code>document.body</code>, mają dialog ARIA, osobny backdrop, przycisk X i zamykanie Escape.</p>
+              <div class="modal-demo">
+                <div class="modal-backdrop" aria-hidden="true"></div>
+                <section class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="relation-title">
+                  <header class="modal-header">
+                    <div>
+                      <p class="eyebrow">Powiązania</p>
+                      <h3 id="relation-title">Dodaj wątki do rozdziału</h3>
+                    </div>
+                    <button class="icon-btn" type="button" aria-label="Zamknij modal">×</button>
+                  </header>
+                  <div class="modal-body">
+                    <button class="option-row selected" type="button"><strong>Poszukiwanie prawdy</strong><span>Już połączony z rozdziałem.</span></button>
+                    <button class="option-row" type="button"><strong>Proroctwo Krwi</strong><span>Dostępny do dodania.</span></button>
+                    <button class="option-row" type="button"><strong>Lojalność Anny</strong><span>Dostępny do dodania.</span></button>
+                  </div>
+                  <footer class="modal-footer">
+                    <button class="btn btn-ghost" type="button">Anuluj</button>
+                    <button class="btn btn-primary" type="button">Dodaj</button>
+                  </footer>
+                </section>
+              </div>
+            </article>
+
+            <article class="pattern">
+              <h3>Eksport książki</h3>
+              <p>Eksport łączy wybór formatu, folder zapisu, presety, rozdziały, separatory, grafikę i historię plików.</p>
+              <div class="export-demo">
+                <section class="export-settings">
+                  <div class="segmented">
+                    <button class="active" type="button">DOCX</button>
+                    <button type="button">Markdown</button>
+                    <button type="button">EPUB</button>
+                  </div>
+                  <label class="field">Folder zapisu<input value="D:\Projekty\Cienie Przeszłości"></label>
+                  <span class="status emerald">Eksport zakończony</span>
+                  <button class="btn btn-secondary" type="button">Otwórz folder</button>
+                </section>
+                <section class="book-preview">
+                  <div class="book-cover"><strong>Cienie Przeszłości</strong></div>
+                  <h3>Rozdział 12</h3>
+                  <p>Podgląd eksportu powinien pokazywać realny rytm książki: okładkę, separatory, tytuły i ciało tekstu.</p>
+                </section>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="ekrany">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Ekrany</p>
+              <h2>Mapa powierzchni, które używają systemu</h2>
+              <p>Każdy ekran ma dominujące zadanie. System powinien pomagać je wykonać bez nadmiaru dekoracji.</p>
+            </div>
+            <span class="section-index">05</span>
+          </header>
+
+          <div class="screen-grid">
+            <article class="screen-card">
+              <h3>Dashboard projektów</h3>
+              <p>Lista książek, tworzenie projektu, cover art, ostatnia aktywność i wejście do workspace.</p>
+              <ul>
+                <li>projekt jako karta z okładką i statusem</li>
+                <li>AI dla tytułu i opisu projektu</li>
+                <li>puste stany oraz błąd backendu</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Koncepcja książki</h3>
+              <p>Etapowy formularz pomysłu, gatunku, bohatera, świata, konfliktu, stylu i okładki.</p>
+              <ul>
+                <li>każde pole tekstowe z lokalnym AI</li>
+                <li>kontekst aktywny po fokusie pola</li>
+                <li>cover art w tym samym języku wizualnym</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Plan powieści</h3>
+              <p>Akty, rozdziały, beaty, sceny i wątki jako powiązane dane, nie luźne listy.</p>
+              <ul>
+                <li>chip relacji z minusem do odpięcia</li>
+                <li>plus otwiera picker istniejących encji</li>
+                <li>zapisywać tylko zmienianą listę relacji</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Story Bible</h3>
+              <p>Postacie, miejsca, reguły, wspomnienia i połączenia jako wspólny kanon projektu.</p>
+              <ul>
+                <li>zakładki profilu, relacji, pamięci i obrazu</li>
+                <li>AI dla pól profilu i opisów wizualnych</li>
+                <li>relacje bez duplikatów</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Edytor scen</h3>
+              <p>Pisanie prozy z listą scen, toolbarami, AI dla zaznaczenia i komentarzami.</p>
+              <ul>
+                <li>tekst ma najwyższy kontrast i przestrzeń</li>
+                <li>panele pomocnicze nie ściskają manuskryptu</li>
+                <li>autosave jest widoczny, ale cichy</li>
+              </ul>
+            </article>
+            <article class="screen-card">
+              <h3>Eksport</h3>
+              <p>Workbench do wygenerowania pliku książki i kontroli finalnej struktury.</p>
+              <ul>
+                <li>formaty jako segmenty lub kafle</li>
+                <li>status joba: running, success, error</li>
+                <li>podgląd książki w czytelnej jasnej powierzchni</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="reguly">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Reguły wdrożenia</p>
+              <h2>Zasady, których system ma pilnować</h2>
+              <p>Te zasady są wyciągnięte z wymagań projektu i powinny być traktowane jak checklisty przy każdej zmianie UI.</p>
+            </div>
+            <span class="section-index">06</span>
+          </header>
+
+          <div class="rule-list">
+            <article class="rule-card">
+              <strong>Polski tekst UI</strong>
+              <p>Wszystkie etykiety, opisy pól, taby, statusy, błędy i prompty muszą mieć poprawne polskie znaki.</p>
+            </article>
+            <article class="rule-card">
+              <strong>AI przy każdym polu</strong>
+              <p>Nowy input lub textarea dostaje lokalny przycisk generowania dla tego pola, przycisk kontekstu i przepływ propozycji.</p>
+            </article>
+            <article class="rule-card">
+              <strong>Relacje bez kasowania encji</strong>
+              <p>Minus odpina wyłącznie relację. Plus dodaje istniejące encje przez picker i nie tworzy duplikatów.</p>
+            </article>
+            <article class="rule-card">
+              <strong>Modale przez portal</strong>
+              <p>Dialog ma <code>role="dialog"</code>, <code>aria-modal="true"</code>, tytuł, backdrop, X i zamykanie Escape.</p>
+            </article>
+            <article class="rule-card">
+              <strong>Gęstość bez ścisku</strong>
+              <p>Panele mogą być gęste, ale tekst nie może nachodzić na kontrolki ani wypychać layoutu na mobile.</p>
+            </article>
+            <article class="rule-card">
+              <strong>Ręczna ocena UI</strong>
+              <p>Po wdrożeniu sprawdzić spacing, wyrównanie, proporcje, balans paneli, ciasne miejsca i ogólną spójność layoutu.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="zrodla">
+          <header class="section-header">
+            <div>
+              <p class="eyebrow">Źródła</p>
+              <h2>Pliki i obszary, z których wyciągnięto system</h2>
+              <p>Lista pomaga przenieść wzorce z dokumentu do aplikacji bez zgadywania, gdzie dany element już istnieje.</p>
+            </div>
+            <span class="section-index">07</span>
+          </header>
+
+          <div class="source-grid">
+            <article class="source-card">
+              <strong>Rama aplikacji i style</strong>
+              <ul>
+                <li><code>apps/desktop/src/styles.css</code></li>
+                <li><code>apps/desktop/src/app/ProjectShell.tsx</code></li>
+                <li><code>apps/desktop/src/app/router.tsx</code></li>
+              </ul>
+            </article>
+            <article class="source-card">
+              <strong>Dashboard i koncepcja</strong>
+              <ul>
+                <li><code>features/projects/DashboardPage.tsx</code></li>
+                <li><code>features/book/BookConceptPage.tsx</code></li>
+                <li><code>features/ai/CoverImageLightbox.tsx</code></li>
+              </ul>
+            </article>
+            <article class="source-card">
+              <strong>Plan i relacje</strong>
+              <ul>
+                <li><code>features/book/BookPlanPage.tsx</code></li>
+                <li><code>features/book/ChapterEditModal.tsx</code></li>
+                <li><code>features/scenes/SceneEditModal.tsx</code></li>
+              </ul>
+            </article>
+            <article class="source-card">
+              <strong>Story Bible</strong>
+              <ul>
+                <li><code>features/characters/CharactersPage.tsx</code></li>
+                <li><code>features/world/WorldPage.tsx</code></li>
+              </ul>
+            </article>
+            <article class="source-card">
+              <strong>Edytor, eksport i AI</strong>
+              <ul>
+                <li><code>features/scenes/SceneEditorPage.tsx</code></li>
+                <li><code>features/export/ExportPage.tsx</code></li>
+                <li><code>features/ai/AiPromptContextPanel.tsx</code></li>
+                <li><code>features/ai/AiProposalPanel.tsx</code></li>
+                <li><code>features/ai/AiLogPage.tsx</code></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
