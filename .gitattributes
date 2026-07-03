@@ -1,0 +1,4 @@
+# Migracje SQL muszą mieć stabilne końce linii (LF), inaczej autocrlf zmienia
+# bajty pliku między checkoutami, a sqlx wykrywa rozbieżność sumy kontrolnej
+# ("migration was previously applied but has been modified").
+apps/desktop/src-tauri/migrations/*.sql text eol=lf
