@@ -8,7 +8,6 @@ export type ConceptFieldKey =
   | "protagonistSummary"
   | "protagonistGoal"
   | "expandedPremise"
-  | "logline"
   | "centralConflict"
   | "antagonistForce"
   | "stakes"
@@ -48,7 +47,6 @@ export type BookConceptPromptContext = Pick<
   | "protagonistSummary"
   | "protagonistGoal"
   | "expandedPremise"
-  | "logline"
   | "centralConflict"
   | "antagonistForce"
   | "stakes"
@@ -150,7 +148,6 @@ export const conceptPromptContextFieldKeys: ConceptFieldKey[] = [
   "protagonistSummary",
   "protagonistGoal",
   "expandedPremise",
-  "logline",
   "centralConflict",
   "antagonistForce",
   "stakes",
@@ -228,20 +225,8 @@ const conceptPromptContextDefaultKeys: Record<
   ],
   expandedPremise: [
     ...storyCorePromptContextKeys,
-    "logline",
     "endingDirection",
     "targetAudience"
-  ],
-  logline: [
-    "workingTitle",
-    "premise",
-    "protagonistSummary",
-    "protagonistGoal",
-    "centralConflict",
-    "antagonistForce",
-    "stakes",
-    "genre",
-    "tone"
   ],
   centralConflict: [
     "workingTitle",
@@ -369,7 +354,6 @@ export const conceptFieldMaxResponseCharacters: Record<ConceptFieldKey, number> 
   protagonistSummary: 900,
   protagonistGoal: 500,
   expandedPremise: 2200,
-  logline: 700,
   centralConflict: 800,
   antagonistForce: 900,
   stakes: 800,
@@ -445,16 +429,6 @@ export const conceptFieldConfigs: Record<ConceptFieldKey, ConceptFieldConfig> = 
       "Wygeneruj rozszerzoną premise tej książki w jednym zwartym akapicie.",
     currentWork:
       "Autor chce szerszy opis rdzenia historii bez przechodzenia jeszcze do planu rozdziałów.",
-    acceptsValues: false
-  },
-  logline: {
-    key: "logline",
-    label: "Logline",
-    action: "generate_logline",
-    userInstruction:
-      "Wygeneruj zwięzły logline tej książki: bohater, cel, przeszkoda i stawka.",
-    currentWork:
-      "Autor chce jednozdaniowy logline, który klarownie komunikuje obietnicę historii.",
     acceptsValues: false
   },
   centralConflict: {
@@ -842,7 +816,6 @@ const bookContextRows: Array<{
     label: "Rozszerzona premisa",
     value: (book) => book.expandedPremise
   },
-  { key: "logline", label: "Logline", value: (book) => book.logline },
   {
     key: "centralConflict",
     label: "Konflikt centralny",
@@ -957,7 +930,6 @@ function bookConceptContext(book: Book): BookConceptPromptContext {
     protagonistSummary: book.protagonistSummary ?? "",
     protagonistGoal: book.protagonistGoal ?? "",
     expandedPremise: book.expandedPremise ?? "",
-    logline: book.logline ?? "",
     centralConflict: book.centralConflict ?? "",
     antagonistForce: book.antagonistForce ?? "",
     stakes: book.stakes ?? "",
@@ -1037,7 +1009,6 @@ function premiseDevelopmentSchema(): unknown {
     summary: "concise premise sentence",
     protagonistSummary: "string",
     protagonistGoal: "string",
-    logline: "string",
     expandedPremise: "string",
     centralConflict: "string",
     antagonistForce: "string",

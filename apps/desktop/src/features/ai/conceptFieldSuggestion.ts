@@ -9,7 +9,6 @@ const conceptFieldKeySchema = z.enum([
   "protagonistSummary",
   "protagonistGoal",
   "expandedPremise",
-  "logline",
   "centralConflict",
   "antagonistForce",
   "stakes",

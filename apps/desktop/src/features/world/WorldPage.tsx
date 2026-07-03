@@ -55,6 +55,7 @@ import {
   pendingProposalStatus,
   useProposalStore
 } from "../ai/proposalStore";
+import { useProjectNavigationStore } from "../../app/projectNavigationStore";
 import {
   registerWorldDraftFieldTarget,
   unregisterWorldDraftFieldTarget
@@ -194,6 +195,23 @@ export function WorldPage({ projectId }: WorldPageProps) {
       setSelectedElementId(world.elements[0].id);
     }
   }, [selectedElementId, world.elements]);
+
+  const searchElementId = useProjectNavigationStore(
+    (state) => state.viewState[projectId]?.searchElementId
+  );
+  const clearProjectViewState = useProjectNavigationStore(
+    (state) => state.clearProjectViewState
+  );
+
+  useEffect(() => {
+    if (!searchElementId) {
+      return;
+    }
+    if (world.elements.some((item) => item.id === searchElementId)) {
+      setSelectedElementId(searchElementId);
+      clearProjectViewState(projectId, "searchElementId");
+    }
+  }, [clearProjectViewState, projectId, searchElementId, world.elements]);
 
   useEffect(() => {
     if (!selectedRuleId && world.rules[0]) {

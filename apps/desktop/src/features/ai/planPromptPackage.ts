@@ -47,6 +47,7 @@ type PlanContextKey =
   | "allCharacters"
   | "allWorldElements"
   | "allWorldRules"
+  | "sceneManuscript"
   | "planAudit";
 
 export type PlanFieldKey =
@@ -128,12 +129,13 @@ export type PlanPromptPackage = {
     targetEntityId?: string;
     targetEntityLabel?: string;
     targetEntitySnapshot?: unknown;
+    /** Tekst docelowej sceny jako czysty tekst, przycięty do limitu promptu. */
+    targetSceneManuscript?: string;
     book: Pick<
       Book,
       | "workingTitle"
       | "premise"
       | "expandedPremise"
-      | "logline"
       | "centralConflict"
       | "antagonistForce"
       | "stakes"
@@ -362,7 +364,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_scene_field",
     targetKind: "scene",
     userInstruction:
-      "Wygeneruj tylko wartość pola streszczenia wybranej sceny, korzystając z rozdziału, powiązanych wątków i postaci jako kontekstu. Nie zmieniaj innych pól ani encji."
+      "Wygeneruj tylko wartość pola streszczenia wybranej sceny. Jeśli scena ma już napisany tekst manuskryptu, streść wiernie to, co faktycznie się w nim dzieje; w przeciwnym razie oprzyj się na rozdziale, wątkach i postaciach. Nie zmieniaj innych pól ani encji."
   },
   sceneGoal: {
     key: "sceneGoal",
@@ -386,7 +388,7 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     action: "generate_scene_field",
     targetKind: "scene",
     userInstruction:
-      "Wygeneruj tylko wartość pola wyniku wybranej sceny. Nie zmieniaj innych pól ani encji."
+      "Wygeneruj tylko wartość pola wyniku wybranej sceny. Jeśli scena ma już napisany tekst manuskryptu, opisz wynik zgodny z tym tekstem. Nie zmieniaj innych pól ani encji."
   },
   threadChapterDescription: {
     key: "threadChapterDescription",
@@ -500,6 +502,7 @@ const planContextSourceLabels: Record<PlanContextKey, string> = {
   allCharacters: "Istniejące postacie",
   allWorldElements: "Istniejące elementy świata",
   allWorldRules: "Istniejące reguły świata",
+  sceneManuscript: "Tekst sceny (manuskrypt)",
   planAudit: "Pełny plan"
 };
 
@@ -525,11 +528,11 @@ const planPromptContextDefaultKeys: Record<PlanFieldKey, PlanContextKey[]> = {
   allChapterSceneDrafts: ["bookCore", "styleGuide", "planAudit"],
   prepareChapterForScenes: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   chapterSceneBreakdown: ["bookCore", "styleGuide", "targetChapter", "chapterScenes", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters", "allCharacters", "allWorldElements", "allWorldRules"],
-  sceneTitle: ["bookCore", "styleGuide", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
-  sceneSummary: ["bookCore", "styleGuide", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
-  sceneGoal: ["bookCore", "targetScene", "sceneChapter", "assignedThreads", "assignedBeats"],
-  sceneConflict: ["bookCore", "targetScene", "sceneChapter", "assignedThreads", "assignedBeats"],
-  sceneOutcome: ["bookCore", "targetScene", "sceneChapter", "neighborScenes", "assignedThreads"],
+  sceneTitle: ["bookCore", "styleGuide", "targetScene", "sceneManuscript", "sceneChapter", "neighborScenes", "assignedThreads"],
+  sceneSummary: ["bookCore", "styleGuide", "targetScene", "sceneManuscript", "sceneChapter", "neighborScenes", "assignedThreads"],
+  sceneGoal: ["bookCore", "targetScene", "sceneManuscript", "sceneChapter", "assignedThreads", "assignedBeats"],
+  sceneConflict: ["bookCore", "targetScene", "sceneManuscript", "sceneChapter", "assignedThreads", "assignedBeats"],
+  sceneOutcome: ["bookCore", "targetScene", "sceneManuscript", "sceneChapter", "neighborScenes", "assignedThreads"],
   threadChapterDescription: ["targetThreadChapter", "targetThread", "targetChapter", "threadNeighborChapters", "assignedBeats"],
   chapterThreadSuggestions: ["bookCore", "targetChapter", "assignedThreads", "allThreads", "assignedBeats", "neighborChapters"],
   allChapterThreadSuggestions: ["bookCore", "planAudit"],
@@ -563,7 +566,11 @@ export function buildPlanPromptPackage(
       targetField: field,
       targetEntityId: targetEntity ? planTargetEntityId(targetEntity) : undefined,
       targetEntityLabel: targetEntity ? planTargetEntityLabel(plan, targetEntity) : undefined,
-      ...(targetEntity ? { targetEntitySnapshot: targetEntity } : {}),
+      ...(targetEntity ? { targetEntitySnapshot: stripSceneManuscript(targetEntity) } : {}),
+      targetSceneManuscript:
+        targetEntity && "manuscriptContent" in targetEntity
+          ? trimManuscriptForPrompt(targetEntity.manuscriptContent ?? "")
+          : "",
       book: bookPlanContext(book),
       plan: {
         structureType: plan.structure?.structureType ?? "",
@@ -575,7 +582,7 @@ export function buildPlanPromptPackage(
         chapters: plan.chapters,
         chapterThreads: plan.chapterThreads,
         chapterBeats: plan.chapterBeats,
-        scenes: plan.scenes,
+        scenes: plan.scenes.map((scene) => ({ ...scene, manuscriptContent: "" })),
         sceneCharacters: plan.sceneCharacters,
         sceneThreads: plan.sceneThreads,
         sceneWorldElements: plan.sceneWorldElements,
@@ -640,7 +647,12 @@ ${renderPlanContext(
   promptPackage.context.contextControl
 )}
 
-# Existing Story Bible
+${
+  promptPackage.context.targetSceneManuscript &&
+  isContextKeyIncluded("sceneManuscript", promptPackage.context.contextControl)
+    ? `# Scene Manuscript\nNapisany tekst docelowej sceny (czysty tekst, może być przycięty):\n${promptPackage.context.targetSceneManuscript}\n\n`
+    : ""
+}# Existing Story Bible
 ${renderStoryBibleContext(promptPackage.context.storyBible, promptPackage.context.contextControl)}
 
 # Current Work
@@ -738,7 +750,6 @@ function bookPlanContext(book: Book): PlanPromptPackage["context"]["book"] {
     workingTitle: book.workingTitle ?? "",
     premise: book.premise ?? "",
     expandedPremise: book.expandedPremise ?? "",
-    logline: book.logline ?? "",
     centralConflict: book.centralConflict ?? "",
     antagonistForce: book.antagonistForce ?? "",
     stakes: book.stakes ?? "",
@@ -767,7 +778,6 @@ function renderBookContext(
     optionalLine("Tytuł roboczy", book.workingTitle, "- "),
     optionalLine("Premise", book.premise, "- "),
     optionalLine("Rozszerzona premisa", book.expandedPremise, "- "),
-    optionalLine("Logline", book.logline, "- "),
     optionalLine("Konflikt centralny", book.centralConflict, "- "),
     optionalLine("Siła przeciwna", book.antagonistForce, "- "),
     optionalLine("Stawki", book.stakes, "- "),
@@ -807,76 +817,76 @@ function renderPlanContext(
         })}`
       : "",
     isContextKeyIncluded("allActs", contextControl)
-      ? `Wszystkie akty: ${JSON.stringify(plan.acts.map(compactAct))}`
+      ? contextLine("Wszystkie akty", plan.acts.map(compactAct))
       : "",
     isContextKeyIncluded("targetAct", contextControl)
-      ? `Docelowy akt: ${JSON.stringify(target.act ? compactAct(target.act) : null)}`
+      ? contextLine("Docelowy akt", target.act ? compactAct(target.act) : null)
       : "",
     isContextKeyIncluded("siblingActs", contextControl)
-      ? `Sąsiednie akty: ${JSON.stringify(siblingActs(plan, target.act).map(compactAct))}`
+      ? contextLine("Sąsiednie akty", siblingActs(plan, target.act).map(compactAct))
       : "",
     isContextKeyIncluded("actChapters", contextControl)
-      ? `Rozdziały aktu: ${JSON.stringify(chaptersForAct(plan, target.act?.id).map(compactChapter))}`
+      ? contextLine("Rozdziały aktu", chaptersForAct(plan, target.act?.id).map(compactChapter))
       : "",
     isContextKeyIncluded("allChapters", contextControl)
-      ? `Wszystkie rozdziały: ${JSON.stringify(orderedChapters(plan).map(compactChapter))}`
+      ? contextLine("Wszystkie rozdziały", orderedChapters(plan).map(compactChapter))
       : "",
     isContextKeyIncluded("targetChapter", contextControl)
-      ? `Docelowy rozdział: ${JSON.stringify(target.chapter ? compactChapter(target.chapter) : null)}`
+      ? contextLine("Docelowy rozdział", target.chapter ? compactChapter(target.chapter) : null)
       : "",
     isContextKeyIncluded("chapterScenes", contextControl)
-      ? `Sceny rozdziału: ${JSON.stringify(scenesForChapter(plan, target.chapter).map(compactScene))}`
+      ? contextLine("Sceny rozdziału", scenesForChapter(plan, target.chapter).map(compactScene))
       : "",
     isContextKeyIncluded("chapterAct", contextControl)
-      ? `Akt rozdziału: ${JSON.stringify(target.chapter ? compactAct(actForChapter(plan, target.chapter)) : null)}`
+      ? contextLine("Akt rozdziału", target.chapter ? compactAct(actForChapter(plan, target.chapter)) : null)
       : "",
     isContextKeyIncluded("neighborChapters", contextControl)
-      ? `Sąsiednie rozdziały: ${JSON.stringify(neighborChapters(plan, target.chapter).map(compactChapter))}`
+      ? contextLine("Sąsiednie rozdziały", neighborChapters(plan, target.chapter).map(compactChapter))
       : "",
     isContextKeyIncluded("targetScene", contextControl)
-      ? `Docelowa scena: ${JSON.stringify(target.scene ? compactScene(target.scene) : null)}`
+      ? contextLine("Docelowa scena", target.scene ? compactScene(target.scene) : null)
       : "",
     isContextKeyIncluded("sceneChapter", contextControl)
-      ? `Rozdział sceny: ${JSON.stringify(target.scene ? compactChapter(chapterForScene(plan, target.scene)) : null)}`
+      ? contextLine("Rozdział sceny", target.scene ? compactChapter(chapterForScene(plan, target.scene)) : null)
       : "",
     isContextKeyIncluded("neighborScenes", contextControl)
-      ? `Sąsiednie sceny: ${JSON.stringify(neighborScenes(plan, target.scene).map(compactScene))}`
+      ? contextLine("Sąsiednie sceny", neighborScenes(plan, target.scene).map(compactScene))
       : "",
     isContextKeyIncluded("assignedBeats", contextControl)
-      ? `Przypisane beaty: ${JSON.stringify(assignedBeatsForChapter(plan, target.chapter).map((beat) => compactBeat(plan, beat)))}`
+      ? contextLine("Przypisane beaty", assignedBeatsForChapter(plan, target.chapter).map((beat) => compactBeat(plan, beat)))
       : "",
     isContextKeyIncluded("assignedThreads", contextControl)
-      ? `Przypisane wątki: ${JSON.stringify(assignedThreadsForChapter(plan, target.chapter).map(compactThread))}`
+      ? contextLine("Przypisane wątki", assignedThreadsForChapter(plan, target.chapter).map(compactThread))
       : "",
     isContextKeyIncluded("allBeats", contextControl)
-      ? `Wszystkie beaty: ${JSON.stringify(plan.beats.map((beat) => compactBeat(plan, beat)))}`
+      ? contextLine("Wszystkie beaty", plan.beats.map((beat) => compactBeat(plan, beat)))
       : "",
     isContextKeyIncluded("targetBeat", contextControl)
-      ? `Docelowy beat: ${JSON.stringify(target.beat ? compactBeat(plan, target.beat) : null)}`
+      ? contextLine("Docelowy beat", target.beat ? compactBeat(plan, target.beat) : null)
       : "",
     isContextKeyIncluded("beatChapter", contextControl)
-      ? `Rozdział beatu: ${JSON.stringify(target.beat ? compactChapter(chapterForBeat(plan, target.beat)) : null)}`
+      ? contextLine("Rozdział beatu", target.beat ? compactChapter(chapterForBeat(plan, target.beat)) : null)
       : "",
     isContextKeyIncluded("siblingBeats", contextControl)
-      ? `Sąsiednie beaty: ${JSON.stringify(siblingBeats(plan, target.beat).map((beat) => compactBeat(plan, beat)))}`
+      ? contextLine("Sąsiednie beaty", siblingBeats(plan, target.beat).map((beat) => compactBeat(plan, beat)))
       : "",
     isContextKeyIncluded("allThreads", contextControl)
-      ? `Wszystkie wątki: ${JSON.stringify(plan.threads.map(compactThread))}`
+      ? contextLine("Wszystkie wątki", plan.threads.map(compactThread))
       : "",
     isContextKeyIncluded("targetThread", contextControl)
-      ? `Docelowy wątek: ${JSON.stringify(target.thread ? compactThread(target.thread) : null)}`
+      ? contextLine("Docelowy wątek", target.thread ? compactThread(target.thread) : null)
       : "",
     isContextKeyIncluded("threadChapters", contextControl)
-      ? `Rozdziały wątku: ${JSON.stringify(chaptersForThread(plan, target.thread?.id).map(compactChapter))}`
+      ? contextLine("Rozdziały wątku", chaptersForThread(plan, target.thread?.id).map(compactChapter))
       : "",
     isContextKeyIncluded("threadActs", contextControl)
-      ? `Akty wątku: ${JSON.stringify(actsForThread(plan, target.thread?.id).map(compactAct))}`
+      ? contextLine("Akty wątku", actsForThread(plan, target.thread?.id).map(compactAct))
       : "",
     isContextKeyIncluded("targetThreadChapter", contextControl)
-      ? `Relacja wątku z rozdziałem: ${JSON.stringify(target.relation ? compactChapterThread(plan, target.relation) : null)}`
+      ? contextLine("Relacja wątku z rozdziałem", target.relation ? compactChapterThread(plan, target.relation) : null)
       : "",
     isContextKeyIncluded("threadNeighborChapters", contextControl)
-      ? `Sąsiednie rozdziały wątku: ${JSON.stringify(threadNeighborChapters(plan, target.relation).map(compactChapter))}`
+      ? contextLine("Sąsiednie rozdziały wątku", threadNeighborChapters(plan, target.relation).map(compactChapter))
       : "",
     isContextKeyIncluded("planAudit", contextControl)
       ? `Pełny plan: ${JSON.stringify({
@@ -900,18 +910,27 @@ function renderPlanContext(
   return sections.length ? sections.join("\n") : "(brak wybranego kontekstu planu)";
 }
 
+// Pusta sekcja ("[]"/"null") to szum, który uczy model, że danych nie ma —
+// zamiast tego pomijamy linię w całości.
+function contextLine(label: string, value: unknown): string {
+  if (value == null || (Array.isArray(value) && value.length === 0)) {
+    return "";
+  }
+  return `${label}: ${JSON.stringify(value)}`;
+}
+
 function renderStoryBibleContext(
   storyBible: PlanStoryBibleContext,
   contextControl?: PromptContextControl
 ): string {
   const sections = [
-    isContextKeyIncluded("allCharacters", contextControl)
+    isContextKeyIncluded("allCharacters", contextControl) && storyBible.characters.length
       ? `Istniejące postacie: ${renderCappedEntityList(storyBible.characters, 30)}`
       : "",
-    isContextKeyIncluded("allWorldElements", contextControl)
+    isContextKeyIncluded("allWorldElements", contextControl) && storyBible.worldElements.length
       ? `Istniejące elementy świata: ${renderCappedEntityList(storyBible.worldElements, 40)}`
       : "",
-    isContextKeyIncluded("allWorldRules", contextControl)
+    isContextKeyIncluded("allWorldRules", contextControl) && storyBible.worldRules.length
       ? `Istniejące reguły świata: ${renderCappedEntityList(storyBible.worldRules, 40)}`
       : ""
   ].filter(Boolean);
@@ -1019,12 +1038,37 @@ function compactScene(scene: Scene | null | undefined) {
         goal: scene.goal,
         conflict: scene.conflict,
         outcome: scene.outcome,
+        timeMarker: scene.timeMarker,
         povCharacterId: scene.povCharacterId,
         locationId: scene.locationId,
         targetWordCount: scene.targetWordCount,
         status: scene.status
       }
     : null;
+}
+
+// Manuskrypt nie wchodzi do JSON-owych migawek planu — byłby dublem sekcji
+// Scene Manuscript i rozsadzałby prompt oraz zapis pakietu w ai_runs.
+function stripSceneManuscript<T>(entity: T): T {
+  return entity && typeof entity === "object" && "manuscriptContent" in entity
+    ? { ...entity, manuscriptContent: "" }
+    : entity;
+}
+
+/** HTML z Tiptapa → czysty tekst; początek i koniec sceny, środek przycięty. */
+function trimManuscriptForPrompt(html: string, maxWords = 2400): string {
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const words = text.split(" ").filter(Boolean);
+  if (words.length <= maxWords) {
+    return text;
+  }
+  const head = words.slice(0, Math.floor(maxWords * 0.75)).join(" ");
+  const tail = words.slice(-Math.floor(maxWords * 0.25)).join(" ");
+  return `${head}\n(... środek sceny przycięty ...)\n${tail}`;
 }
 
 function compactBeat(plan: PlanPromptPackage["context"]["plan"], beat: Beat) {

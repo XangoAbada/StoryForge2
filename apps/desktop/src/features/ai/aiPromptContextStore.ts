@@ -33,6 +33,8 @@ export type AiPromptContextTarget = {
   submitDisabled?: boolean;
   submitDisabledReason?: string;
   onSubmit?: () => void;
+  /** Czysty render promptu z bieżącym draftem — panel pokazuje jego rozmiar. */
+  renderPrompt?: () => string;
 };
 
 export type AiPromptContextDraft = {
@@ -42,7 +44,7 @@ export type AiPromptContextDraft = {
 
 type PromptContextTargetOptions = Pick<
   AiPromptContextTarget,
-  "submitLabel" | "submitDisabled" | "submitDisabledReason" | "onSubmit"
+  "submitLabel" | "submitDisabled" | "submitDisabledReason" | "onSubmit" | "renderPrompt"
 >;
 
 type AiPromptContextState = {
@@ -225,7 +227,8 @@ export function createConceptPromptContextTarget(
     submitLabel: options.submitLabel,
     submitDisabled: options.submitDisabled,
     submitDisabledReason: options.submitDisabledReason,
-    onSubmit: options.onSubmit
+    onSubmit: options.onSubmit,
+    renderPrompt: options.renderPrompt
   };
 }
 
@@ -256,7 +259,8 @@ export function createPlanPromptContextTarget(
     submitLabel: options.submitLabel,
     submitDisabled: options.submitDisabled,
     submitDisabledReason: options.submitDisabledReason,
-    onSubmit: options.onSubmit
+    onSubmit: options.onSubmit,
+    renderPrompt: options.renderPrompt
   };
 }
 
@@ -287,7 +291,8 @@ export function createCharacterPromptContextTarget(
     submitLabel: options.submitLabel,
     submitDisabled: options.submitDisabled,
     submitDisabledReason: options.submitDisabledReason,
-    onSubmit: options.onSubmit
+    onSubmit: options.onSubmit,
+    renderPrompt: options.renderPrompt
   };
 }
 
@@ -318,7 +323,8 @@ export function createWorldPromptContextTarget(
     submitLabel: options.submitLabel,
     submitDisabled: options.submitDisabled,
     submitDisabledReason: options.submitDisabledReason,
-    onSubmit: options.onSubmit
+    onSubmit: options.onSubmit,
+    renderPrompt: options.renderPrompt
   };
 }
 
@@ -343,7 +349,8 @@ export function createNewProjectTitlePromptTarget(
     submitLabel: options.submitLabel,
     submitDisabled: options.submitDisabled,
     submitDisabledReason: options.submitDisabledReason,
-    onSubmit: options.onSubmit
+    onSubmit: options.onSubmit,
+    renderPrompt: options.renderPrompt
   };
 }
 

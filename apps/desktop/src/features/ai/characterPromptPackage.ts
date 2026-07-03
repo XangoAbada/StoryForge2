@@ -9,6 +9,7 @@ import type {
   Project,
   VisualAsset
 } from "../../shared/api/types";
+import { compactCharacter, compactMemory, compactRelation } from "./promptContextLimits";
 import type { PromptContextControl, PromptContextSource } from "./promptPackage";
 
 export type CharacterFieldKey =
@@ -442,28 +443,36 @@ function renderWorkspaceContext(promptPackage: CharacterPromptPackage): string {
   const targetCharacter = findTargetCharacter(workspace, targetEntityId);
   return [
     isIncluded("allCharacters", contextControl)
-      ? `Postacie: ${JSON.stringify(workspace.characters.map(compactCharacter))}`
+      ? workspaceLine("Postacie", workspace.characters.map(compactCharacter))
       : "",
     isIncluded("targetCharacter", contextControl)
-      ? `Docelowa postać: ${JSON.stringify(compactCharacter(targetCharacter))}`
+      ? workspaceLine("Docelowa postać", compactCharacter(targetCharacter))
       : "",
     isIncluded("targetRelations", contextControl)
-      ? `Relacje postaci: ${JSON.stringify(workspace.relations.filter((relation) => relation.fromCharacterId === targetCharacter?.id || relation.toCharacterId === targetCharacter?.id).map(compactRelation))}`
+      ? workspaceLine("Relacje postaci", workspace.relations.filter((relation) => relation.fromCharacterId === targetCharacter?.id || relation.toCharacterId === targetCharacter?.id).map(compactRelation))
       : "",
     isIncluded("targetMemories", contextControl)
-      ? `Wspomnienia postaci: ${JSON.stringify(workspace.memories.filter((memory) => memory.characterId === targetCharacter?.id).map(compactMemory))}`
+      ? workspaceLine("Wspomnienia postaci", workspace.memories.filter((memory) => memory.characterId === targetCharacter?.id).map(compactMemory))
       : "",
     isIncluded("allMemories", contextControl)
-      ? `Wszystkie wspomnienia: ${JSON.stringify(workspace.memories.map(compactMemory))}`
+      ? workspaceLine("Wszystkie wspomnienia", workspace.memories.map(compactMemory))
       : "",
     isIncluded("memoryLinks", contextControl)
-      ? `Połączenia wspomnień: ${JSON.stringify(workspace.memoryLinks)}`
+      ? workspaceLine("Połączenia wspomnień", workspace.memoryLinks)
       : "",
     promptPackage.context.sourceSceneDiscovery
       ? `Źródło odkrycia ze sceny: ${JSON.stringify(promptPackage.context.sourceSceneDiscovery)}`
       : "",
     renderManualFieldContext(promptPackage)
   ].filter(Boolean).join("\n") || "(brak wybranego kontekstu postaci)";
+}
+
+// Pustych sekcji nie serializujemy — "Postacie: []" to szum w prompcie.
+function workspaceLine(label: string, value: unknown): string {
+  if (value == null || (Array.isArray(value) && value.length === 0)) {
+    return "";
+  }
+  return `${label}: ${JSON.stringify(value)}`;
 }
 
 function renderManualFieldContext(promptPackage: CharacterPromptPackage): string {
@@ -666,46 +675,6 @@ function renderCharacterImagePrompt(book: Book, character?: Character): string {
     optionalLine("Visual prompt", character?.visualPrompt ?? ""),
     optionalLine("Design note", compact(book.styleGuide, 180))
   ].filter(Boolean).join("\n");
-}
-
-function compactCharacter(character: Character | null | undefined) {
-  return character ? {
-    id: character.id,
-    type: character.characterType,
-    name: character.name,
-    role: character.role,
-    description: character.shortDescription,
-    goal: character.externalGoal,
-    need: character.internalNeed,
-    voice: character.voiceNotes,
-    arc: character.arcSummary,
-    status: character.status
-  } : null;
-}
-
-function compactRelation(relation: CharacterRelation) {
-  return {
-    id: relation.id,
-    fromCharacterId: relation.fromCharacterId,
-    toCharacterId: relation.toCharacterId,
-    relationType: relation.relationType,
-    description: relation.description,
-    conflict: relation.conflict,
-    opinion: relation.opinion,
-    trustLevel: relation.trustLevel
-  };
-}
-
-function compactMemory(memory: CharacterMemory) {
-  return {
-    id: memory.id,
-    characterId: memory.characterId,
-    title: memory.title,
-    summary: memory.summary,
-    subject: memory.subject,
-    emotion: memory.emotion,
-    importance: memory.importance
-  };
 }
 
 function renderAuthorPriority(contextControl?: PromptContextControl): string {

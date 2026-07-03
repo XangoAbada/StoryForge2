@@ -105,7 +105,6 @@ pub struct Book {
     pub protagonist_summary: String,
     pub protagonist_goal: String,
     pub expanded_premise: String,
-    pub logline: String,
     pub central_conflict: String,
     pub antagonist_force: String,
     pub stakes: String,
@@ -165,7 +164,6 @@ pub struct BookConceptInput {
     pub protagonist_summary: Option<String>,
     pub protagonist_goal: Option<String>,
     pub expanded_premise: Option<String>,
-    pub logline: Option<String>,
     pub central_conflict: Option<String>,
     pub antagonist_force: Option<String>,
     pub stakes: Option<String>,
@@ -488,6 +486,7 @@ pub struct Scene {
     pub goal: String,
     pub conflict: String,
     pub outcome: String,
+    pub time_marker: String,
     pub pov_character_id: Option<String>,
     pub location_id: Option<String>,
     pub target_word_count: Option<i64>,
@@ -496,6 +495,36 @@ pub struct Scene {
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub entity_type: String,
+    pub entity_id: String,
+    pub title: String,
+    pub snippet: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneSnapshotMeta {
+    pub id: String,
+    pub scene_id: String,
+    pub word_count: i64,
+    pub source: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneSnapshot {
+    pub id: String,
+    pub scene_id: String,
+    pub content: String,
+    pub word_count: i64,
+    pub source: String,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -874,6 +903,7 @@ pub struct UpsertSceneInput {
     pub goal: String,
     pub conflict: String,
     pub outcome: String,
+    pub time_marker: Option<String>,
     pub pov_character_id: Option<String>,
     pub location_id: Option<String>,
     pub target_word_count: Option<i64>,
@@ -2199,8 +2229,8 @@ pub async fn create_plan_version_from_active_in_pool(
         sqlx::query(
             r#"
             INSERT INTO scenes
-              (id, book_id, plan_version_id, chapter_id, order_index, title, summary, goal, conflict, outcome, pov_character_id, location_id, target_word_count, actual_word_count, manuscript_content, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (id, book_id, plan_version_id, chapter_id, order_index, title, summary, goal, conflict, outcome, time_marker, pov_character_id, location_id, target_word_count, actual_word_count, manuscript_content, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&new_id)
@@ -2213,6 +2243,7 @@ pub async fn create_plan_version_from_active_in_pool(
         .bind(scene.goal)
         .bind(scene.conflict)
         .bind(scene.outcome)
+        .bind(scene.time_marker)
         .bind(scene.pov_character_id)
         .bind(scene.location_id)
         .bind(scene.target_word_count)
@@ -2395,8 +2426,8 @@ pub async fn upsert_scene_in_pool(
     sqlx::query(
         r#"
         INSERT INTO scenes
-          (id, book_id, plan_version_id, chapter_id, order_index, title, summary, goal, conflict, outcome, pov_character_id, location_id, target_word_count, actual_word_count, manuscript_content, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, book_id, plan_version_id, chapter_id, order_index, title, summary, goal, conflict, outcome, time_marker, pov_character_id, location_id, target_word_count, actual_word_count, manuscript_content, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           chapter_id = excluded.chapter_id,
           order_index = excluded.order_index,
@@ -2405,6 +2436,7 @@ pub async fn upsert_scene_in_pool(
           goal = excluded.goal,
           conflict = excluded.conflict,
           outcome = excluded.outcome,
+          time_marker = excluded.time_marker,
           pov_character_id = excluded.pov_character_id,
           location_id = excluded.location_id,
           target_word_count = excluded.target_word_count,
@@ -2424,6 +2456,7 @@ pub async fn upsert_scene_in_pool(
     .bind(input.goal)
     .bind(input.conflict)
     .bind(input.outcome)
+    .bind(input.time_marker.unwrap_or_default())
     .bind(input.pov_character_id)
     .bind(input.location_id)
     .bind(input.target_word_count)
@@ -2451,6 +2484,156 @@ pub async fn delete_scene_in_pool(pool: &SqlitePool, id: &str) -> Result<(), App
         .execute(pool)
         .await?;
     Ok(())
+}
+
+pub async fn search_project_in_pool(
+    pool: &SqlitePool,
+    project_id: &str,
+    query: &str,
+) -> Result<Vec<SearchResult>, AppError> {
+    // Frazy w cudzysłowach z prefiksem — bezpieczne wobec składni FTS5
+    // i działa przy wpisywaniu ("smok" znajdzie "smoka" po prefiksie).
+    let sanitized = query.replace('"', " ");
+    let terms: Vec<String> = sanitized
+        .split_whitespace()
+        .map(|term| format!("\"{term}\"*"))
+        .collect();
+    if terms.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    sqlx::query_as::<_, SearchResult>(
+        r#"
+        SELECT
+            entity_type,
+            entity_id,
+            title,
+            snippet(search_index, 4, '[', ']', '…', 12) AS snippet
+        FROM search_index
+        WHERE search_index MATCH ? AND project_id = ?
+        ORDER BY rank
+        LIMIT 50
+        "#,
+    )
+    .bind(terms.join(" "))
+    .bind(project_id)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::from)
+}
+
+pub async fn create_scene_snapshot_in_pool(
+    pool: &SqlitePool,
+    scene_id: &str,
+    source: &str,
+) -> Result<Option<SceneSnapshotMeta>, AppError> {
+    let scene = sqlx::query_as::<_, Scene>("SELECT * FROM scenes WHERE id = ?")
+        .bind(scene_id)
+        .fetch_one(pool)
+        .await?;
+    if html_to_plain_text(&scene.manuscript_content).trim().is_empty() {
+        return Ok(None);
+    }
+
+    let now = Utc::now().to_rfc3339();
+    let id = Uuid::new_v4().to_string();
+    let word_count = html_to_plain_text(&scene.manuscript_content)
+        .split_whitespace()
+        .count() as i64;
+    sqlx::query(
+        r#"
+        INSERT INTO scene_snapshots (id, scene_id, content, word_count, source, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        "#,
+    )
+    .bind(&id)
+    .bind(scene_id)
+    .bind(&scene.manuscript_content)
+    .bind(word_count)
+    .bind(source)
+    .bind(&now)
+    .execute(pool)
+    .await?;
+
+    Ok(Some(SceneSnapshotMeta {
+        id,
+        scene_id: scene_id.to_string(),
+        word_count,
+        source: source.to_string(),
+        created_at: now,
+    }))
+}
+
+pub async fn list_scene_snapshots_in_pool(
+    pool: &SqlitePool,
+    scene_id: &str,
+) -> Result<Vec<SceneSnapshotMeta>, AppError> {
+    sqlx::query_as::<_, SceneSnapshotMeta>(
+        r#"
+        SELECT id, scene_id, word_count, source, created_at
+        FROM scene_snapshots
+        WHERE scene_id = ?
+        ORDER BY created_at DESC
+        "#,
+    )
+    .bind(scene_id)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::from)
+}
+
+pub async fn get_scene_snapshot_in_pool(
+    pool: &SqlitePool,
+    id: &str,
+) -> Result<SceneSnapshot, AppError> {
+    sqlx::query_as::<_, SceneSnapshot>("SELECT * FROM scene_snapshots WHERE id = ?")
+        .bind(id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
+}
+
+pub async fn restore_scene_snapshot_in_pool(
+    pool: &SqlitePool,
+    id: &str,
+) -> Result<Scene, AppError> {
+    let snapshot = get_scene_snapshot_in_pool(pool, id).await?;
+    // Auto-migawka bieżącego tekstu, żeby przywrócenie było odwracalne.
+    create_scene_snapshot_in_pool(pool, &snapshot.scene_id, "restore").await?;
+
+    let now = Utc::now().to_rfc3339();
+    let mut tx = pool.begin().await?;
+    sqlx::query(
+        r#"
+        UPDATE scenes
+        SET manuscript_content = ?, actual_word_count = ?, updated_at = ?
+        WHERE id = ?
+        "#,
+    )
+    .bind(&snapshot.content)
+    .bind(snapshot.word_count)
+    .bind(&now)
+    .bind(&snapshot.scene_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        r#"
+        UPDATE projects
+        SET updated_at = ?
+        WHERE id = (SELECT project_id FROM books WHERE id = (SELECT book_id FROM scenes WHERE id = ?))
+        "#,
+    )
+    .bind(&now)
+    .bind(&snapshot.scene_id)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    sqlx::query_as::<_, Scene>("SELECT * FROM scenes WHERE id = ?")
+        .bind(&snapshot.scene_id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
 }
 
 pub async fn reorder_scenes_in_pool(
@@ -4106,7 +4289,6 @@ pub async fn update_book_concept_in_pool(
           protagonist_summary = COALESCE(?, protagonist_summary),
           protagonist_goal = COALESCE(?, protagonist_goal),
           expanded_premise = COALESCE(?, expanded_premise),
-          logline = COALESCE(?, logline),
           central_conflict = COALESCE(?, central_conflict),
           antagonist_force = COALESCE(?, antagonist_force),
           stakes = COALESCE(?, stakes),
@@ -4132,7 +4314,6 @@ pub async fn update_book_concept_in_pool(
     .bind(input.protagonist_summary)
     .bind(input.protagonist_goal)
     .bind(input.expanded_premise)
-    .bind(input.logline)
     .bind(input.central_conflict)
     .bind(input.antagonist_force)
     .bind(input.stakes)
@@ -5815,6 +5996,58 @@ async fn upsert_scene(
 #[tauri::command]
 async fn delete_scene(state: State<'_, AppState>, id: String) -> Result<(), String> {
     delete_scene_in_pool(&state.db, &id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn search_project(
+    state: State<'_, AppState>,
+    project_id: String,
+    query: String,
+) -> Result<Vec<SearchResult>, String> {
+    search_project_in_pool(&state.db, &project_id, &query)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn create_scene_snapshot(
+    state: State<'_, AppState>,
+    scene_id: String,
+    source: String,
+) -> Result<Option<SceneSnapshotMeta>, String> {
+    create_scene_snapshot_in_pool(&state.db, &scene_id, &source)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn list_scene_snapshots(
+    state: State<'_, AppState>,
+    scene_id: String,
+) -> Result<Vec<SceneSnapshotMeta>, String> {
+    list_scene_snapshots_in_pool(&state.db, &scene_id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn get_scene_snapshot(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<SceneSnapshot, String> {
+    get_scene_snapshot_in_pool(&state.db, &id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn restore_scene_snapshot(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Scene, String> {
+    restore_scene_snapshot_in_pool(&state.db, &id)
         .await
         .map_err(command_error)
 }
@@ -7990,6 +8223,11 @@ pub fn run() {
             delete_chapter,
             upsert_scene,
             delete_scene,
+            search_project,
+            create_scene_snapshot,
+            list_scene_snapshots,
+            get_scene_snapshot,
+            restore_scene_snapshot,
             reorder_scenes,
             set_scene_relations,
             reorder_plan_items,
@@ -8049,6 +8287,156 @@ mod tests {
         let database_path =
             std::env::temp_dir().join(format!("storyforge2-test-{}.sqlite", Uuid::new_v4()));
         init_database_at(database_path).await.unwrap()
+    }
+
+    fn scene_input(book_id: &str, title: &str, manuscript: &str) -> UpsertSceneInput {
+        UpsertSceneInput {
+            id: None,
+            book_id: book_id.to_string(),
+            chapter_id: None,
+            order_index: 0,
+            title: title.to_string(),
+            summary: String::new(),
+            goal: String::new(),
+            conflict: String::new(),
+            outcome: String::new(),
+            time_marker: None,
+            pov_character_id: None,
+            location_id: None,
+            target_word_count: None,
+            actual_word_count: None,
+            manuscript_content: Some(manuscript.to_string()),
+            status: "draft".into(),
+        }
+    }
+
+    #[tokio::test]
+    async fn books_table_has_no_logline_column() {
+        let pool = test_pool().await;
+        let columns: Vec<(String,)> =
+            sqlx::query_as("SELECT name FROM pragma_table_info('books')")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+        assert!(!columns.iter().any(|(name,)| name == "logline"));
+        assert!(columns.iter().any(|(name,)| name == "premise"));
+    }
+
+    #[tokio::test]
+    async fn scene_snapshot_roundtrip_restores_manuscript() {
+        let pool = test_pool().await;
+        let created = create_project_in_pool(
+            &pool,
+            CreateProjectInput {
+                name: "Projekt migawek".into(),
+                language: None,
+            },
+        )
+        .await
+        .unwrap();
+        let scene = upsert_scene_in_pool(
+            &pool,
+            scene_input(&created.book.id, "Scena", "<p>Stary tekst sceny</p>"),
+        )
+        .await
+        .unwrap();
+
+        let snapshot = create_scene_snapshot_in_pool(&pool, &scene.id, "manual")
+            .await
+            .unwrap()
+            .expect("niepusta scena powinna dac migawke");
+        assert_eq!(snapshot.word_count, 3);
+
+        let mut overwrite = scene_input(&created.book.id, "Scena", "<p>Nowy tekst</p>");
+        overwrite.id = Some(scene.id.clone());
+        upsert_scene_in_pool(&pool, overwrite).await.unwrap();
+
+        let restored = restore_scene_snapshot_in_pool(&pool, &snapshot.id)
+            .await
+            .unwrap();
+        assert_eq!(restored.manuscript_content, "<p>Stary tekst sceny</p>");
+        assert_eq!(restored.actual_word_count, 3);
+
+        // restore zostawia po sobie migawke nadpisanego tekstu
+        let snapshots = list_scene_snapshots_in_pool(&pool, &scene.id).await.unwrap();
+        assert_eq!(snapshots.len(), 2);
+        assert!(snapshots.iter().any(|item| item.source == "restore"));
+    }
+
+    #[tokio::test]
+    async fn empty_scene_does_not_create_snapshot() {
+        let pool = test_pool().await;
+        let created = create_project_in_pool(
+            &pool,
+            CreateProjectInput {
+                name: "Projekt pustej sceny".into(),
+                language: None,
+            },
+        )
+        .await
+        .unwrap();
+        let scene = upsert_scene_in_pool(&pool, scene_input(&created.book.id, "Pusta", ""))
+            .await
+            .unwrap();
+
+        let snapshot = create_scene_snapshot_in_pool(&pool, &scene.id, "manual")
+            .await
+            .unwrap();
+        assert!(snapshot.is_none());
+    }
+
+    #[tokio::test]
+    async fn search_index_finds_scene_text_and_scopes_by_project() {
+        let pool = test_pool().await;
+        let created = create_project_in_pool(
+            &pool,
+            CreateProjectInput {
+                name: "Projekt wyszukiwania".into(),
+                language: None,
+            },
+        )
+        .await
+        .unwrap();
+        upsert_scene_in_pool(
+            &pool,
+            scene_input(
+                &created.book.id,
+                "Smocza scena",
+                "<p>Smok przelecial nad wieza zegarowa.</p>",
+            ),
+        )
+        .await
+        .unwrap();
+        let now = Utc::now().to_rfc3339();
+        sqlx::query(
+            "INSERT INTO characters (id, project_id, name, short_description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind("char-search-1")
+        .bind(&created.project.id)
+        .bind("Zegarmistrz Anzelm")
+        .bind("Opiekun wiezy zegarowej.")
+        .bind(&now)
+        .bind(&now)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let scene_hits = search_project_in_pool(&pool, &created.project.id, "smok")
+            .await
+            .unwrap();
+        assert!(scene_hits.iter().any(|hit| hit.entity_type == "scene"));
+
+        // prefiks przy wpisywaniu
+        let prefix_hits = search_project_in_pool(&pool, &created.project.id, "zegar")
+            .await
+            .unwrap();
+        assert!(prefix_hits.iter().any(|hit| hit.entity_type == "character"));
+
+        // inny projekt nie widzi wynikow
+        let foreign_hits = search_project_in_pool(&pool, "inny-projekt", "smok")
+            .await
+            .unwrap();
+        assert!(foreign_hits.is_empty());
     }
 
     #[tokio::test]
@@ -9394,7 +9782,6 @@ mod tests {
             protagonist_summary: String::new(),
             protagonist_goal: String::new(),
             expanded_premise: String::new(),
-            logline: String::new(),
             central_conflict: String::new(),
             antagonist_force: String::new(),
             stakes: String::new(),

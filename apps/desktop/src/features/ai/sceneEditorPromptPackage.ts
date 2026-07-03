@@ -6,7 +6,14 @@ import type {
   Scene,
   WorldWorkspace
 } from "../../shared/api/types";
-import { renderCappedStoryBible } from "./promptContextLimits";
+import {
+  compactCharacter,
+  compactMemory,
+  compactRelation,
+  prioritizeEntities,
+  renderCappedStoryBible,
+  truncateStringsDeep
+} from "./promptContextLimits";
 import type { PromptContextControl } from "./promptPackage";
 import type { ScenePromptContext } from "./scenePromptContext";
 import type { SceneEditorInsertMode } from "./sceneEditorProposalTargets";
@@ -33,10 +40,12 @@ export type SceneEditorPromptPackage = {
     currentTextWindow: string;
     customInstruction: string;
     sceneContext: ScenePromptContext;
+    // Tło Story Bible: kompakty encji NIEprzypisanych do sceny (te przypisane
+    // są już w sceneContext), posortowane wg trafności przed limitem sekcji.
     storyBible: {
-      characters: CharacterWorkspace["characters"];
-      relations: CharacterWorkspace["relations"];
-      memories: CharacterWorkspace["memories"];
+      characters: Array<NonNullable<ReturnType<typeof compactCharacter>>>;
+      relations: Array<ReturnType<typeof compactRelation>>;
+      memories: Array<ReturnType<typeof compactMemory>>;
       worldElements: WorldWorkspace["elements"];
       worldRules: WorldWorkspace["rules"];
     };
@@ -104,6 +113,22 @@ export function buildSceneEditorPromptPackage({
   manualContextSnippets?: Array<{ key: string; label: string; content: string }>;
   contextControl?: PromptContextControl;
 }): SceneEditorPromptPackage {
+  const sceneCharacterIds = new Set([
+    ...sceneContext.characters.map((item) => item.id),
+    ...(sceneContext.povCharacter ? [sceneContext.povCharacter.id] : [])
+  ]);
+  const sceneElementIds = new Set(sceneContext.worldElements.map((item) => item.id));
+  const sceneRuleIds = new Set(sceneContext.relevantRules.map((item) => item.id));
+  const relatedCharacterIds = new Set(
+    characters.relations
+      .filter(
+        (relation) =>
+          sceneCharacterIds.has(relation.fromCharacterId) ||
+          sceneCharacterIds.has(relation.toCharacterId)
+      )
+      .flatMap((relation) => [relation.fromCharacterId, relation.toCharacterId])
+  );
+
   return {
     id: createPromptId(actionByField[field]),
     projectId: project.id,
@@ -121,11 +146,25 @@ export function buildSceneEditorPromptPackage({
       customInstruction: customInstruction.trim(),
       sceneContext,
       storyBible: {
-        characters: characters.characters,
-        relations: characters.relations,
-        memories: characters.memories,
-        worldElements: world.elements,
-        worldRules: world.rules
+        characters: prioritizeEntities(
+          characters.characters.filter((item) => !sceneCharacterIds.has(item.id)),
+          (item) => relatedCharacterIds.has(item.id)
+        )
+          .map((item) => compactCharacter(item))
+          .filter((item): item is NonNullable<typeof item> => item !== null),
+        relations: prioritizeEntities(
+          characters.relations,
+          (item) =>
+            sceneCharacterIds.has(item.fromCharacterId) ||
+            sceneCharacterIds.has(item.toCharacterId)
+        ).map(compactRelation),
+        memories: prioritizeEntities(
+          characters.memories,
+          (item) => sceneCharacterIds.has(item.characterId),
+          (item) => item.importance ?? 0
+        ).map(compactMemory),
+        worldElements: world.elements.filter((item) => !sceneElementIds.has(item.id)),
+        worldRules: world.rules.filter((item) => !sceneRuleIds.has(item.id))
       },
       manualContextSnippets,
       contextControl
@@ -167,12 +206,12 @@ ${promptPackage.userInstruction}
 
 ${authorPriority ? `# Author Priority\n${authorPriority}\n` : ""}
 # Book Context
-${JSON.stringify(context.sceneContext.book, null, 2)}
+${JSON.stringify(context.sceneContext.book)}
 
 # Scene Context
-${JSON.stringify(context.sceneContext, null, 2)}
+${renderSceneContextForPrompt(context.sceneContext)}
 
-# Relevant Story Bible
+# Background Story Bible
 ${renderCappedStoryBible(context.storyBible)}
 
 ${context.manualContextSnippets?.length ? `# Additional Author Context\n${context.manualContextSnippets.map((snippet) => `## ${snippet.label}\n${snippet.content}`).join("\n\n")}\n` : ""}
@@ -212,6 +251,16 @@ function instructionForField(field: SceneEditorFieldKey, customInstruction: stri
     return `Rozwiń zaznaczony fragment, dodając konkretną akcję, emocje i sensoryczne szczegóły.${custom ? ` Uwzględnij instrukcję autora: ${custom}` : ""}`;
   }
   return `Przepisz wyłącznie zaznaczony fragment, zachowując jego sens i ciągłość sceny.${custom ? ` Tryb/instrukcja autora: ${custom}` : ""}`;
+}
+
+// Scene Context bez dubli: book jest drukowany osobno, a pełny tekst sceny
+// wchodzi wyłącznie jako currentTextWindow. Długie pola przycięte do limitu.
+function renderSceneContextForPrompt(sceneContext: ScenePromptContext): string {
+  const { book: _book, scene, ...rest } = sceneContext;
+  const { manuscriptContent: _manuscript, ...sceneWithoutManuscript } = scene;
+  return JSON.stringify(
+    truncateStringsDeep({ ...rest, scene: sceneWithoutManuscript })
+  );
 }
 
 function trimTextWindow(text: string): string {

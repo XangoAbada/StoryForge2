@@ -17,6 +17,7 @@ import {
   Map,
   MoreHorizontal,
   Pencil,
+  PenLine,
   Plus,
   Route,
   Save,
@@ -5331,6 +5332,17 @@ function PlanPreview({
     (sum, chapter) => sum + (chapter.targetWordCount ?? 0),
     0
   );
+  const writtenWords = plan.scenes.reduce(
+    (sum, scene) => sum + (scene.actualWordCount ?? 0),
+    0
+  );
+  const writtenWordsByChapter: Record<string, number> = {};
+  for (const scene of plan.scenes) {
+    if (scene.chapterId) {
+      writtenWordsByChapter[scene.chapterId] =
+        (writtenWordsByChapter[scene.chapterId] ?? 0) + (scene.actualWordCount ?? 0);
+    }
+  }
   const orderedChapters = orderedChaptersForPlan(plan);
 
   return (
@@ -5390,7 +5402,11 @@ function PlanPreview({
                   >
                     <span>Rozdział</span>
                     <strong>{chapter.workingTitle}</strong>
-                    <small>{chapter.targetWordCount ?? 0} słów</small>
+                    <small>
+                      {(writtenWordsByChapter[chapter.id] ?? 0).toLocaleString("pl-PL")}
+                      {" / "}
+                      {(chapter.targetWordCount ?? 0).toLocaleString("pl-PL")} słów
+                    </small>
                   </button>
                 ))}
               </div>
@@ -5443,6 +5459,11 @@ function PlanPreview({
         <PlanStat icon={<FileText size={18} />} value={plan.chapters.length} label="Rozdziały" />
         <PlanStat icon={<GitBranch size={18} />} value={plan.threads.length} label="Wątki" />
         <PlanStat icon={<Target size={18} />} value={totalWords} label="Słów planowanych" />
+        <PlanStat
+          icon={<PenLine size={18} />}
+          value={writtenWords}
+          label={totalWords > 0 ? `Słów napisanych (${Math.round((writtenWords / totalWords) * 100)}%)` : "Słów napisanych"}
+        />
         <PlanDetailsPanel details={selectedItemDetails(selectedItem, plan)} plan={plan} compact />
       </aside>
     </div>

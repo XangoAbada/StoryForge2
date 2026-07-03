@@ -41,6 +41,15 @@ export function AiPromptContextPanel() {
     isSourceSelected(source, draft)
   ).length;
 
+  let promptChars: number | null = null;
+  if (target.renderPrompt) {
+    try {
+      promptChars = target.renderPrompt().length;
+    } catch {
+      promptChars = null;
+    }
+  }
+
   return (
     <section
       className="context-section compact prompt-context-panel"
@@ -57,6 +66,16 @@ export function AiPromptContextPanel() {
             <SlidersHorizontal size={14} aria-hidden="true" />
             {selectedCount}/{target.sources.length}
           </span>
+          {promptChars !== null ? (
+            <span
+              className="status-pill"
+              title="Rozmiar promptu z aktualnie wybranym kontekstem"
+            >
+              {"~"}
+              {Intl.NumberFormat("pl-PL").format(promptChars)}
+              {" znaków"}
+            </span>
+          ) : null}
           <Button
             variant="icon"
             className="prompt-context-reset"

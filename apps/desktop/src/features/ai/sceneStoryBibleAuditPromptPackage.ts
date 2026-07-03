@@ -7,6 +7,7 @@ import type {
   WorldWorkspace
 } from "../../shared/api/types";
 import { parseModelJson } from "./modelJson";
+import { truncateStringsDeep } from "./promptContextLimits";
 import type { ScenePromptContext } from "./scenePromptContext";
 
 export const SCENE_STORY_BIBLE_AUDIT_FIELD = "__scene_story_bible_audit__";
@@ -167,12 +168,12 @@ ${promptPackage.userInstruction}
 - Odpowiedz wyłącznie poprawnym JSON bez trailing commas.
 
 # Scene Context
-${JSON.stringify(context.sceneContext, null, 2)}
+${renderAuditSceneContext(context.sceneContext)}
 
 ${sourceBlock}
 
 # Existing Story Bible
-${JSON.stringify(context.storyBible, null, 2)}
+${JSON.stringify(truncateStringsDeep(context.storyBible))}
 
 # Output Contract
 Zwróć JSON:
@@ -222,6 +223,16 @@ export function parseSceneStoryBibleAuditResult(rawOutput: string): NormalizedSc
       ? record.warnings.filter((item): item is string => typeof item === "string")
       : []
   };
+}
+
+// Kompaktowy Scene Context bez pełnego manuskryptu — tekst sceny wchodzi
+// osobno jako Accepted Text / Scene Plan.
+function renderAuditSceneContext(sceneContext: ScenePromptContext): string {
+  const { scene, ...rest } = sceneContext;
+  const { manuscriptContent: _manuscript, ...sceneWithoutManuscript } = scene;
+  return JSON.stringify(
+    truncateStringsDeep({ ...rest, scene: sceneWithoutManuscript })
+  );
 }
 
 function normalizeCandidate(value: unknown): SceneStoryBibleAuditCandidate | null {

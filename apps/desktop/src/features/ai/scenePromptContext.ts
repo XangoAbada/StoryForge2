@@ -10,10 +10,21 @@ import type {
   WorldWorkspace
 } from "../../shared/api/types";
 
+export type SceneContinuityEntry = {
+  title: string;
+  summary: string;
+  outcome: string;
+  timeMarker: string;
+};
+
 export type ScenePromptContext = {
   book: Pick<Book, "id" | "title" | "workingTitle" | "premise" | "styleGuide" | "pointOfView" | "tone">;
   chapter: Chapter | null;
   scene: Scene;
+  /** Scena bezpośrednio poprzedzająca (w rozdziale lub ostatnia z poprzedniego rozdziału). */
+  previousScene: (SceneContinuityEntry & { textTail: string }) | null;
+  /** Metadane wcześniejszych scen bieżącego rozdziału — "co się dotąd wydarzyło". */
+  chapterSoFar: SceneContinuityEntry[];
   povCharacter: {
     id: string;
     name: string;
@@ -48,6 +59,13 @@ export function buildScenePromptContext({
   const chapter = scene.chapterId
     ? plan.chapters.find((item) => item.id === scene.chapterId) ?? null
     : null;
+  const chapterScenes = plan.scenes
+    .filter((item) => item.chapterId && item.chapterId === scene.chapterId)
+    .sort((a, b) => a.orderIndex - b.orderIndex);
+  const sceneIndex = chapterScenes.findIndex((item) => item.id === scene.id);
+  const earlierScenes = sceneIndex > 0 ? chapterScenes.slice(0, sceneIndex) : [];
+  const previousSceneSource =
+    earlierScenes[earlierScenes.length - 1] ?? lastSceneOfPreviousChapter(plan, chapter);
   const sceneCharacterIds = unique(
     plan.sceneCharacters.filter((item) => item.sceneId === scene.id).map((item) => item.characterId)
   );
@@ -95,6 +113,13 @@ export function buildScenePromptContext({
     },
     chapter,
     scene,
+    previousScene: previousSceneSource
+      ? {
+          ...continuityEntry(previousSceneSource),
+          textTail: manuscriptTail(previousSceneSource.manuscriptContent)
+        }
+      : null,
+    chapterSoFar: earlierScenes.map(continuityEntry),
     povCharacter: pov
       ? {
           id: pov.id,
@@ -130,4 +155,40 @@ export function buildScenePromptContext({
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
+}
+
+function continuityEntry(scene: Scene): SceneContinuityEntry {
+  return {
+    title: scene.title,
+    summary: scene.summary,
+    outcome: scene.outcome,
+    timeMarker: scene.timeMarker
+  };
+}
+
+function lastSceneOfPreviousChapter(plan: BookPlan, chapter: Chapter | null): Scene | null {
+  if (!chapter) {
+    return null;
+  }
+  const orderedChapters = [...plan.chapters].sort((a, b) => a.orderIndex - b.orderIndex);
+  const chapterIndex = orderedChapters.findIndex((item) => item.id === chapter.id);
+  const previousChapter = chapterIndex > 0 ? orderedChapters[chapterIndex - 1] : null;
+  if (!previousChapter) {
+    return null;
+  }
+  const scenes = plan.scenes
+    .filter((item) => item.chapterId === previousChapter.id)
+    .sort((a, b) => a.orderIndex - b.orderIndex);
+  return scenes[scenes.length - 1] ?? null;
+}
+
+/** Ostatnie ~80 słów prozy poprzedniej sceny jako punkt zszycia (manuscript to HTML z Tiptapa). */
+function manuscriptTail(html: string, maxWords = 80): string {
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const words = text.split(" ").filter(Boolean);
+  return words.slice(Math.max(0, words.length - maxWords)).join(" ");
 }

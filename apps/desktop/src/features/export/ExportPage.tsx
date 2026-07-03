@@ -700,7 +700,7 @@ function SeparatorEditor({
             min={10}
             max={48}
             value={settings.fontSize}
-            onChange={(event) => onChange({ fontSize: Number(event.target.value) })}
+            onChange={(event) => onChange({ fontSize: clampNumber(Number(event.target.value), 10, 48) })}
           />
         </Field>
         <Field label="Przed">
@@ -709,7 +709,7 @@ function SeparatorEditor({
             min={0}
             max={80}
             value={settings.spacingBefore}
-            onChange={(event) => onChange({ spacingBefore: Number(event.target.value) })}
+            onChange={(event) => onChange({ spacingBefore: clampNumber(Number(event.target.value), 0, 80) })}
           />
         </Field>
         <Field label="Po">
@@ -718,7 +718,7 @@ function SeparatorEditor({
             min={0}
             max={80}
             value={settings.spacingAfter}
-            onChange={(event) => onChange({ spacingAfter: Number(event.target.value) })}
+            onChange={(event) => onChange({ spacingAfter: clampNumber(Number(event.target.value), 0, 80) })}
           />
         </Field>
       </div>
@@ -870,4 +870,11 @@ function emptyWorldWorkspace(): WorldWorkspace {
     ruleScenes: [],
     visualAssets: []
   };
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  return Math.min(max, Math.max(min, value));
 }

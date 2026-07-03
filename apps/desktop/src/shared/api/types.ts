@@ -17,7 +17,6 @@ export type Book = {
   protagonistSummary: string;
   protagonistGoal: string;
   expandedPremise: string;
-  logline: string;
   centralConflict: string;
   antagonistForce: string;
   stakes: string;
@@ -153,6 +152,7 @@ export type Scene = {
   goal: string;
   conflict: string;
   outcome: string;
+  timeMarker: string;
   povCharacterId: string | null;
   locationId: string | null;
   targetWordCount: number | null;
@@ -161,6 +161,25 @@ export type Scene = {
   status: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type SceneSnapshotMeta = {
+  id: string;
+  sceneId: string;
+  wordCount: number;
+  source: string;
+  createdAt: string;
+};
+
+export type SceneSnapshot = SceneSnapshotMeta & {
+  content: string;
+};
+
+export type SearchResult = {
+  entityType: string;
+  entityId: string;
+  title: string;
+  snippet: string;
 };
 
 export type SceneCharacter = {
@@ -513,6 +532,7 @@ export type UpsertSceneInput = {
   goal: string;
   conflict: string;
   outcome: string;
+  timeMarker?: string;
   povCharacterId?: string | null;
   locationId?: string | null;
   targetWordCount?: number | null;
@@ -623,7 +643,6 @@ export type BookConceptInput = {
   protagonistSummary?: string;
   protagonistGoal?: string;
   expandedPremise?: string;
-  logline?: string;
   centralConflict?: string;
   antagonistForce?: string;
   stakes?: string;

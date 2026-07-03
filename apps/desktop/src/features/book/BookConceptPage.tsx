@@ -69,7 +69,6 @@ type ConceptForm = {
   protagonistSummary: string;
   protagonistGoal: string;
   expandedPremise: string;
-  logline: string;
   centralConflict: string;
   antagonistForce: string;
   stakes: string;
@@ -91,10 +90,7 @@ type ConceptStageKey =
   | "idea"
   | "hero"
   | "world"
-  | "conflict"
-  | "antagonist"
   | "stakesEnding"
-  | "genre"
   | "readerVoice"
   | "rules"
   | "cover";
@@ -122,7 +118,6 @@ const emptyForm: ConceptForm = {
   protagonistSummary: "",
   protagonistGoal: "",
   expandedPremise: "",
-  logline: "",
   centralConflict: "",
   antagonistForce: "",
   stakes: "",
@@ -147,7 +142,6 @@ const fieldHints: Record<ConceptFieldKey, string> = {
   protagonistSummary: "Najważniejsza postać prowadząca historię; kim jest na starcie i dlaczego to ona niesie książkę.",
   protagonistGoal: "Konkretne zewnętrzne dążenie, które popycha fabułę do przodu.",
   expandedPremise: "Jeden akapit łączący rdzeń pomysłu, konflikt i przewidywany kierunek książki.",
-  logline: "Jedno zwarte zdanie komunikujące bohatera, cel, przeszkodę i stawkę.",
   centralConflict: "Główne napięcie, które napędza decyzje bohatera i strukturę fabuły.",
   antagonistForce: "Antagonista, system, problem, tajemnica albo wewnętrzna blokada stojąca na drodze bohatera.",
   stakes: "To, co bohater, relacje albo świat tracą, jeśli cel nie zostanie osiągnięty.",
@@ -174,9 +168,9 @@ const conceptStages: ConceptStage[] = [
   },
   {
     key: "hero",
-    title: "Bohater",
-    summary: "Postać prowadząca i konkretne dążenie, które uruchamia fabułę.",
-    fields: ["protagonistSummary", "protagonistGoal"]
+    title: "Bohater i konflikt",
+    summary: "Postać prowadząca, jej dążenie oraz napięcie i siła przeciwna, które uruchamiają fabułę.",
+    fields: ["protagonistSummary", "protagonistGoal", "centralConflict", "antagonistForce"]
   },
   {
     key: "world",
@@ -185,44 +179,26 @@ const conceptStages: ConceptStage[] = [
     fields: ["settingSketch"]
   },
   {
-    key: "conflict",
-    title: "Konflikt",
-    summary: "Logline i główne napięcie fabularne.",
-    fields: ["logline", "centralConflict"]
-  },
-  {
-    key: "antagonist",
-    title: "Antagonista",
-    summary: "Siła przeciwna stojąca na drodze bohatera.",
-    fields: ["antagonistForce"]
-  },
-  {
     key: "stakesEnding",
     title: "Stawki i finał",
     summary: "Koszt porażki, kierunek zakończenia i rozwinięta premisa.",
     fields: ["stakes", "endingDirection", "expandedPremise"]
   },
   {
-    key: "genre",
-    title: "Gatunek",
-    summary: "Konwencja i doprecyzowanie obietnicy gatunkowej.",
-    fields: ["genre", "subgenre"]
-  },
-  {
     key: "readerVoice",
-    title: "Czytelnik i forma",
-    summary: "Odbiorca, ton, perspektywa i skala książki.",
-    fields: ["targetAudience", "tone", "pointOfView", "targetWordCount"]
+    title: "Rynek i forma",
+    summary: "Gatunek, odbiorca, ton, perspektywa i skala książki.",
+    fields: ["genre", "subgenre", "targetAudience", "tone", "pointOfView", "targetWordCount"]
   },
   {
     key: "rules",
-    title: "Motywy i zasady",
+    title: "Styl i granice",
     summary: "Tematy, granice i styl, które utrzymają późniejsze generacje w ryzach.",
     fields: ["themesJson", "unwantedThemes", "styleGuide"]
   },
   {
     key: "cover",
-    title: "Okładka",
+    title: "Tytuł i okładka",
     summary: "Finalny tytuł, warianty tytułu i opcjonalna robocza okładka.",
     fields: ["title", "alternativeTitlesJson"]
   }
@@ -338,7 +314,6 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
       protagonistSummary: book.protagonistSummary ?? "",
       protagonistGoal: book.protagonistGoal ?? "",
       expandedPremise: book.expandedPremise ?? "",
-      logline: book.logline,
       centralConflict: book.centralConflict ?? "",
       antagonistForce: book.antagonistForce ?? "",
       stakes: book.stakes ?? "",
@@ -370,7 +345,6 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
       protagonistSummary: form.protagonistSummary,
       protagonistGoal: form.protagonistGoal,
       expandedPremise: form.expandedPremise,
-      logline: form.logline,
       centralConflict: form.centralConflict,
       antagonistForce: form.antagonistForce,
       stakes: form.stakes,
@@ -485,7 +459,21 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
         submitDisabledReason: loading
           ? `Pole "${config.label}" jest ju\u017c w kolejce AI.`
           : "Codex CLI nie jest teraz gotowy.",
-        onSubmit: () => queueFieldGeneration(field)
+        onSubmit: () => queueFieldGeneration(field),
+        renderPrompt: () => {
+          if (!projectQuery.data || !bookForPrompt) {
+            return "";
+          }
+          const targetId = conceptPromptContextTargetId(projectId, field);
+          return renderPromptPackage(
+            buildConceptFieldPromptPackage(
+              projectQuery.data.project,
+              bookForPrompt,
+              field,
+              promptContextControlForActiveTarget(targetId)
+            )
+          );
+        }
       })
     );
   }
@@ -754,6 +742,28 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
                   onGenerate={generateField}
                   onChange={(value) => updateField("protagonistGoal", value)}
                 />
+                <TextField
+                  label="Konflikt centralny"
+                  field="centralConflict"
+                  value={form.centralConflict}
+                  placeholder="Główne tarcie fabularne"
+                  rows={3}
+                  disabled={aiDisabled}
+                  loading={fieldStatus("centralConflict")}
+                  onGenerate={generateField}
+                  onChange={(value) => updateField("centralConflict", value)}
+                />
+                <TextField
+                  label="Siła przeciwna"
+                  field="antagonistForce"
+                  value={form.antagonistForce}
+                  placeholder="Antagonista, system, tajemnica albo blokada"
+                  rows={3}
+                  disabled={aiDisabled}
+                  loading={fieldStatus("antagonistForce")}
+                  onGenerate={generateField}
+                  onChange={(value) => updateField("antagonistForce", value)}
+                />
               </div>
             </FormSection>
           ) : null}
@@ -771,51 +781,6 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
                 onGenerate={generateField}
                 onChange={(value) => updateField("settingSketch", value)}
               />
-            </FormSection>
-          ) : null}
-
-          {activeStage === "conflict" ? (
-            <FormSection>
-              <div className="form-grid">
-                <TextField
-                  label="Logline"
-                  field="logline"
-                  value={form.logline}
-                  placeholder="Bohater, cel, przeszkoda, stawka"
-                  rows={3}
-                  disabled={aiDisabled}
-                  loading={fieldStatus("logline")}
-                  onGenerate={generateField}
-                  onChange={(value) => updateField("logline", value)}
-                />
-                <TextField
-                  label="Konflikt centralny"
-                  field="centralConflict"
-                  value={form.centralConflict}
-                  placeholder="Główne tarcie fabularne"
-                  rows={3}
-                  disabled={aiDisabled}
-                  loading={fieldStatus("centralConflict")}
-                  onGenerate={generateField}
-                  onChange={(value) => updateField("centralConflict", value)}
-                />
-              </div>
-            </FormSection>
-          ) : null}
-
-          {activeStage === "antagonist" ? (
-            <FormSection>
-                <TextField
-                  label="Siła przeciwna"
-                  field="antagonistForce"
-                  value={form.antagonistForce}
-                  placeholder="Antagonista, system, tajemnica albo blokada"
-                  rows={4}
-                  disabled={aiDisabled}
-                  loading={fieldStatus("antagonistForce")}
-                  onGenerate={generateField}
-                  onChange={(value) => updateField("antagonistForce", value)}
-                />
             </FormSection>
           ) : null}
 
@@ -859,7 +824,7 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
             </FormSection>
           ) : null}
 
-          {activeStage === "genre" ? (
+          {activeStage === "readerVoice" ? (
             <FormSection>
               <div className="form-grid concept-choice-grid">
                 <MultiChoiceField
@@ -882,13 +847,6 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
                   disabled={aiDisabled}
                   loading={fieldStatus("subgenre")}
                 />
-              </div>
-            </FormSection>
-          ) : null}
-
-          {activeStage === "readerVoice" ? (
-            <FormSection>
-              <div className="form-grid concept-choice-grid">
                 <MultiChoiceField
                   label="Odbiorcy"
                   field="targetAudience"
@@ -1422,7 +1380,6 @@ function conceptInputFromForm(form: ConceptForm): BookConceptInput {
     protagonistSummary: form.protagonistSummary,
     protagonistGoal: form.protagonistGoal,
     expandedPremise: form.expandedPremise,
-    logline: form.logline,
     centralConflict: form.centralConflict,
     antagonistForce: form.antagonistForce,
     stakes: form.stakes,
@@ -1487,10 +1444,6 @@ function validateConceptForm(form: ConceptForm): string {
 
   if (form.premise.length > conceptFieldMaxResponseCharacters.premise) {
     return "Premise jest zbyt długa; przenieś szczegóły do rozszerzonej premisy.";
-  }
-
-  if (form.logline.length > conceptFieldMaxResponseCharacters.logline) {
-    return "Logline jest zbyt długi; powinien zmieścić się w jednym zwartym zdaniu.";
   }
 
   return "";

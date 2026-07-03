@@ -384,6 +384,16 @@ export function SceneEditModal({
                         ))}
                       </select>
                     </Field>
+                    <Field label="Kiedy (znacznik czasu)">
+                      <input
+                        type="text"
+                        placeholder="np. następnego ranka, 3 dni później"
+                        value={draft.timeMarker ?? ""}
+                        onChange={(event) =>
+                          setDraft({ ...draft, timeMarker: event.target.value })
+                        }
+                      />
+                    </Field>
                     <Field label="Cel słów">
                       <input
                         type="number"
@@ -887,6 +897,7 @@ function newSceneInput(bookId: string, plan: BookPlan, chapterId: string | null)
     goal: "",
     conflict: "",
     outcome: "",
+    timeMarker: "",
     povCharacterId: null,
     locationId: null,
     targetWordCount: suggestedSceneTarget,
@@ -907,6 +918,7 @@ function sceneToInput(scene: Scene): UpsertSceneInput {
     goal: scene.goal,
     conflict: scene.conflict,
     outcome: scene.outcome,
+    timeMarker: scene.timeMarker,
     povCharacterId: scene.povCharacterId,
     locationId: scene.locationId,
     targetWordCount: scene.targetWordCount,
@@ -929,6 +941,7 @@ function sceneDraftPromptEntity(draft: UpsertSceneInput, id: string): Scene {
     goal: draft.goal,
     conflict: draft.conflict,
     outcome: draft.outcome,
+    timeMarker: draft.timeMarker ?? "",
     povCharacterId: draft.povCharacterId ?? null,
     locationId: draft.locationId ?? null,
     targetWordCount: draft.targetWordCount ?? null,

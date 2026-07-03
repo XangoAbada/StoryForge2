@@ -46,6 +46,9 @@ import type {
   SaveStoryStructureInput,
   SaveExportPresetInput,
   Scene,
+  SceneSnapshot,
+  SceneSnapshotMeta,
+  SearchResult,
   SetActivePlanVersionInput,
   SetSceneRelationsInput,
   SetWorldElementRelationsInput,
@@ -136,7 +139,6 @@ export async function browserCreateProject(
     protagonistSummary: "",
     protagonistGoal: "",
     expandedPremise: "",
-    logline: "",
     centralConflict: "",
     antagonistForce: "",
     stakes: "",
@@ -575,6 +577,119 @@ export async function browserDeleteChapter(id: string): Promise<void> {
   writeState(state);
 }
 
+// ponytail: migawki w pamięci modułu — podgląd przeglądarkowy nie musi ich
+// utrwalać; trwała wersja żyje w SQLite w aplikacji Tauri.
+const browserSceneSnapshots = new Map<string, SceneSnapshot[]>();
+
+function findBrowserScene(state: BrowserPreviewState, sceneId: string): Scene | null {
+  for (const plan of Object.values(state.plans)) {
+    const scene = plan.scenes.find((item) => item.id === sceneId);
+    if (scene) {
+      return scene;
+    }
+  }
+  return null;
+}
+
+export async function browserCreateSceneSnapshot(
+  sceneId: string,
+  source: string
+): Promise<SceneSnapshotMeta | null> {
+  const scene = findBrowserScene(readState(), sceneId);
+  if (!scene || !scene.manuscriptContent.replace(/<[^>]+>/g, " ").trim()) {
+    return null;
+  }
+
+  const snapshot: SceneSnapshot = {
+    id: createId(),
+    sceneId,
+    content: scene.manuscriptContent,
+    wordCount: scene.manuscriptContent.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length,
+    source,
+    createdAt: new Date().toISOString()
+  };
+  browserSceneSnapshots.set(sceneId, [snapshot, ...(browserSceneSnapshots.get(sceneId) ?? [])]);
+  const { content: _content, ...meta } = snapshot;
+  return meta;
+}
+
+export async function browserListSceneSnapshots(sceneId: string): Promise<SceneSnapshotMeta[]> {
+  return (browserSceneSnapshots.get(sceneId) ?? []).map(({ content: _content, ...meta }) => meta);
+}
+
+export async function browserGetSceneSnapshot(id: string): Promise<SceneSnapshot> {
+  for (const snapshots of browserSceneSnapshots.values()) {
+    const snapshot = snapshots.find((item) => item.id === id);
+    if (snapshot) {
+      return snapshot;
+    }
+  }
+  throw new Error("Nie znaleziono migawki.");
+}
+
+export async function browserRestoreSceneSnapshot(id: string): Promise<Scene> {
+  const snapshot = await browserGetSceneSnapshot(id);
+  const state = readState();
+  const scene = findBrowserScene(state, snapshot.sceneId);
+  if (!scene) {
+    throw new Error("Nie znaleziono sceny migawki.");
+  }
+  await browserCreateSceneSnapshot(scene.id, "restore");
+  scene.manuscriptContent = snapshot.content;
+  scene.actualWordCount = snapshot.wordCount;
+  scene.updatedAt = new Date().toISOString();
+  writeState(state);
+  return scene;
+}
+
+export async function browserSearchProject(
+  projectId: string,
+  query: string
+): Promise<SearchResult[]> {
+  const needle = query.trim().toLowerCase();
+  if (!needle) {
+    return [];
+  }
+  const state = readState();
+  const results: SearchResult[] = [];
+
+  for (const character of state.characterWorkspaces[projectId]?.characters ?? []) {
+    if (`${character.name} ${character.shortDescription}`.toLowerCase().includes(needle)) {
+      results.push({
+        entityType: "character",
+        entityId: character.id,
+        title: character.name,
+        snippet: character.shortDescription.slice(0, 120)
+      });
+    }
+  }
+  for (const element of state.worldWorkspaces[projectId]?.elements ?? []) {
+    if (`${element.name} ${element.summary} ${element.details}`.toLowerCase().includes(needle)) {
+      results.push({
+        entityType: "world_element",
+        entityId: element.id,
+        title: element.name,
+        snippet: element.summary.slice(0, 120)
+      });
+    }
+  }
+  // ponytail: podgląd przeszukuje wszystkie plany bez mapowania książka->projekt.
+  for (const plan of Object.values(state.plans)) {
+    for (const scene of plan.scenes) {
+      const haystack = `${scene.title} ${scene.summary} ${scene.manuscriptContent}`.toLowerCase();
+      if (haystack.includes(needle)) {
+        results.push({
+          entityType: "scene",
+          entityId: scene.id,
+          title: scene.title,
+          snippet: (scene.summary || scene.manuscriptContent.replace(/<[^>]+>/g, " ")).slice(0, 120)
+        });
+      }
+    }
+  }
+  return results.slice(0, 50);
+}
+
 export async function browserUpsertScene(input: UpsertSceneInput): Promise<Scene> {
   const state = readState();
   const plan = ensurePlan(state, input.bookId);
@@ -593,6 +708,7 @@ export async function browserUpsertScene(input: UpsertSceneInput): Promise<Scene
     goal: input.goal,
     conflict: input.conflict,
     outcome: input.outcome,
+    timeMarker: input.timeMarker ?? existing?.timeMarker ?? "",
     povCharacterId: input.povCharacterId ?? null,
     locationId: input.locationId ?? null,
     targetWordCount: input.targetWordCount ?? null,

@@ -334,29 +334,37 @@ function renderBookContext(
 function renderWorkspaceContext(promptPackage: WorldPromptPackage): string {
   const { plan, characters, world, contextControl } = promptPackage.context;
   return [
-    isIncluded("bookPlan", contextControl)
+    isIncluded("bookPlan", contextControl) && (plan.chapters.length || plan.threads.length)
       ? `Plan: ${JSON.stringify({
           chapters: plan.chapters.map((chapter) => ({ id: chapter.id, number: chapter.number, title: chapter.workingTitle, summary: chapter.summary })),
           threads: plan.threads.map((thread) => ({ id: thread.id, name: thread.name, description: thread.description, status: thread.status }))
         })}`
       : "",
     isIncluded("characters", contextControl)
-      ? `Postacie: ${JSON.stringify(characters.characters.map((character) => ({ id: character.id, name: character.name, role: character.role, description: character.shortDescription })))}`
+      ? workspaceLine("Postacie", characters.characters.map((character) => ({ id: character.id, name: character.name, role: character.role, description: character.shortDescription })))
       : "",
     isIncluded("worldElements", contextControl)
-      ? `Elementy świata: ${JSON.stringify(world.elements.map(compactElement))}`
+      ? workspaceLine("Elementy świata", world.elements.map(compactElement))
       : "",
     isIncluded("worldRules", contextControl)
-      ? `Reguły świata: ${JSON.stringify(world.rules.map(compactRule))}`
+      ? workspaceLine("Reguły świata", world.rules.map(compactRule))
       : "",
     isIncluded("targetEntity", contextControl)
-      ? `Docelowy element: ${JSON.stringify(promptPackage.context.targetEntitySnapshot ?? null)}`
+      ? workspaceLine("Docelowy element", promptPackage.context.targetEntitySnapshot ?? null)
       : "",
     promptPackage.context.sourceSceneDiscovery
       ? `Źródło odkrycia ze sceny: ${JSON.stringify(promptPackage.context.sourceSceneDiscovery)}`
       : "",
     renderManualFieldContext(promptPackage)
   ].filter(Boolean).join("\n") || "(brak wybranego kontekstu świata)";
+}
+
+// Pustych sekcji nie serializujemy — "Postacie: []" to szum w prompcie.
+function workspaceLine(label: string, value: unknown): string {
+  if (value == null || (Array.isArray(value) && value.length === 0)) {
+    return "";
+  }
+  return `${label}: ${JSON.stringify(value)}`;
 }
 
 function renderManualFieldContext(promptPackage: WorldPromptPackage): string {

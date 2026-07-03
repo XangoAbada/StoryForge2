@@ -60,6 +60,7 @@ import {
   pendingProposalStatus,
   useProposalStore
 } from "../ai/proposalStore";
+import { useProjectNavigationStore } from "../../app/projectNavigationStore";
 import {
   applyCharacterDraftField,
   registerCharacterDraftFieldTarget,
@@ -216,6 +217,24 @@ export function CharactersPage({ projectId }: CharactersPageProps) {
       setSelectedCharacterId(workspace.characters[0].id);
     }
   }, [selectedCharacterId, workspace.characters]);
+
+  const searchCharacterId = useProjectNavigationStore(
+    (state) => state.viewState[projectId]?.searchCharacterId
+  );
+  const clearProjectViewState = useProjectNavigationStore(
+    (state) => state.clearProjectViewState
+  );
+
+  useEffect(() => {
+    if (!searchCharacterId) {
+      return;
+    }
+    if (workspace.characters.some((item) => item.id === searchCharacterId)) {
+      setSelectedCharacterId(searchCharacterId);
+      setActiveTab("profile");
+      clearProjectViewState(projectId, "searchCharacterId");
+    }
+  }, [clearProjectViewState, projectId, searchCharacterId, workspace.characters]);
 
   useEffect(() => {
     if (selectedCharacter) {

@@ -5,7 +5,6 @@ const validOutput = {
   version: 1,
   kind: "premise_development",
   summary: "Archiwistka odkrywa fałszowanie pamięci miasta.",
-  logline: "Archiwistka musi zatrzymać druk fałszywych wspomnień.",
   expandedPremise:
     "W mieście kontrolowanym przez drukowane sny archiwistka szuka siostry i odkrywa system manipulacji.",
   centralConflict: "Prawda kontra spokój oparty na kłamstwie.",
@@ -40,7 +39,6 @@ describe("parsePremiseDevelopment", () => {
       `Komentarz\n\`\`\`json\n${JSON.stringify(validOutput)}\n\`\`\``
     );
 
-    expect(parsed.logline).toBe(validOutput.logline);
   });
 
   it("rejects invalid kind", () => {

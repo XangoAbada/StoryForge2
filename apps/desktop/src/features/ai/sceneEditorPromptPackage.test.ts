@@ -35,19 +35,59 @@ function buildPromptPackage() {
         locationId: null,
         targetWordCount: 1250,
         actualWordCount: null,
-        manuscriptContent: "",
+        manuscriptContent: "SEKRETNY_PELNY_MANUSKRYPT_SCENY",
         status: "planned",
         createdAt: "",
         updatedAt: ""
       },
-      povCharacter: null,
-      characters: [],
+      previousScene: {
+        title: "Scena poprzednia",
+        summary: "Bohater znalazł list.",
+        outcome: "Postanowił wyjechać.",
+        textTail: "Zamknął drzwi i ruszył w stronę dworca."
+      },
+      chapterSoFar: [
+        { title: "Scena poprzednia", summary: "Bohater znalazł list.", outcome: "Postanowił wyjechać." }
+      ],
+      povCharacter: { id: "char-1", name: "Jan", voiceNotes: "", knowledgeNotes: "" },
+      characters: [{ id: "char-1", name: "Jan", role: "protagonista", voiceNotes: "", knowledgeNotes: "" }],
       threads: [],
       location: null,
       worldElements: [],
       relevantRules: []
     },
-    characters: { characters: [], relations: [], memories: [], memoryLinks: [], visualAssets: [] },
+    characters: {
+      characters: [
+        {
+          id: "char-1",
+          characterType: "person",
+          name: "Jan",
+          role: "protagonista",
+          shortDescription: "",
+          externalGoal: "",
+          internalNeed: "",
+          voiceNotes: "",
+          arcSummary: "",
+          status: "draft"
+        },
+        {
+          id: "char-2",
+          characterType: "person",
+          name: "Tło Postać",
+          role: "statysta",
+          shortDescription: "",
+          externalGoal: "",
+          internalNeed: "",
+          voiceNotes: "",
+          arcSummary: "",
+          status: "draft"
+        }
+      ],
+      relations: [],
+      memories: [],
+      memoryLinks: [],
+      visualAssets: []
+    },
     world: {
       elements: [],
       rules: [],
@@ -84,5 +124,31 @@ describe("sceneEditorPromptPackage", () => {
     expect(prompt).toContain("akapity oddzielone pustą linią");
     expect(prompt).toContain("wypowiedź dialogową zaczynaj od nowego akapitu");
     expect(prompt).toContain("dialogi zapisuj jako osobne akapity");
+  });
+
+  it("does not duplicate the scene manuscript in the rendered prompt", () => {
+    const prompt = renderSceneEditorPromptPackage(buildPromptPackage());
+
+    expect(prompt).not.toContain("SEKRETNY_PELNY_MANUSKRYPT_SCENY");
+  });
+
+  it("renders the book context exactly once", () => {
+    const prompt = renderSceneEditorPromptPackage(buildPromptPackage());
+
+    expect(prompt.match(/"workingTitle":\s*"Powieść"/g)).toHaveLength(1);
+  });
+
+  it("includes previous scene continuity in the scene context", () => {
+    const prompt = renderSceneEditorPromptPackage(buildPromptPackage());
+
+    expect(prompt).toContain("Postanowił wyjechać.");
+    expect(prompt).toContain("Zamknął drzwi i ruszył w stronę dworca.");
+  });
+
+  it("keeps only background characters in the story bible section", () => {
+    const promptPackage = buildPromptPackage();
+
+    const storyBibleIds = promptPackage.context.storyBible.characters.map((item) => item.id);
+    expect(storyBibleIds).toEqual(["char-2"]);
   });
 });

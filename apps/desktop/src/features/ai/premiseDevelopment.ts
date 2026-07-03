@@ -10,7 +10,6 @@ export type PremiseDevelopmentField = {
     | "protagonistSummary"
     | "protagonistGoal"
     | "expandedPremise"
-    | "logline"
     | "centralConflict"
     | "antagonistForce"
     | "stakes"
@@ -28,7 +27,6 @@ const premiseDevelopmentResponseSchema = z.object({
   summary: z.string().trim().min(1),
   protagonistSummary: z.string().trim().optional().default(""),
   protagonistGoal: z.string().trim().optional().default(""),
-  logline: z.string().trim().min(1),
   expandedPremise: z.string().trim().min(1),
   centralConflict: z.string().trim().min(1),
   antagonistForce: z.string().trim().optional().default(""),
@@ -71,11 +69,6 @@ export function parsePremiseDevelopment(
       field: "premise",
       label: conceptFieldConfigs.premise.label,
       value: response.summary
-    },
-    {
-      field: "logline",
-      label: conceptFieldConfigs.logline.label,
-      value: response.logline
     },
     {
       field: "protagonistSummary",

@@ -5,12 +5,16 @@ import { FileText, List, PenLine, Pilcrow, Plus, Redo2, Save, Sparkles, Undo2 } 
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  createSceneSnapshot,
   deleteChapter,
   deleteScene,
   getBookPlan,
   getCharacterWorkspace,
   getProject,
+  getSceneSnapshot,
   getWorldWorkspace,
+  listSceneSnapshots,
+  restoreSceneSnapshot,
   setSceneRelations,
   upsertChapter,
   upsertChapterThreadRelation,
@@ -26,6 +30,7 @@ import type {
   WorldWorkspace
 } from "../../shared/api/types";
 import { buildScenePromptContext } from "../ai/scenePromptContext";
+import { useProjectNavigationStore } from "../../app/projectNavigationStore";
 import {
   buildSceneEditorPromptPackage,
   renderSceneEditorPromptPackage,
@@ -103,6 +108,7 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
   const [statusText, setStatusText] = useState("Wybierz scenę");
   const [variants, setVariants] = useState<SceneVariant[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [snapshotPreview, setSnapshotPreview] = useState<{ id: string; text: string } | null>(null);
   const lastSavedSignature = useRef("");
 
   const projectQuery = useQuery({
@@ -132,6 +138,24 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
   const characters = characterQuery.data ?? emptyCharacterWorkspace();
   const world = worldQuery.data ?? emptyWorldWorkspace();
   const chapters = orderedChaptersForPlan(plan);
+  const searchSceneId = useProjectNavigationStore(
+    (state) => state.viewState[projectId]?.searchSceneId
+  );
+  const clearProjectViewState = useProjectNavigationStore(
+    (state) => state.clearProjectViewState
+  );
+
+  useEffect(() => {
+    if (!searchSceneId) {
+      return;
+    }
+    const scene = plan.scenes.find((item) => item.id === searchSceneId);
+    if (scene) {
+      setSelectedSceneId(scene.id);
+      setSelectedChapterId(scene.chapterId ?? null);
+      clearProjectViewState(projectId, "searchSceneId");
+    }
+  }, [clearProjectViewState, plan.scenes, projectId, searchSceneId]);
   const selectedScene = selectedSceneId
     ? plan.scenes.find((scene) => scene.id === selectedSceneId) ?? null
     : null;
@@ -173,6 +197,46 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
     onSelectionUpdate: ({ editor: currentEditor }) => {
       setSelectionText(selectedTextFromEditor(currentEditor));
     }
+  });
+
+  const snapshotsQuery = useQuery({
+    queryKey: ["scene-snapshots", selectedSceneId],
+    queryFn: () => listSceneSnapshots(selectedSceneId ?? ""),
+    enabled: Boolean(selectedSceneId),
+    retry: 0
+  });
+
+  const snapshotMutation = useMutation({
+    mutationFn: () => createSceneSnapshot(selectedSceneId ?? "", "manual"),
+    onSuccess: async (snapshot) => {
+      setStatusText(snapshot ? "Zapisano migawkę" : "Scena jest pusta — migawki nie utworzono");
+      await queryClient.invalidateQueries({ queryKey: ["scene-snapshots", selectedSceneId] });
+    },
+    onError: (error) => setStatusText(error instanceof Error ? error.message : "Błąd migawki")
+  });
+
+  const restoreSnapshotMutation = useMutation({
+    mutationFn: (snapshotId: string) => restoreSceneSnapshot(snapshotId),
+    onSuccess: async (scene) => {
+      editor?.commands.setContent(scene.manuscriptContent || "", { emitUpdate: false });
+      setDraft((current) => {
+        if (!current) {
+          return current;
+        }
+        const next = {
+          ...current,
+          manuscriptContent: scene.manuscriptContent,
+          actualWordCount: scene.actualWordCount
+        };
+        lastSavedSignature.current = signature(next);
+        return next;
+      });
+      setSnapshotPreview(null);
+      setStatusText("Przywrócono migawkę");
+      await invalidatePlan();
+      await queryClient.invalidateQueries({ queryKey: ["scene-snapshots", selectedSceneId] });
+    },
+    onError: (error) => setStatusText(error instanceof Error ? error.message : "Błąd przywracania")
   });
 
   const saveMutation = useMutation({
@@ -297,6 +361,13 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
         return;
       }
 
+      // Migawka bieżącego tekstu, zanim propozycja AI go zmieni.
+      if (draft.id) {
+        void createSceneSnapshot(draft.id, "ai_replace")
+          .then(() => queryClient.invalidateQueries({ queryKey: ["scene-snapshots", draft.id] }))
+          .catch(() => undefined);
+      }
+
       if (mode === "replace_selection" && selectionText) {
         editor.chain().focus().insertContent(value).run();
       } else if (mode === "insert_after_selection" && selectionText) {
@@ -367,8 +438,47 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
       submitLabel: "AI",
       submitDisabled: !projectQuery.data || !bookId || Boolean(pendingEditorStatus),
       submitDisabledReason: pendingEditorStatus ? "AI już pracuje nad tą sceną." : "Najpierw wczytaj dane projektu.",
-      onSubmit: () => queueEditorAction(field, mode)
+      onSubmit: () => queueEditorAction(field, mode),
+      renderPrompt: () => renderSceneEditorPrompt(field, mode)
     });
+  }
+
+  function renderSceneEditorPrompt(field: SceneEditorFieldKey, mode: SceneEditorInsertMode): string {
+    if (!projectQuery.data || !bookId || !selectedScene || !editor) {
+      return "";
+    }
+    const targetId = sceneEditorPromptContextTargetId(projectId, selectedScene.id);
+    const contextControl =
+      promptContextControlForTarget(targetId) ??
+      sceneEditorDefaultContextControl(sceneEditorPromptContextSources(selectedScene, selectedChapter));
+    const sceneContext = buildScenePromptContext({
+      book: projectQuery.data.book,
+      plan,
+      characters,
+      world,
+      sceneId: selectedScene.id
+    });
+    if (!sceneContext) {
+      return "";
+    }
+    return renderSceneEditorPromptPackage(
+      buildSceneEditorPromptPackage({
+        project: projectQuery.data.project,
+        book: projectQuery.data.book,
+        scene: selectedScene,
+        sceneContext,
+        characters,
+        world,
+        field,
+        selectedText: selectionText,
+        currentText: editor.getText(),
+        customInstruction,
+        insertMode: mode,
+        targetWordCount: draft?.targetWordCount ?? selectedScene.targetWordCount ?? selectedChapter?.targetWordCount ?? null,
+        manualContextSnippets: sceneEditorManualContextSnippets(plan, contextControl),
+        contextControl
+      })
+    );
   }
 
   function addSceneEditorContextSource(source: PromptContextSource) {
@@ -679,6 +789,61 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
                     {variants.length === 0 ? <p>Brak zapisanych wariantów dla tej sceny.</p> : null}
                   </div>
                 </details>
+                <details className="scene-variants-menu scene-history-menu">
+                  <summary>
+                    <Undo2 size={15} aria-hidden />
+                    Historia ({snapshotsQuery.data?.length ?? 0})
+                  </summary>
+                  <div className="scene-variants-popover">
+                    <Button
+                      variant="ghost"
+                      busy={snapshotMutation.isPending}
+                      onClick={() => snapshotMutation.mutate()}
+                    >
+                      <Save size={14} />
+                      Zapisz migawkę teraz
+                    </Button>
+                    {(snapshotsQuery.data ?? []).map((snapshot) => (
+                      <div className="scene-snapshot-item" key={snapshot.id}>
+                        <button
+                          type="button"
+                          className="scene-variant-item"
+                          title="Pokaż początek tekstu migawki"
+                          onClick={() => {
+                            if (snapshotPreview?.id === snapshot.id) {
+                              setSnapshotPreview(null);
+                              return;
+                            }
+                            void getSceneSnapshot(snapshot.id).then((full) =>
+                              setSnapshotPreview({
+                                id: snapshot.id,
+                                text: `${full.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 400)}…`
+                              })
+                            );
+                          }}
+                        >
+                          <span>{new Date(snapshot.createdAt).toLocaleString("pl-PL")}</span>
+                          <strong>
+                            {snapshotSourceLabel(snapshot.source)} · {snapshot.wordCount} słów
+                          </strong>
+                        </button>
+                        {snapshotPreview?.id === snapshot.id ? (
+                          <p className="scene-snapshot-preview">{snapshotPreview.text}</p>
+                        ) : null}
+                        <Button
+                          variant="ghost"
+                          busy={restoreSnapshotMutation.isPending}
+                          onClick={() => restoreSnapshotMutation.mutate(snapshot.id)}
+                        >
+                          Przywróć
+                        </Button>
+                      </div>
+                    ))}
+                    {(snapshotsQuery.data ?? []).length === 0 ? (
+                      <p>Brak migawek tej sceny. Powstają automatycznie przed zmianami z AI.</p>
+                    ) : null}
+                  </div>
+                </details>
               </div>
             </section>
 
@@ -860,6 +1025,7 @@ function sceneDraftPromptEntity(draft: UpsertSceneInput): Scene {
     goal: draft.goal,
     conflict: draft.conflict,
     outcome: draft.outcome,
+    timeMarker: draft.timeMarker ?? "",
     povCharacterId: draft.povCharacterId ?? null,
     locationId: draft.locationId ?? null,
     targetWordCount: draft.targetWordCount ?? null,
@@ -1081,6 +1247,16 @@ function createLocalId(): string {
 
 function variantsKey(sceneId: string): string {
   return `storyforge2:scene-variants:${sceneId}`;
+}
+
+function snapshotSourceLabel(source: string): string {
+  if (source === "ai_replace") {
+    return "przed AI";
+  }
+  if (source === "restore") {
+    return "przed przywróceniem";
+  }
+  return "ręczna";
 }
 
 function loadVariants(sceneId: string): SceneVariant[] {

@@ -26,7 +26,6 @@ const book: Book = {
   protagonistSummary: "Zecerka pilnujaca miejskiego archiwum snow.",
   protagonistGoal: "Zatrzymac druk falszywych wspomnien.",
   expandedPremise: "Drukarnia przechowuje sny miasta.",
-  logline: "Zecerka musi zatrzymac druk wspomnien.",
   centralConflict: "Prawda kontra wygodna pamiec miasta.",
   antagonistForce: "Cech drukarzy kontrolujacy pamiec.",
   stakes: "Miasto moze utracic wspolna tozsamosc.",
@@ -222,7 +221,7 @@ describe("buildPlanPromptPackage", () => {
     expect(prompt).not.toContain("Rodzina introligatorow");
   });
 
-  it("keeps full pools for chapter planning and relation suggestions", () => {
+  it("keeps chapter pools for chapter planning and full pools for relation suggestions", () => {
     const chapterPlanPrompt = renderPlanPromptPackage(
       buildPlanPromptPackage(project, book, plan, "chapterPlan")
     );
@@ -234,8 +233,8 @@ describe("buildPlanPromptPackage", () => {
     );
 
     expect(chapterPlanPrompt).toContain("Bal bez pamieci");
-    expect(chapterPlanPrompt).toContain("Maskarada archiwistow");
-    expect(chapterPlanPrompt).toContain("Rodzina introligatorow");
+    expect(chapterPlanPrompt).not.toContain("Maskarada archiwistow");
+    expect(chapterPlanPrompt).not.toContain("Rodzina introligatorow");
     expect(threadSuggestionPrompt).toContain("Rodzina introligatorow");
     expect(beatSuggestionPrompt).toContain("Maskarada archiwistow");
   });
@@ -260,7 +259,7 @@ describe("buildPlanPromptPackage", () => {
       buildPlanPromptPackage(project, book, plan, "planGaps")
     );
 
-    expect(prompt).toContain("Pelny plan");
+    expect(prompt).toContain("Pełny plan");
     expect(prompt).toContain("Bal bez pamieci");
     expect(prompt).toContain("Maskarada archiwistow");
     expect(prompt).toContain("Rodzina introligatorow");

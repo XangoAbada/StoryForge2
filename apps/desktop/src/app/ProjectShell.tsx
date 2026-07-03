@@ -4,6 +4,7 @@ import {
   ChevronDown,
   CircleDot,
   History,
+  Search,
   Settings,
   ShieldCheck
 } from "lucide-react";
@@ -12,11 +13,18 @@ import {
   PointerEvent as ReactPointerEvent,
   ReactNode,
   useEffect,
-  useMemo
+  useMemo,
+  useRef,
+  useState
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getAiSettings, getProject, listCodexModels } from "../shared/api/commands";
-import type { ReasoningEffort } from "../shared/api/types";
+import {
+  getAiSettings,
+  getProject,
+  listCodexModels,
+  searchProject
+} from "../shared/api/commands";
+import type { ReasoningEffort, SearchResult } from "../shared/api/types";
 import { describeTextProvider } from "../features/ai/textProviderInfo";
 import { AiProposalPanel } from "../features/ai/AiProposalPanel";
 import { AiPromptContextPanel } from "../features/ai/AiPromptContextPanel";
@@ -260,6 +268,7 @@ export function ProjectShell({
             <p>{subtitle}</p>
             <h1>{title}</h1>
           </div>
+          <ProjectSearch projectId={projectId} />
         </header>
 
         <main className="workspace-main">{children}</main>
@@ -382,4 +391,102 @@ export function ProjectShell({
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+const searchSectionByEntityType: Record<string, { route: string; viewStateKey: string; label: string }> = {
+  scene: { route: "editor", viewStateKey: "searchSceneId", label: "Scena" },
+  character: { route: "characters", viewStateKey: "searchCharacterId", label: "Postać" },
+  world_element: { route: "world", viewStateKey: "searchElementId", label: "Świat" }
+};
+
+function ProjectSearch({ projectId }: { projectId: string }) {
+  const navigate = useNavigate();
+  const setProjectViewState = useProjectNavigationStore(
+    (state) => state.setProjectViewState
+  );
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setResults([]);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      searchProject(projectId, trimmed)
+        .then((items) => {
+          setResults(items);
+          setOpen(true);
+        })
+        .catch(() => setResults([]));
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [projectId, query]);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    window.addEventListener("mousedown", handlePointerDown);
+    return () => window.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  function openResult(result: SearchResult) {
+    const section = searchSectionByEntityType[result.entityType];
+    if (!section) {
+      return;
+    }
+    setProjectViewState(projectId, section.viewStateKey, result.entityId);
+    setOpen(false);
+    setQuery("");
+    void navigate({
+      to: `/projects/$projectId/${section.route}`,
+      params: { projectId }
+    });
+  }
+
+  return (
+    <div className="project-search" ref={containerRef}>
+      <label className="project-search-input">
+        <Search size={15} aria-hidden="true" />
+        <input
+          type="search"
+          value={query}
+          placeholder="Szukaj w projekcie…"
+          aria-label="Szukaj w projekcie"
+          onChange={(event) => setQuery(event.target.value)}
+          onFocus={() => results.length && setOpen(true)}
+        />
+      </label>
+      {open && query.trim().length >= 2 ? (
+        <div className="project-search-results" role="listbox" aria-label="Wyniki wyszukiwania">
+          {results.length === 0 ? (
+            <p className="muted-text">Brak wyników.</p>
+          ) : (
+            results.map((result) => (
+              <button
+                type="button"
+                key={`${result.entityType}:${result.entityId}`}
+                className="project-search-result"
+                onClick={() => openResult(result)}
+              >
+                <span className="project-search-kind">
+                  {searchSectionByEntityType[result.entityType]?.label ?? result.entityType}
+                </span>
+                <strong>{result.title || "Bez tytułu"}</strong>
+                <span className="project-search-snippet">{result.snippet}</span>
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
 }

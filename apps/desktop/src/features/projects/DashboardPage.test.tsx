@@ -35,8 +35,11 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn()
 }));
 
-vi.mock("../../shared/api/commands", () => ({
+vi.mock("../../shared/api/commands", async () => ({
   acceptGeneratedBookCover: vi.fn(),
+  getAiSettings: vi.fn(async () =>
+    (await import("../../shared/api/types")).DEFAULT_AI_SETTINGS
+  ),
   cancelActiveCodexRun: vi.fn(),
   checkCodexCli: vi.fn(),
   createProject: vi.fn(),
@@ -84,7 +87,6 @@ const projectDetails: ProjectDetails = {
     protagonistSummary: "",
     protagonistGoal: "",
     expandedPremise: "",
-    logline: "",
     centralConflict: "",
     antagonistForce: "",
     stakes: "",

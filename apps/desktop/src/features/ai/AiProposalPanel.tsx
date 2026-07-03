@@ -3180,8 +3180,6 @@ function proposalInputForField(
       return { protagonistGoal: value };
     case "expandedPremise":
       return { expandedPremise: value };
-    case "logline":
-      return { logline: value };
     case "centralConflict":
       return { centralConflict: value };
     case "antagonistForce":

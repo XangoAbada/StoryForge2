@@ -55,7 +55,6 @@ const projectDetails: ProjectDetails = {
     protagonistSummary: "",
     protagonistGoal: "",
     expandedPremise: "",
-    logline: "",
     centralConflict: "",
     antagonistForce: "",
     stakes: "",
@@ -241,23 +240,20 @@ describe("BookConceptPage AI flow", () => {
     fireEvent.change(screen.getByLabelText("Cel bohatera"), {
       target: { value: "Odnaleźć siostrę przed korektą miejskich wspomnień." }
     });
+    fireEvent.change(screen.getByLabelText("Siła przeciwna"), {
+      target: { value: "Cech drukarzy fałszujących pamięć miasta." }
+    });
     fireEvent.click(screen.getByRole("tab", { name: /wiat/i }));
     fireEvent.change(screen.getByLabelText("Setting"), {
       target: { value: "Miasto drukarni i nocnych archiwów." }
     });
 
-    fireEvent.click(screen.getByRole("tab", { name: /Konflikt/i }));
-    fireEvent.change(screen.getByLabelText("Logline"), {
-      target: { value: "Jedno zdanie sprzedające historię." }
-    });
-    fireEvent.change(screen.getByLabelText("Siła przeciwna"), {
-      target: { value: "Cech drukarzy fałszujących pamięć miasta." }
-    });
+    fireEvent.click(screen.getByRole("tab", { name: /Stawki i finał/i }));
     fireEvent.change(screen.getByLabelText("Kierunek zakończenia"), {
       target: { value: "Prawda wychodzi na jaw, ale bohaterka płaci wspomnieniem." }
     });
 
-    fireEvent.click(screen.getByRole("tab", { name: /Czytelnik i forma/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /Rynek i forma/i }));
     fireEvent.change(screen.getByLabelText("Docelowa liczba słów"), {
       target: { value: "85000" }
     });
@@ -288,7 +284,6 @@ describe("BookConceptPage AI flow", () => {
           antagonistForce: "Cech drukarzy fałszujących pamięć miasta.",
           settingSketch: "Miasto drukarni i nocnych archiwów.",
           endingDirection: "Prawda wychodzi na jaw, ale bohaterka płaci wspomnieniem.",
-          logline: "Jedno zdanie sprzedające historię.",
           targetWordCount: 85000,
           alternativeTitlesJson: JSON.stringify(["Tytuł A", "Tytuł B"]),
           genre: "kryminal, fantasy, noir"
@@ -305,27 +300,27 @@ describe("BookConceptPage AI flow", () => {
     const stageLabels = [
       {
         tab: /Pomysł/i,
+        labels: ["Tytuł roboczy", "Premise"]
+      },
+      {
+        tab: /Bohater i konflikt/i,
         labels: [
-          "Tytuł roboczy",
-          "Premise",
           "Bohater / bohaterka",
           "Cel bohatera",
-          "Setting"
-        ]
-      },
-      {
-        tab: /Silnik historii/i,
-        labels: [
-          "Logline",
           "Konflikt centralny",
-          "Siła przeciwna",
-          "Stawki",
-          "Kierunek zakończenia",
-          "Rozszerzona premisa"
+          "Siła przeciwna"
         ]
       },
       {
-        tab: /Czytelnik i forma/i,
+        tab: /wiat/i,
+        labels: ["Setting"]
+      },
+      {
+        tab: /Stawki i finał/i,
+        labels: ["Stawki", "Kierunek zakończenia", "Rozszerzona premisa"]
+      },
+      {
+        tab: /Rynek i forma/i,
         labels: [
           "Gatunek",
           "Podgatunek",
@@ -336,11 +331,11 @@ describe("BookConceptPage AI flow", () => {
         ]
       },
       {
-        tab: /Motywy i zasady/i,
+        tab: /Styl i granice/i,
         labels: ["Tematy", "Granice i tematy niechciane", "Style guide"]
       },
       {
-        tab: /Okładka/i,
+        tab: /Tytuł i okładka/i,
         labels: ["Tytuł finalny", "Alternatywne tytuły"]
       }
     ];
@@ -351,7 +346,7 @@ describe("BookConceptPage AI flow", () => {
         expect(
           screen.getByRole("button", { name: `Generuj ${label} z AI` })
         ).toBeInTheDocument();
-        expect(screen.getByText(fieldDescriptionForLabel(label))).toBeInTheDocument();
+        expect(screen.getAllByText(fieldDescriptionForLabel(label)).length).toBeGreaterThan(0);
       }
     }
   });
@@ -492,7 +487,7 @@ describe("BookConceptPage AI flow", () => {
     const panel = await screen.findByLabelText("Kontekst promptu AI");
     expect(within(panel).queryByLabelText("Kontekst: Odbiorcy")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: /Czytelnik i forma/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /Rynek i forma/i }));
     fireEvent.click(
       screen.getByRole("button", {
         name: /Dodaj Odbiorcy do kontekstu promptu/i
@@ -549,20 +544,18 @@ describe("BookConceptPage AI flow", () => {
     const request = vi.mocked(runCodexPrompt).mock.calls[0][0];
 
     expect(request.prompt).not.toContain("Komentarz tylko dla premise.");
-    expect(request.promptPackageJson).toEqual(
-      expect.objectContaining({
-        context: expect.not.objectContaining({
-          contextControl: expect.anything()
-        })
-      })
-    );
-    expect(screen.getByLabelText("Kontekst promptu AI")).toBeInTheDocument();
-    expect(within(panel).getByLabelText("Komentarz autora")).toHaveValue(
-      "Komentarz tylko dla premise."
-    );
-    expect(useAiPromptContextStore.getState().activeTargetId).toBe(
-      conceptPromptContextTargetId("project-1", "premise")
-    );
+    expect(request.promptPackageJson).toMatchObject({
+      context: {
+        contextControl: {
+          authorPriorityComment: ""
+        }
+      }
+    });
+    expect(
+      useAiPromptContextStore.getState().drafts[
+        conceptPromptContextTargetId("project-1", "premise")
+      ]?.authorPriorityComment
+    ).toBe("Komentarz tylko dla premise.");
   });
 
   it("closes prompt context and restores defaults for that target", async () => {
@@ -596,7 +589,7 @@ describe("BookConceptPage AI flow", () => {
       target: { value: "Nie zgub tonu noir." }
     });
 
-    fireEvent.click(screen.getByRole("tab", { name: /Silnik historii/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /Stawki i finał/i }));
 
     expect(within(panel).getByLabelText("Komentarz autora")).toHaveValue(
       "Nie zgub tonu noir."
@@ -652,6 +645,7 @@ describe("BookConceptPage AI flow", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Generuj Premise z AI/i })
     );
+    await sendActivePrompt();
 
     const premiseValue =
       "Archiwistka odkrywa, że pamięć miasta jest fałszowana, i musi zdecydować, czy oddać siostrze prawdę kosztem spokoju mieszkańców.";
@@ -668,7 +662,7 @@ describe("BookConceptPage AI flow", () => {
   it("restores the concept tab and AI button status from shared project state", async () => {
     useProjectNavigationStore
       .getState()
-      .setProjectViewState("project-1", "conceptStage", "readerForm");
+      .setProjectViewState("project-1", "conceptStage", "readerVoice");
     const proposalId = useProposalStore.getState().enqueueProposal({
       projectId: "project-1",
       bookId: "book-1",
@@ -685,7 +679,7 @@ describe("BookConceptPage AI flow", () => {
     const genreAiButton = await screen.findByRole("button", {
       name: /Generuj Gatunek z AI/i
     });
-    expect(screen.getByRole("tab", { name: /Czytelnik i forma/i })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: /Rynek i forma/i })).toHaveAttribute(
       "aria-selected",
       "true"
     );

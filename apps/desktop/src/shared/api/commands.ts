@@ -44,6 +44,11 @@ import {
   browserMoveBeatToChapter,
   browserReorderPlanItems,
   browserReorderScenes,
+  browserSearchProject,
+  browserCreateSceneSnapshot,
+  browserListSceneSnapshots,
+  browserGetSceneSnapshot,
+  browserRestoreSceneSnapshot,
   browserRunCodexPrompt,
   browserSaveStoryStructure,
   browserSetActivePlanVersion,
@@ -115,6 +120,9 @@ import type {
   SaveStoryStructureInput,
   SaveExportPresetInput,
   Scene,
+  SceneSnapshot,
+  SceneSnapshotMeta,
+  SearchResult,
   SetActivePlanVersionInput,
   SetSceneRelationsInput,
   SetWorldElementRelationsInput,
@@ -338,6 +346,49 @@ export function deleteScene(id: string): Promise<void> {
   }
 
   return invoke("delete_scene", { id });
+}
+
+export function searchProject(projectId: string, query: string): Promise<SearchResult[]> {
+  if (!isTauriRuntime()) {
+    return browserSearchProject(projectId, query);
+  }
+
+  return invoke("search_project", { projectId, query });
+}
+
+export function createSceneSnapshot(
+  sceneId: string,
+  source: string
+): Promise<SceneSnapshotMeta | null> {
+  if (!isTauriRuntime()) {
+    return browserCreateSceneSnapshot(sceneId, source);
+  }
+
+  return invoke("create_scene_snapshot", { sceneId, source });
+}
+
+export function listSceneSnapshots(sceneId: string): Promise<SceneSnapshotMeta[]> {
+  if (!isTauriRuntime()) {
+    return browserListSceneSnapshots(sceneId);
+  }
+
+  return invoke("list_scene_snapshots", { sceneId });
+}
+
+export function getSceneSnapshot(id: string): Promise<SceneSnapshot> {
+  if (!isTauriRuntime()) {
+    return browserGetSceneSnapshot(id);
+  }
+
+  return invoke("get_scene_snapshot", { id });
+}
+
+export function restoreSceneSnapshot(id: string): Promise<Scene> {
+  if (!isTauriRuntime()) {
+    return browserRestoreSceneSnapshot(id);
+  }
+
+  return invoke("restore_scene_snapshot", { id });
 }
 
 export function reorderScenes(input: ReorderScenesInput): Promise<void> {

@@ -31,7 +31,6 @@ const book: Book = {
   protagonistSummary: "Zecerka, która pilnuje miejskiego archiwum snów.",
   protagonistGoal: "Zatrzymać druk fałszywych wspomnień przed świętem miasta.",
   expandedPremise: "Drukarnia przechowuje sny miasta.",
-  logline: "Zecerka musi zatrzymać druk wspomnień.",
   centralConflict: "Prawda kontra wygodna pamięć miasta.",
   antagonistForce: "Cech drukarzy zarabiający na kontrolowaniu pamięci.",
   stakes: "Miasto może utracić wspólną tożsamość.",
@@ -75,7 +74,6 @@ describe("renderPromptPackage", () => {
     expect(prompt).toContain(book.protagonistSummary);
     expect(prompt).toContain(book.protagonistGoal);
     expect(prompt).toContain(book.expandedPremise);
-    expect(prompt).toContain(book.logline);
     expect(prompt).toContain(book.centralConflict);
     expect(prompt).toContain(book.antagonistForce);
     expect(prompt).toContain(book.settingSketch);
@@ -185,7 +183,6 @@ describe("renderPromptPackage", () => {
       "protagonistSummary",
       "protagonistGoal",
       "expandedPremise",
-      "logline",
       "centralConflict",
       "antagonistForce",
       "stakes",
