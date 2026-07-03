@@ -32,7 +32,15 @@ export const conceptFieldSuggestionResponseSchema = z.object({
   field: conceptFieldKeySchema,
   summary: z.string().trim().optional().default(""),
   value: z.string().trim().optional().nullable(),
-  values: z.array(z.string().trim().min(1)).optional().default([]),
+  // Model czasem zwraca pojedynczy string zamiast tablicy — tolerujemy to,
+  // opakowując go w jednoelementową listę zamiast wywracać całą propozycję.
+  values: z
+    .preprocess(
+      (raw) => (typeof raw === "string" ? [raw] : raw),
+      z.array(z.string().trim().min(1))
+    )
+    .optional()
+    .default([]),
   rationale: z.string().trim().optional().default(""),
   warnings: z.array(z.string()).optional().default([])
 });

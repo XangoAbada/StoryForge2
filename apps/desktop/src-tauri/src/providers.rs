@@ -102,13 +102,21 @@ pub(crate) async fn execute_claude_cli(
         .arg("json")
         .arg("--model")
         .arg(model)
+        // 1 tura bywa za ciasna: model potrafi zgłosić error_max_turns, nawet
+        // gdy narzędzia są wyłączone. Kilka tur to bezpieczny sufit — przy
+        // zwykłej odpowiedzi i tak zużywa jedną.
         .arg("--max-turns")
-        .arg("1")
+        .arg("6")
         .arg("--setting-sources")
         .arg("")
         .arg("--strict-mcp-config")
         .arg("--disallowedTools")
         .arg("Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task,Glob,Grep,Read")
+        // Wymuś subskrypcję (zalogowaną sesję OAuth), a nie rozliczenie API.
+        // Claude CLI używa klucza API, jeśli jest w środowisku — usuwamy go
+        // z podprocesu, żeby korzystał z konta zalogowanego przez `claude`.
+        .env_remove("ANTHROPIC_API_KEY")
+        .env_remove("ANTHROPIC_AUTH_TOKEN")
         .current_dir(&workspace)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -135,6 +143,11 @@ pub(crate) async fn execute_claude_cli(
     tokio::fs::write(workspace.join("response.raw.md"), stdout.as_bytes()).await?;
 
     if !status.success() {
+        if stdout.contains("error_max_turns") {
+            return Err(AppError::Process(
+                "Claude CLI przerwał odpowiedź na limicie tur (error_max_turns). Spróbuj ponownie lub uprość pole.".into(),
+            ));
+        }
         return Err(AppError::Process(if stderr.trim().is_empty() {
             format!(
                 "Claude CLI zwrócił niezerowy status. Początek stdout: {}",

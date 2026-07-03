@@ -76,4 +76,16 @@ describe("parseConceptFieldSuggestion", () => {
       )
     ).toThrow(/oczekiwano genre/);
   });
+  it("coerces a single string in values into a one-element array", () => {
+    const raw = JSON.stringify({
+      version: 1,
+      kind: "concept_field_suggestion",
+      field: "workingTitle",
+      values: "Samotny tytul"
+    });
+    const parsed = parseConceptFieldSuggestion(raw, "workingTitle");
+    expect(parsed.values).toEqual(["Samotny tytul"]);
+    expect(parsed.textValue).toBe("Samotny tytul");
+  });
+
 });
