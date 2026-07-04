@@ -124,6 +124,8 @@ pub struct Book {
     pub cover_prompt: String,
     pub cover_negative_prompt: String,
     pub cover_generated_at: Option<String>,
+    pub story_so_far: String,
+    pub story_so_far_stale: i64,
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
@@ -454,6 +456,8 @@ pub struct Chapter {
     pub turning_point: String,
     pub target_word_count: Option<i64>,
     pub order_index: i64,
+    pub auto_summary: String,
+    pub auto_summary_stale: i64,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -492,6 +496,8 @@ pub struct Scene {
     pub target_word_count: Option<i64>,
     pub actual_word_count: i64,
     pub manuscript_content: String,
+    pub auto_summary: String,
+    pub auto_summary_source_hash: String,
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
@@ -910,6 +916,28 @@ pub struct UpsertSceneInput {
     pub actual_word_count: Option<i64>,
     pub manuscript_content: Option<String>,
     pub status: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveSceneAutoSummaryInput {
+    pub scene_id: String,
+    pub auto_summary: String,
+    pub source_hash: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveChapterAutoSummaryInput {
+    pub chapter_id: String,
+    pub auto_summary: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveStorySoFarInput {
+    pub book_id: String,
+    pub story_so_far: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -2187,8 +2215,8 @@ pub async fn create_plan_version_from_active_in_pool(
         sqlx::query(
             r#"
             INSERT INTO chapters
-              (id, book_id, plan_version_id, act_id, number, working_title, summary, purpose, conflict, turning_point, target_word_count, order_index, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (id, book_id, plan_version_id, act_id, number, working_title, summary, purpose, conflict, turning_point, target_word_count, order_index, auto_summary, auto_summary_stale, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&new_id)
@@ -2203,6 +2231,8 @@ pub async fn create_plan_version_from_active_in_pool(
         .bind(chapter.turning_point)
         .bind(chapter.target_word_count)
         .bind(chapter.order_index)
+        .bind(chapter.auto_summary)
+        .bind(chapter.auto_summary_stale)
         .bind(&now)
         .bind(&now)
         .execute(&mut *tx)
@@ -2229,8 +2259,8 @@ pub async fn create_plan_version_from_active_in_pool(
         sqlx::query(
             r#"
             INSERT INTO scenes
-              (id, book_id, plan_version_id, chapter_id, order_index, title, summary, goal, conflict, outcome, time_marker, pov_character_id, location_id, target_word_count, actual_word_count, manuscript_content, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (id, book_id, plan_version_id, chapter_id, order_index, title, summary, goal, conflict, outcome, time_marker, pov_character_id, location_id, target_word_count, actual_word_count, manuscript_content, auto_summary, auto_summary_source_hash, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&new_id)
@@ -2249,6 +2279,8 @@ pub async fn create_plan_version_from_active_in_pool(
         .bind(scene.target_word_count)
         .bind(scene.actual_word_count)
         .bind(scene.manuscript_content)
+        .bind(scene.auto_summary)
+        .bind(scene.auto_summary_source_hash)
         .bind(scene.status)
         .bind(&now)
         .bind(&now)
@@ -2631,6 +2663,101 @@ pub async fn restore_scene_snapshot_in_pool(
 
     sqlx::query_as::<_, Scene>("SELECT * FROM scenes WHERE id = ?")
         .bind(&snapshot.scene_id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
+}
+
+pub async fn save_scene_auto_summary_in_pool(
+    pool: &SqlitePool,
+    input: SaveSceneAutoSummaryInput,
+) -> Result<Scene, AppError> {
+    let now = Utc::now().to_rfc3339();
+    let mut tx = pool.begin().await?;
+    sqlx::query(
+        r#"
+        UPDATE scenes
+        SET auto_summary = ?, auto_summary_source_hash = ?, updated_at = ?
+        WHERE id = ?
+        "#,
+    )
+    .bind(&input.auto_summary)
+    .bind(&input.source_hash)
+    .bind(&now)
+    .bind(&input.scene_id)
+    .execute(&mut *tx)
+    .await?;
+    // Świeże streszczenie sceny unieważnia streszczenie rozdziału i książki.
+    sqlx::query(
+        r#"
+        UPDATE chapters
+        SET auto_summary_stale = 1
+        WHERE id = (SELECT chapter_id FROM scenes WHERE id = ?)
+        "#,
+    )
+    .bind(&input.scene_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        r#"
+        UPDATE books
+        SET story_so_far_stale = 1
+        WHERE id = (SELECT book_id FROM scenes WHERE id = ?)
+        "#,
+    )
+    .bind(&input.scene_id)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    sqlx::query_as::<_, Scene>("SELECT * FROM scenes WHERE id = ?")
+        .bind(&input.scene_id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
+}
+
+pub async fn save_chapter_auto_summary_in_pool(
+    pool: &SqlitePool,
+    input: SaveChapterAutoSummaryInput,
+) -> Result<Chapter, AppError> {
+    sqlx::query(
+        r#"
+        UPDATE chapters
+        SET auto_summary = ?, auto_summary_stale = 0
+        WHERE id = ?
+        "#,
+    )
+    .bind(&input.auto_summary)
+    .bind(&input.chapter_id)
+    .execute(pool)
+    .await?;
+
+    sqlx::query_as::<_, Chapter>("SELECT * FROM chapters WHERE id = ?")
+        .bind(&input.chapter_id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::from)
+}
+
+pub async fn save_story_so_far_in_pool(
+    pool: &SqlitePool,
+    input: SaveStorySoFarInput,
+) -> Result<Book, AppError> {
+    sqlx::query(
+        r#"
+        UPDATE books
+        SET story_so_far = ?, story_so_far_stale = 0
+        WHERE id = ?
+        "#,
+    )
+    .bind(&input.story_so_far)
+    .bind(&input.book_id)
+    .execute(pool)
+    .await?;
+
+    sqlx::query_as::<_, Book>("SELECT * FROM books WHERE id = ?")
+        .bind(&input.book_id)
         .fetch_one(pool)
         .await
         .map_err(AppError::from)
@@ -6023,6 +6150,36 @@ async fn create_scene_snapshot(
 }
 
 #[tauri::command]
+async fn save_scene_auto_summary(
+    state: State<'_, AppState>,
+    input: SaveSceneAutoSummaryInput,
+) -> Result<Scene, String> {
+    save_scene_auto_summary_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn save_chapter_auto_summary(
+    state: State<'_, AppState>,
+    input: SaveChapterAutoSummaryInput,
+) -> Result<Chapter, String> {
+    save_chapter_auto_summary_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn save_story_so_far(
+    state: State<'_, AppState>,
+    input: SaveStorySoFarInput,
+) -> Result<Book, String> {
+    save_story_so_far_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
 async fn list_scene_snapshots(
     state: State<'_, AppState>,
     scene_id: String,
@@ -8228,6 +8385,9 @@ pub fn run() {
             list_scene_snapshots,
             get_scene_snapshot,
             restore_scene_snapshot,
+            save_scene_auto_summary,
+            save_chapter_auto_summary,
+            save_story_so_far,
             reorder_scenes,
             set_scene_relations,
             reorder_plan_items,
@@ -9801,6 +9961,8 @@ mod tests {
             cover_prompt: String::new(),
             cover_negative_prompt: String::new(),
             cover_generated_at: None,
+            story_so_far: String::new(),
+            story_so_far_stale: 0,
             status: "draft".into(),
             created_at: String::new(),
             updated_at: String::new(),

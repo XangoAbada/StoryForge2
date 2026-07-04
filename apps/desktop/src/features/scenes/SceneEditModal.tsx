@@ -947,6 +947,8 @@ function sceneDraftPromptEntity(draft: UpsertSceneInput, id: string): Scene {
     targetWordCount: draft.targetWordCount ?? null,
     actualWordCount: draft.actualWordCount ?? null,
     manuscriptContent: draft.manuscriptContent ?? "",
+    autoSummary: "",
+    autoSummarySourceHash: "",
     status: draft.status,
     createdAt: now,
     updatedAt: now

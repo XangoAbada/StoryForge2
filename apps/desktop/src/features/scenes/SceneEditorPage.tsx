@@ -30,6 +30,11 @@ import type {
   WorldWorkspace
 } from "../../shared/api/types";
 import { buildScenePromptContext } from "../ai/scenePromptContext";
+import {
+  refreshSceneAutoSummary,
+  refreshStaleContinuity,
+  scheduleSceneAutoSummary
+} from "../ai/continuitySummaryService";
 import { useProjectNavigationStore } from "../../app/projectNavigationStore";
 import {
   buildSceneEditorPromptPackage,
@@ -245,6 +250,13 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
       setSelectedSceneId(scene.id);
       setStatusText(`Zapisano ${new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" })}`);
       await invalidatePlan();
+      // Streszczenie ciągłości odświeża się w tle po pauzie w pisaniu.
+      if (bookId) {
+        scheduleSceneAutoSummary(projectId, bookId, scene.id, {
+          onSaved: invalidatePlan,
+          onStatus: setStatusText
+        });
+      }
     },
     onError: (error) => {
       setStatusText(error instanceof Error ? error.message : String(error));
@@ -302,6 +314,15 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
       setSelectedSceneId(plan.scenes[0].id);
     }
   }, [plan.scenes, selectedChapterId, selectedSceneId]);
+
+  // Wejście do edytora domyka w tle nieaktualne streszczenia rozdziałów
+  // i story so far (świeży kontekst ciągłości przed pisaniem).
+  useEffect(() => {
+    if (bookId) {
+      void refreshStaleContinuity(projectId, bookId, { onSaved: invalidatePlan });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, bookId]);
 
   useEffect(() => {
     if (selectedScene) {
@@ -803,6 +824,25 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
                       <Save size={14} />
                       Zapisz migawkę teraz
                     </Button>
+                    <Button
+                      variant="ghost"
+                      title="Wygeneruj od nowa streszczenie tej sceny używane jako kontekst ciągłości dla AI"
+                      onClick={() => {
+                        if (bookId && selectedSceneId) {
+                          setStatusText("Odświeżam streszczenie sceny…");
+                          void refreshSceneAutoSummary(
+                            projectId,
+                            bookId,
+                            selectedSceneId,
+                            { onSaved: invalidatePlan, onStatus: setStatusText },
+                            true
+                          );
+                        }
+                      }}
+                    >
+                      <Sparkles size={14} />
+                      Odśwież streszczenie sceny
+                    </Button>
                     {(snapshotsQuery.data ?? []).map((snapshot) => (
                       <div className="scene-snapshot-item" key={snapshot.id}>
                         <button
@@ -1031,6 +1071,8 @@ function sceneDraftPromptEntity(draft: UpsertSceneInput): Scene {
     targetWordCount: draft.targetWordCount ?? null,
     actualWordCount: draft.actualWordCount ?? null,
     manuscriptContent: draft.manuscriptContent ?? "",
+    autoSummary: "",
+    autoSummarySourceHash: "",
     status: draft.status,
     createdAt: now,
     updatedAt: now

@@ -15,12 +15,28 @@ export type SceneContinuityEntry = {
   summary: string;
   outcome: string;
   timeMarker: string;
+  /** Automatyczne streszczenie faktycznej prozy sceny (pełniejsze niż plan). */
+  autoSummary: string;
+};
+
+export type PreviousChapterSummary = {
+  number: number;
+  workingTitle: string;
+  /** Auto-streszczenie prozy rozdziału; fallback: ręczne summary z planu. */
+  summary: string;
 };
 
 export type ScenePromptContext = {
-  book: Pick<Book, "id" | "title" | "workingTitle" | "premise" | "styleGuide" | "pointOfView" | "tone">;
+  book: Pick<
+    Book,
+    "id" | "title" | "workingTitle" | "premise" | "styleGuide" | "pointOfView" | "tone" | "unwantedThemes"
+  >;
   chapter: Chapter | null;
   scene: Scene;
+  /** Skondensowane "story so far" całej książki (auto-generowane). */
+  storySoFar: string;
+  /** Streszczenia 2-3 rozdziałów bezpośrednio poprzedzających bieżący. */
+  previousChapters: PreviousChapterSummary[];
   /** Scena bezpośrednio poprzedzająca (w rozdziale lub ostatnia z poprzedniego rozdziału). */
   previousScene: (SceneContinuityEntry & { textTail: string }) | null;
   /** Metadane wcześniejszych scen bieżącego rozdziału — "co się dotąd wydarzyło". */
@@ -109,10 +125,13 @@ export function buildScenePromptContext({
       premise: book.premise,
       styleGuide: book.styleGuide,
       pointOfView: book.pointOfView,
-      tone: book.tone
+      tone: book.tone,
+      unwantedThemes: book.unwantedThemes
     },
     chapter,
     scene,
+    storySoFar: book.storySoFar,
+    previousChapters: previousChapterSummaries(plan, chapter),
     previousScene: previousSceneSource
       ? {
           ...continuityEntry(previousSceneSource),
@@ -162,8 +181,32 @@ function continuityEntry(scene: Scene): SceneContinuityEntry {
     title: scene.title,
     summary: scene.summary,
     outcome: scene.outcome,
-    timeMarker: scene.timeMarker
+    timeMarker: scene.timeMarker,
+    autoSummary: scene.autoSummary
   };
+}
+
+/** Streszczenia maks. 3 rozdziałów poprzedzających bieżący (od najstarszego). */
+function previousChapterSummaries(
+  plan: BookPlan,
+  chapter: Chapter | null
+): PreviousChapterSummary[] {
+  if (!chapter) {
+    return [];
+  }
+  const orderedChapters = [...plan.chapters].sort((a, b) => a.orderIndex - b.orderIndex);
+  const chapterIndex = orderedChapters.findIndex((item) => item.id === chapter.id);
+  if (chapterIndex <= 0) {
+    return [];
+  }
+  return orderedChapters
+    .slice(Math.max(0, chapterIndex - 3), chapterIndex)
+    .map((item) => ({
+      number: item.number,
+      workingTitle: item.workingTitle,
+      summary: item.autoSummary || item.summary
+    }))
+    .filter((item) => item.summary.trim());
 }
 
 function lastSceneOfPreviousChapter(plan: BookPlan, chapter: Chapter | null): Scene | null {
@@ -182,8 +225,11 @@ function lastSceneOfPreviousChapter(plan: BookPlan, chapter: Chapter | null): Sc
   return scenes[scenes.length - 1] ?? null;
 }
 
-/** Ostatnie ~80 słów prozy poprzedniej sceny jako punkt zszycia (manuscript to HTML z Tiptapa). */
-function manuscriptTail(html: string, maxWords = 80): string {
+/**
+ * Ostatnie ~400 słów prozy poprzedniej sceny jako punkt zszycia tonu i rytmu
+ * (manuscript to HTML z Tiptapa). 80 słów było za mało, by utrzymać ciągłość.
+ */
+function manuscriptTail(html: string, maxWords = 400): string {
   const text = html
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")

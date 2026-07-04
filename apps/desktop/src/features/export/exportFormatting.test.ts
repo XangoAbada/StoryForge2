@@ -127,6 +127,8 @@ function chapter(id: string, number: number, orderIndex: number, workingTitle: s
     turningPoint: "",
     targetWordCount: null,
     orderIndex,
+    autoSummary: "",
+    autoSummaryStale: 0,
     createdAt: "",
     updatedAt: ""
   };
@@ -155,6 +157,8 @@ function scene(
     targetWordCount: null,
     actualWordCount: null,
     manuscriptContent,
+    autoSummary: "",
+    autoSummarySourceHash: "",
     status: "draft",
     createdAt: "",
     updatedAt: ""
@@ -190,6 +194,8 @@ function baseBook(): Book {
     coverPrompt: "",
     coverNegativePrompt: "",
     coverGeneratedAt: null,
+    storySoFar: "",
+    storySoFarStale: 0,
     status: "draft",
     createdAt: "",
     updatedAt: ""

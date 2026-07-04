@@ -45,6 +45,8 @@ const book: Book = {
   coverPrompt: "",
   coverNegativePrompt: "",
   coverGeneratedAt: null,
+  storySoFar: "",
+  storySoFarStale: 0,
   status: "draft",
   createdAt: "2026-06-05T12:00:00Z",
   updatedAt: "2026-06-05T12:00:00Z"
@@ -85,6 +87,8 @@ const chapter: Chapter = {
   turningPoint: "Odnajduje falszywa odbitke.",
   targetWordCount: 3000,
   orderIndex: 0,
+  autoSummary: "",
+  autoSummaryStale: 0,
   createdAt: "2026-06-05T12:00:00Z",
   updatedAt: "2026-06-05T12:00:00Z"
 };
@@ -101,6 +105,8 @@ const unrelatedChapter: Chapter = {
   turningPoint: "Ktos rozpoznaje jej prawdziwe wspomnienie.",
   targetWordCount: 3200,
   orderIndex: 1,
+  autoSummary: "",
+  autoSummaryStale: 0,
   createdAt: "2026-06-05T12:00:00Z",
   updatedAt: "2026-06-05T12:00:00Z"
 };

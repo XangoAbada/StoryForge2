@@ -36,6 +36,8 @@ export type Book = {
   coverPrompt: string;
   coverNegativePrompt: string;
   coverGeneratedAt: string | null;
+  storySoFar: string;
+  storySoFarStale: number;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -126,6 +128,8 @@ export type Chapter = {
   turningPoint: string;
   targetWordCount: number | null;
   orderIndex: number;
+  autoSummary: string;
+  autoSummaryStale: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -158,6 +162,8 @@ export type Scene = {
   targetWordCount: number | null;
   actualWordCount: number | null;
   manuscriptContent: string;
+  autoSummary: string;
+  autoSummarySourceHash: string;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -541,6 +547,22 @@ export type UpsertSceneInput = {
   status: string;
 };
 
+export type SaveSceneAutoSummaryInput = {
+  sceneId: string;
+  autoSummary: string;
+  sourceHash: string;
+};
+
+export type SaveChapterAutoSummaryInput = {
+  chapterId: string;
+  autoSummary: string;
+};
+
+export type SaveStorySoFarInput = {
+  bookId: string;
+  storySoFar: string;
+};
+
 export type SetSceneRelationsInput = {
   bookId: string;
   sceneId: string;
@@ -712,7 +734,10 @@ export type AIAction =
   | "continue_scene"
   | "rewrite_selection"
   | "expand_selection"
-  | "analyze_scene_story_bible_opportunities";
+  | "analyze_scene_story_bible_opportunities"
+  | "summarize_scene"
+  | "summarize_chapter"
+  | "summarize_story_so_far";
 
 export type ReasoningEffort = "low" | "medium" | "high" | "xhigh";
 

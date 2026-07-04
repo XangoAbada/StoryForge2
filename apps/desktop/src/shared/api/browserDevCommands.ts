@@ -43,6 +43,9 @@ import type {
   ReorderPlanItemsInput,
   ReorderScenesInput,
   RunCodexPromptRequest,
+  SaveChapterAutoSummaryInput,
+  SaveSceneAutoSummaryInput,
+  SaveStorySoFarInput,
   SaveStoryStructureInput,
   SaveExportPresetInput,
   Scene,
@@ -158,6 +161,8 @@ export async function browserCreateProject(
     coverPrompt: "",
     coverNegativePrompt: "",
     coverGeneratedAt: null,
+    storySoFar: "",
+    storySoFarStale: 0,
     status: "draft",
     createdAt: now,
     updatedAt: now
@@ -503,6 +508,8 @@ export async function browserUpsertChapter(
     turningPoint: input.turningPoint,
     targetWordCount: input.targetWordCount ?? null,
     orderIndex: input.orderIndex,
+    autoSummary: existing?.autoSummary ?? "",
+    autoSummaryStale: existing?.autoSummaryStale ?? 0,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now
   };
@@ -642,6 +649,64 @@ export async function browserRestoreSceneSnapshot(id: string): Promise<Scene> {
   return scene;
 }
 
+export async function browserSaveSceneAutoSummary(
+  input: SaveSceneAutoSummaryInput
+): Promise<Scene> {
+  const state = readState();
+  const scene = findBrowserScene(state, input.sceneId);
+  if (!scene) {
+    throw new Error("Nie znaleziono sceny.");
+  }
+  scene.autoSummary = input.autoSummary;
+  scene.autoSummarySourceHash = input.sourceHash;
+  scene.updatedAt = new Date().toISOString();
+  for (const plan of Object.values(state.plans)) {
+    const chapter = plan.chapters.find((item) => item.id === scene.chapterId);
+    if (chapter) {
+      chapter.autoSummaryStale = 1;
+    }
+  }
+  const details = state.projects.find(({ book }) => book.id === scene.bookId);
+  if (details) {
+    details.book = { ...details.book, storySoFarStale: 1 };
+  }
+  writeState(state);
+  return scene;
+}
+
+export async function browserSaveChapterAutoSummary(
+  input: SaveChapterAutoSummaryInput
+): Promise<Chapter> {
+  const state = readState();
+  for (const plan of Object.values(state.plans)) {
+    const chapter = plan.chapters.find((item) => item.id === input.chapterId);
+    if (chapter) {
+      chapter.autoSummary = input.autoSummary;
+      chapter.autoSummaryStale = 0;
+      writeState(state);
+      return chapter;
+    }
+  }
+  throw new Error("Nie znaleziono rozdziału.");
+}
+
+export async function browserSaveStorySoFar(
+  input: SaveStorySoFarInput
+): Promise<Book> {
+  const state = readState();
+  const details = state.projects.find(({ book }) => book.id === input.bookId);
+  if (!details) {
+    throw new Error("Nie znaleziono książki.");
+  }
+  details.book = {
+    ...details.book,
+    storySoFar: input.storySoFar,
+    storySoFarStale: 0
+  };
+  writeState(state);
+  return details.book;
+}
+
 export async function browserSearchProject(
   projectId: string,
   query: string
@@ -714,6 +779,8 @@ export async function browserUpsertScene(input: UpsertSceneInput): Promise<Scene
     targetWordCount: input.targetWordCount ?? null,
     actualWordCount: input.actualWordCount ?? null,
     manuscriptContent: input.manuscriptContent ?? existing?.manuscriptContent ?? "",
+    autoSummary: existing?.autoSummary ?? "",
+    autoSummarySourceHash: existing?.autoSummarySourceHash ?? "",
     status: input.status || "planned",
     createdAt: existing?.createdAt ?? now,
     updatedAt: now
@@ -2110,7 +2177,9 @@ function normalizeDetails(details: ProjectDetails): ProjectDetails {
       coverImagePath: details.book.coverImagePath ?? "",
       coverPrompt: details.book.coverPrompt ?? "",
       coverNegativePrompt: details.book.coverNegativePrompt ?? "",
-      coverGeneratedAt: details.book.coverGeneratedAt ?? null
+      coverGeneratedAt: details.book.coverGeneratedAt ?? null,
+      storySoFar: details.book.storySoFar ?? "",
+      storySoFarStale: details.book.storySoFarStale ?? 0
     }
   };
 }

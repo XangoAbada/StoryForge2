@@ -148,6 +148,7 @@ export type PlanPromptPackage = {
       | "pointOfView"
       | "targetWordCount"
       | "themesJson"
+      | "unwantedThemes"
       | "styleGuide"
     >;
     plan: {
@@ -633,6 +634,7 @@ ${promptPackage.userInstruction}
 - Elementy planu, które odwołujesz, identyfikuj po id albo dokładnej nazwie.
 - Zwróć tylko sekcje przewidziane w Output Contract dla docelowego pola. Nie dopisuj pozostałych części planu.
 - Odpowiedz wyłącznie poprawnym JSON bez trailing commas.
+${promptPackage.context.book.unwantedThemes.trim() ? `- Tematy zakazane przez autora — nie wprowadzaj ich do propozycji: ${promptPackage.context.book.unwantedThemes.trim()}` : ""}
 
 ${authorPriority}
 
@@ -762,6 +764,7 @@ function bookPlanContext(book: Book): PlanPromptPackage["context"]["book"] {
     pointOfView: book.pointOfView ?? "",
     targetWordCount: book.targetWordCount ?? null,
     themesJson: book.themesJson ?? "[]",
+    unwantedThemes: book.unwantedThemes ?? "",
     styleGuide: book.styleGuide ?? ""
   };
 }

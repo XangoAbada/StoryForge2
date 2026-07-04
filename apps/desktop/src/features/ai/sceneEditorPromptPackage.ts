@@ -10,6 +10,7 @@ import {
   compactCharacter,
   compactMemory,
   compactRelation,
+  optionalLine,
   prioritizeEntities,
   renderCappedStoryBible,
   truncateStringsDeep
@@ -201,12 +202,19 @@ ${promptPackage.userInstruction}
 - Zwróć wyłącznie tekst prozy w Markdown, bez JSON.
 - Nie komentuj procesu poza krótką sekcją "## Notes", jeśli jest naprawdę potrzebna.
 - Zachowaj ciągłość sceny, POV, wiedzę postaci, reguły świata i style guide.
-
-- Docelową długość sceny traktuj jako orientacyjny cel, nie twardy limit.
+- Oszczędzaj przymiotniki i przysłówki; emocje pokazuj przez działanie, gest i dialog, nie przez nazywanie ich wprost.
+- Unikaj kliszowych otwarć (pogoda, budzenie się, opis świtu) — wchodź w scenę od konkretu: akcji, dialogu albo napięcia.
+- Nie kończ moralizującym ani podsumowującym akapitem; scena ma się urwać na obrazie, geście albo napięciu.
+- Nie powtarzaj informacji, które czytelnik już zna z wcześniejszych scen; nawiązuj do nich, zamiast je streszczać.
+${renderUnwantedThemesRule(context.sceneContext.book.unwantedThemes)}- Docelową długość sceny traktuj jako orientacyjny cel, nie twardy limit.
 
 ${authorPriority ? `# Author Priority\n${authorPriority}\n` : ""}
+${renderNarrativeContract(context.sceneContext)}
+
+${renderStorySoFar(context.sceneContext)}
+
 # Book Context
-${JSON.stringify(context.sceneContext.book)}
+${JSON.stringify(truncateStringsDeep(context.sceneContext.book))}
 
 # Scene Context
 ${renderSceneContextForPrompt(context.sceneContext)}
@@ -242,7 +250,7 @@ export function parseSceneEditorResult(rawOutput: string): string {
 function instructionForField(field: SceneEditorFieldKey, customInstruction: string): string {
   const custom = customInstruction.trim();
   if (field === "draftScene") {
-    return "Napisz pierwszy szkic pełnej sceny z planu. Traktuj target word count jako przybliżenie, nie limit absolutny.";
+    return `Napisz pierwszy szkic pełnej sceny z planu. Traktuj target word count jako przybliżenie, nie limit absolutny.${custom ? ` Uwzględnij instrukcję autora: ${custom}` : ""}`;
   }
   if (field === "continueScene") {
     return `Kontynuuj tekst sceny od ostatniego fragmentu lub po zaznaczeniu.${custom ? ` Uwzględnij instrukcję autora: ${custom}` : ""}`;
@@ -253,14 +261,109 @@ function instructionForField(field: SceneEditorFieldKey, customInstruction: stri
   return `Przepisz wyłącznie zaznaczony fragment, zachowując jego sens i ciągłość sceny.${custom ? ` Tryb/instrukcja autora: ${custom}` : ""}`;
 }
 
-// Scene Context bez dubli: book jest drukowany osobno, a pełny tekst sceny
-// wchodzi wyłącznie jako currentTextWindow. Długie pola przycięte do limitu.
+// Scene Context bez dubli: book, kontrakt narracyjny i warstwy ciągłości są
+// drukowane osobno jako czytelne sekcje, a pełny tekst sceny wchodzi wyłącznie
+// jako currentTextWindow. Długie pola przycięte do limitu.
 function renderSceneContextForPrompt(sceneContext: ScenePromptContext): string {
-  const { book: _book, scene, ...rest } = sceneContext;
-  const { manuscriptContent: _manuscript, ...sceneWithoutManuscript } = scene;
+  const {
+    book: _book,
+    scene,
+    storySoFar: _storySoFar,
+    previousChapters: _previousChapters,
+    previousScene: _previousScene,
+    chapterSoFar: _chapterSoFar,
+    ...rest
+  } = sceneContext;
+  const {
+    manuscriptContent: _manuscript,
+    autoSummary: _autoSummary,
+    autoSummarySourceHash: _autoSummaryHash,
+    ...sceneWithoutManuscript
+  } = scene;
   return JSON.stringify(
     truncateStringsDeep({ ...rest, scene: sceneWithoutManuscript })
   );
+}
+
+// Krytyczne dla spójności pola renderowane jako czytelny Markdown zamiast
+// surowego JSON — model traktuje je z większą wagą.
+function renderNarrativeContract(sceneContext: ScenePromptContext): string {
+  const pov = sceneContext.povCharacter;
+  const lines = [
+    optionalLine("Typ narracji", sceneContext.book.pointOfView, "- "),
+    optionalLine("Ton książki", sceneContext.book.tone, "- "),
+    pov ? `- Postać POV: ${pov.name}` : "",
+    pov ? optionalLine("Głos POV", pov.voiceNotes, "- ") : "",
+    pov
+      ? optionalLine(
+          "Wiedza POV (narracja nie może wyjść poza nią)",
+          pov.knowledgeNotes,
+          "- "
+        )
+      : "",
+    optionalLine("Znacznik czasu sceny", sceneContext.scene.timeMarker, "- ")
+  ].filter(Boolean);
+
+  return lines.length
+    ? `# Kontrakt narracyjny\nTe ustalenia są nadrzędne wobec reszty kontekstu:\n${lines.join("\n")}`
+    : "";
+}
+
+// Warstwowa "piramida kontekstu": story-so-far książki -> streszczenia
+// poprzednich rozdziałów -> streszczenia scen bieżącego rozdziału -> pełny
+// ogon poprzedniej sceny. Puste warstwy są pomijane.
+function renderStorySoFar(sceneContext: ScenePromptContext): string {
+  const sections: string[] = [];
+  const storySoFar = (sceneContext.storySoFar ?? "").trim();
+  const previousChapters = sceneContext.previousChapters ?? [];
+  const chapterSoFar = sceneContext.chapterSoFar ?? [];
+
+  if (storySoFar) {
+    sections.push(`## Streszczenie książki do tej pory\n${storySoFar}`);
+  }
+
+  if (previousChapters.length) {
+    const chapters = previousChapters
+      .map((chapter) => `- Rozdział ${chapter.number}${chapter.workingTitle ? ` (${chapter.workingTitle})` : ""}: ${chapter.summary}`)
+      .join("\n");
+    sections.push(`## Poprzednie rozdziały\n${chapters}`);
+  }
+
+  const chapterEntries = chapterSoFar
+    .map((entry) => {
+      const summary =
+        (entry.autoSummary ?? "").trim() || [entry.summary, entry.outcome].filter(Boolean).join(" ");
+      return summary ? `- ${entry.title}${entry.timeMarker ? ` [${entry.timeMarker}]` : ""}: ${summary}` : "";
+    })
+    .filter(Boolean);
+  if (chapterEntries.length) {
+    sections.push(`## Wcześniejsze sceny bieżącego rozdziału\n${chapterEntries.join("\n")}`);
+  }
+
+  if (sceneContext.previousScene) {
+    const previous = sceneContext.previousScene;
+    const meta = (previous.autoSummary ?? "").trim() || previous.summary;
+    const parts = [
+      meta ? `Streszczenie: ${meta}` : "",
+      previous.textTail
+        ? `Ostatnie akapity (zszyj ton i rytm z tym fragmentem):\n${previous.textTail}`
+        : ""
+    ].filter(Boolean);
+    if (parts.length) {
+      sections.push(`## Poprzednia scena: ${previous.title}\n${parts.join("\n\n")}`);
+    }
+  }
+
+  return sections.length ? `# Story So Far\n${sections.join("\n\n")}` : "";
+}
+
+// Defensywnie wobec pakietów sprzed pipeline'u ciągłości (persystowane
+// propozycje mogą nie mieć nowych pól kontekstu).
+function renderUnwantedThemesRule(unwantedThemes: string | undefined): string {
+  const themes = (unwantedThemes ?? "").trim();
+  return themes
+    ? `- Tematy zakazane przez autora — nie wprowadzaj ich do treści: ${themes}\n`
+    : "";
 }
 
 function trimTextWindow(text: string): string {

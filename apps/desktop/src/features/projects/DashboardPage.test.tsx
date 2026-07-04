@@ -106,6 +106,8 @@ const projectDetails: ProjectDetails = {
     coverPrompt: "cover prompt",
     coverNegativePrompt: "watermark",
     coverGeneratedAt: "2026-06-05T12:00:00Z",
+    storySoFar: "",
+    storySoFarStale: 0,
     status: "draft",
     createdAt: "2026-06-05T12:00:00Z",
     updatedAt: "2026-06-05T12:00:00Z"

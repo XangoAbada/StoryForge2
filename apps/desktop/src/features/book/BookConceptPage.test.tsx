@@ -74,6 +74,8 @@ const projectDetails: ProjectDetails = {
     coverPrompt: "",
     coverNegativePrompt: "",
     coverGeneratedAt: null,
+    storySoFar: "",
+    storySoFarStale: 0,
     status: "draft",
     createdAt: "2026-06-05T12:00:00Z",
     updatedAt: "2026-06-05T12:00:00Z"

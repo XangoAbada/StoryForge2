@@ -50,6 +50,9 @@ import {
   browserGetSceneSnapshot,
   browserRestoreSceneSnapshot,
   browserRunCodexPrompt,
+  browserSaveChapterAutoSummary,
+  browserSaveSceneAutoSummary,
+  browserSaveStorySoFar,
   browserSaveStoryStructure,
   browserSetActivePlanVersion,
   browserSetSceneRelations,
@@ -117,6 +120,9 @@ import type {
   ReorderPlanItemsInput,
   ReorderScenesInput,
   RunCodexPromptRequest,
+  SaveChapterAutoSummaryInput,
+  SaveSceneAutoSummaryInput,
+  SaveStorySoFarInput,
   SaveStoryStructureInput,
   SaveExportPresetInput,
   Scene,
@@ -389,6 +395,30 @@ export function restoreSceneSnapshot(id: string): Promise<Scene> {
   }
 
   return invoke("restore_scene_snapshot", { id });
+}
+
+export function saveSceneAutoSummary(input: SaveSceneAutoSummaryInput): Promise<Scene> {
+  if (!isTauriRuntime()) {
+    return browserSaveSceneAutoSummary(input);
+  }
+
+  return invoke("save_scene_auto_summary", { input });
+}
+
+export function saveChapterAutoSummary(input: SaveChapterAutoSummaryInput): Promise<Chapter> {
+  if (!isTauriRuntime()) {
+    return browserSaveChapterAutoSummary(input);
+  }
+
+  return invoke("save_chapter_auto_summary", { input });
+}
+
+export function saveStorySoFar(input: SaveStorySoFarInput): Promise<Book> {
+  if (!isTauriRuntime()) {
+    return browserSaveStorySoFar(input);
+  }
+
+  return invoke("save_story_so_far", { input });
 }
 
 export function reorderScenes(input: ReorderScenesInput): Promise<void> {

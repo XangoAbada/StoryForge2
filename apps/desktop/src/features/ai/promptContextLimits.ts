@@ -1,6 +1,5 @@
 // Limity rozmiaru kontekstu Story Bible w promptach — chronią przed
 // rozsadzeniem budżetu tokenów przy dużych projektach.
-// ponytail: stałe limity per sekcja; konfigurowalność dodać, gdy ktoś o nią poprosi.
 
 import type { Character, CharacterMemory, CharacterRelation } from "../../shared/api/types";
 
@@ -15,6 +14,23 @@ const DEFAULT_SECTION_LIMITS: Record<string, number> = {
 const FALLBACK_SECTION_LIMIT = 40;
 const MAX_FIELD_CHARS = 600;
 
+// Orientacyjny budżet znaków na cały blok Story Bible (~6k tokenów przy
+// przeliczniku char/4). Sekcje wypełniane w kolejności wejściowej, wpisy
+// wcześniej spriorytetyzowane przez prioritizeEntities wchodzą pierwsze.
+const STORY_BIBLE_CHAR_BUDGET = 24_000;
+
+// Pola, których nie wolno ucinać do MAX_FIELD_CHARS — niosą kontrakt stylu
+// i wiedzy, a ich ogon bywa ważniejszy niż początek (np. zakazy w styleGuide).
+const FULL_LENGTH_KEYS = new Set([
+  "styleGuide",
+  "premise",
+  "voiceNotes",
+  "knowledgeNotes",
+  "storySoFar",
+  "autoSummary",
+  "textTail"
+]);
+
 export function truncateStringsDeep(value: unknown): unknown {
   if (typeof value === "string") {
     return value.length > MAX_FIELD_CHARS
@@ -28,7 +44,9 @@ export function truncateStringsDeep(value: unknown): unknown {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
         key,
-        truncateStringsDeep(entry)
+        FULL_LENGTH_KEYS.has(key) && typeof entry === "string"
+          ? entry
+          : truncateStringsDeep(entry)
       ])
     );
   }
@@ -45,16 +63,35 @@ export function renderCappedStoryBible(
 ): string {
   const capped: Record<string, unknown> = {};
   const omissions: string[] = [];
+  let usedChars = 0;
 
   for (const [key, value] of Object.entries(storyBible)) {
     if (Array.isArray(value)) {
       const limit = DEFAULT_SECTION_LIMITS[key] ?? FALLBACK_SECTION_LIMIT;
-      capped[key] = truncateStringsDeep(value.slice(0, limit));
-      if (value.length > limit) {
-        omissions.push(`${key}: pominięto ${value.length - limit} kolejnych wpisów`);
+      // Dwustopniowe cięcie: stały limit wpisów per sekcja, a potem wspólny
+      // budżet znaków — sekcja dostaje tyle wpisów, ile mieści się w reszcie
+      // budżetu (zawsze co najmniej kilka, żeby żadna nie znikła w całości).
+      const withinSectionLimit = value.slice(0, limit);
+      let taken = 0;
+      const packed: unknown[] = [];
+      for (const entry of withinSectionLimit) {
+        const compactEntry = truncateStringsDeep(entry);
+        const entryChars = JSON.stringify(compactEntry)?.length ?? 0;
+        if (packed.length >= 3 && usedChars + taken + entryChars > STORY_BIBLE_CHAR_BUDGET) {
+          break;
+        }
+        packed.push(compactEntry);
+        taken += entryChars;
+      }
+      usedChars += taken;
+      capped[key] = packed;
+      if (value.length > packed.length) {
+        omissions.push(`${key}: pominięto ${value.length - packed.length} kolejnych wpisów`);
       }
     } else {
-      capped[key] = truncateStringsDeep(value);
+      const compactValue = truncateStringsDeep(value);
+      usedChars += JSON.stringify(compactValue)?.length ?? 0;
+      capped[key] = compactValue;
     }
   }
 
@@ -144,7 +181,12 @@ export function compactRelation(relation: CharacterRelation) {
     description: relation.description,
     conflict: relation.conflict,
     opinion: relation.opinion,
-    trustLevel: scaleLabel(relation.trustLevel)
+    trustLevel: scaleLabel(relation.trustLevel),
+    // Sekret relacji to paliwo dramaturgiczne — model ma go znać, ale postaci
+    // (w tym POV) mogą o nim nie wiedzieć; adnotacja zapobiega przeciekom.
+    secret: relation.secret
+      ? `${relation.secret} (sekret — postacie, w tym POV, mogą o nim nie wiedzieć)`
+      : ""
   };
 }
 
