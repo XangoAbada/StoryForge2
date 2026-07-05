@@ -2799,6 +2799,7 @@ export function characterProfileInputFromProposal(
     aliasesJson: arrayJsonRecordValue(character.aliases, stringRecordValue(snapshot.aliasesJson, "[]")),
     role: stringRecordValue(character.role, stringRecordValue(snapshot.role)),
     shortDescription: stringRecordValue(character.shortDescription, stringRecordValue(snapshot.shortDescription)),
+    appearance: stringRecordValue(character.appearance, stringRecordValue(snapshot.appearance)),
     externalGoal: stringRecordValue(character.externalGoal, stringRecordValue(snapshot.externalGoal)),
     internalNeed: stringRecordValue(character.internalNeed, stringRecordValue(snapshot.internalNeed)),
     wound: stringRecordValue(character.wound, stringRecordValue(snapshot.wound)),
@@ -2835,6 +2836,7 @@ async function characterFieldInputFromProposal(
     aliasesJson: character.aliasesJson,
     role: character.role,
     shortDescription: character.shortDescription,
+    appearance: character.appearance,
     externalGoal: character.externalGoal,
     internalNeed: character.internalNeed,
     wound: character.wound,
@@ -2869,6 +2871,9 @@ async function characterFieldInputFromProposal(
       break;
     case "shortDescription":
       input.shortDescription = value;
+      break;
+    case "appearance":
+      input.appearance = value;
       break;
     case "externalGoal":
       input.externalGoal = value;
@@ -2932,6 +2937,7 @@ function isCanonicalCharacterField(
   | "aliasesJson"
   | "role"
   | "shortDescription"
+  | "appearance"
   | "externalGoal"
   | "internalNeed"
   | "wound"
@@ -2950,6 +2956,7 @@ function isCanonicalCharacterField(
     "aliasesJson",
     "role",
     "shortDescription",
+    "appearance",
     "externalGoal",
     "internalNeed",
     "wound",
@@ -3623,6 +3630,7 @@ function characterDraftFromDiscovery(discovery: SceneDiscovery): Character {
     aliasesJson: "[]",
     role: "",
     shortDescription: discovery.reason,
+    appearance: "",
     externalGoal: "",
     internalNeed: "",
     wound: "",

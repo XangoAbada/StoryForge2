@@ -3234,6 +3234,7 @@ function ThreadEditor({
 }) {
   const [name, setName] = useState(thread?.name ?? `Wątek ${orderIndex + 1}`);
   const [description, setDescription] = useState(thread?.description ?? "");
+  const [resolution, setResolution] = useState(thread?.resolution ?? "");
   const [color, setColor] = useState(thread?.color ?? actColors[orderIndex % actColors.length]);
   const [status, setStatus] = useState(thread?.status ?? "planned");
   const [chapterPickerOpen, setChapterPickerOpen] = useState(false);
@@ -3249,12 +3250,13 @@ function ThreadEditor({
   useEffect(() => {
     setName(thread?.name ?? `Wątek ${orderIndex + 1}`);
     setDescription(thread?.description ?? "");
+    setResolution(thread?.resolution ?? "");
     setColor(thread?.color ?? actColors[orderIndex % actColors.length]);
     setStatus(thread?.status ?? "planned");
     setRelationDescriptions(
       Object.fromEntries(relations.map((relation) => [relation.chapterId, relation.description ?? ""]))
     );
-  }, [thread?.id, thread?.name, thread?.description, thread?.color, thread?.status, orderIndex, relations.map((relation) => `${relation.chapterId}:${relation.description}`).join("|")]);
+  }, [thread?.id, thread?.name, thread?.description, thread?.resolution, thread?.color, thread?.status, orderIndex, relations.map((relation) => `${relation.chapterId}:${relation.description}`).join("|")]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -3263,6 +3265,7 @@ function ThreadEditor({
       bookId,
       name,
       description,
+      resolution,
       color,
       status,
       orderIndex: thread?.orderIndex ?? orderIndex
@@ -3304,6 +3307,15 @@ function ThreadEditor({
                 onGenerate={onGenerate}
                 onActivatePrompt={onActivatePrompt}
               />
+              <label className="field-label">
+                Planowane rozwiązanie
+                <textarea
+                  value={resolution}
+                  rows={3}
+                  placeholder="Jak wątek ma się domknąć w finale — AI sieje zapowiedzi w scenach"
+                  onChange={(event) => setResolution(event.target.value)}
+                />
+              </label>
               <div className="plan-form-row">
                 <label className="field-label">
                   Status

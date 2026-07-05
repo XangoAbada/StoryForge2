@@ -550,6 +550,65 @@
   min-width: 0;
 }
 
+/* --- zwijana sekcja formularza (Zaawansowane) --- */
+.ui-collapsible {
+  display: grid;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.ui-collapsible-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: 100%;
+  padding: var(--s3) var(--s4);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-collapsible-chevron {
+  flex-shrink: 0;
+  color: var(--text-soft);
+  transition: transform 0.15s ease;
+}
+
+.ui-collapsible.is-open .ui-collapsible-chevron {
+  transform: rotate(90deg);
+}
+
+.ui-collapsible-heading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ui-collapsible-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.ui-collapsible-description {
+  color: var(--text-soft);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.ui-collapsible-body {
+  display: grid;
+  gap: var(--s3);
+  min-width: 0;
+  padding: 0 var(--s4) var(--s4);
+}
+
 /* --- grupy pól profilu --- */
 .bible-group {
   display: grid;

@@ -1,0 +1,2 @@
+ALTER TABLE characters ADD COLUMN appearance TEXT NOT NULL DEFAULT '';
+ALTER TABLE plot_threads ADD COLUMN resolution TEXT NOT NULL DEFAULT '';

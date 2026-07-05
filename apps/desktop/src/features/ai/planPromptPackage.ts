@@ -1094,6 +1094,7 @@ function compactThread(thread: PlotThread | null | undefined) {
         id: thread.id,
         name: thread.name,
         description: thread.description,
+        resolution: thread.resolution,
         status: thread.status,
         orderIndex: thread.orderIndex
       }
@@ -1669,6 +1670,7 @@ function planSuggestionSchema(field: PlanFieldKey): unknown {
         {
           name: "string",
           description: "string",
+          resolution: "string (planowane rozwiązanie / payoff wątku w finale)",
           color: "#3f8f6b",
           status: "planned"
         }

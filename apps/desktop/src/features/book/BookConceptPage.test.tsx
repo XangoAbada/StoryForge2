@@ -275,6 +275,7 @@ describe("BookConceptPage AI flow", () => {
     fireEvent.change(screen.getByLabelText("Tytuł finalny"), {
       target: { value: "Finalny tytuł" }
     });
+    fireEvent.click(screen.getByRole("button", { name: /Zaawansowane/i }));
     fireEvent.change(screen.getByLabelText("Alternatywne tytuły"), {
       target: { value: "Tytuł A, Tytuł B" }
     });
@@ -348,6 +349,10 @@ describe("BookConceptPage AI flow", () => {
 
     for (const stage of stageLabels) {
       fireEvent.click(screen.getByRole("tab", { name: stage.tab }));
+      const advancedToggle = screen.queryByRole("button", { name: /Zaawansowane/i });
+      if (advancedToggle) {
+        fireEvent.click(advancedToggle);
+      }
       for (const label of stage.labels) {
         expect(
           screen.getByRole("button", { name: `Generuj ${label} z AI` })
@@ -627,6 +632,7 @@ describe("BookConceptPage AI flow", () => {
     });
 
     expect(titleFields).toContainElement(screen.getByLabelText("Tytuł finalny"));
+    fireEvent.click(screen.getByRole("button", { name: /Zaawansowane/i }));
     expect(titleFields).toContainElement(
       screen.getByLabelText("Alternatywne tytuły")
     );

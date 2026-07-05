@@ -162,15 +162,39 @@ export function compactCharacter(character: Character | null | undefined) {
         id: character.id,
         type: character.characterType,
         name: character.name,
+        aliases: parseJsonList(character.aliasesJson),
         role: character.role,
         description: character.shortDescription,
+        appearance: character.appearance,
         goal: character.externalGoal,
         need: character.internalNeed,
+        wound: character.wound,
+        falseBelief: character.falseBelief,
+        // Sekret postaci napędza podtekst — model ma go znać, ale inne postacie
+        // (a czasem sama POV) mogą o nim nie wiedzieć; adnotacja zapobiega przeciekom.
+        secret: character.secret
+          ? `${character.secret} (sekret — inne postacie mogą o nim nie wiedzieć)`
+          : "",
         voice: character.voiceNotes,
         arc: character.arcSummary,
         status: character.status
       }
     : null;
+}
+
+/** Pola-listy trzymane jako JSON string — pusta/uszkodzona wartość znika z promptu. */
+function parseJsonList(value: string | null | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 export function compactRelation(relation: CharacterRelation) {

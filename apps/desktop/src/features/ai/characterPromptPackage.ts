@@ -21,6 +21,7 @@ export type CharacterFieldKey =
   | "aliasesJson"
   | "role"
   | "shortDescription"
+  | "appearance"
   | "externalGoal"
   | "internalNeed"
   | "wound"
@@ -136,6 +137,7 @@ export const characterFieldConfigs: Record<CharacterFieldKey, CharacterFieldConf
   aliasesJson: field("aliasesJson", "Aliasy", "generate_character_field", "character", "Wygeneruj tylko listę aliasów postaci jako JSON array stringów."),
   role: field("role", "Rola fabularna", "generate_character_field", "character", "Wygeneruj tylko rolę fabularną postaci."),
   shortDescription: field("shortDescription", "Krótki opis", "generate_character_field", "character", "Wygeneruj tylko krótki opis postaci przydatny podczas pisania powieści."),
+  appearance: field("appearance", "Wygląd", "generate_character_field", "character", "Wygeneruj tylko opis wyglądu postaci pisany pod prozę: sylwetka, twarz, charakterystyczne detale, mowa ciała. Bez języka promptów graficznych."),
   externalGoal: field("externalGoal", "Cel zewnętrzny", "generate_character_field", "character", "Wygeneruj tylko zewnętrzny cel postaci."),
   internalNeed: field("internalNeed", "Potrzeba wewnętrzna", "generate_character_field", "character", "Wygeneruj tylko wewnętrzną potrzebę postaci."),
   wound: field("wound", "Rana", "generate_character_field", "character", "Wygeneruj tylko ranę psychologiczną lub fabularną postaci."),
@@ -550,6 +552,7 @@ function currentCharacterFieldValue(
     aliasesJson: String(record.aliasesJson ?? ""),
     role: String(record.role ?? ""),
     shortDescription: String(record.shortDescription ?? ""),
+    appearance: String(record.appearance ?? ""),
     externalGoal: String(record.externalGoal ?? ""),
     internalNeed: String(record.internalNeed ?? ""),
     wound: String(record.wound ?? ""),
@@ -601,6 +604,7 @@ function characterSuggestionSchema(fieldKey: CharacterFieldKey): unknown {
         aliases: ["string"],
         role: "string",
         shortDescription: "string",
+        appearance: "string",
         externalGoal: "string",
         internalNeed: "string",
         wound: "string",

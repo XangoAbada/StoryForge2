@@ -185,6 +185,7 @@ async function applyThreads(
       bookId: context.bookId,
       name: textValue(thread.name) || `Watek ${index + 1}`,
       description: textValue(thread.description),
+      resolution: textValue(thread.resolution),
       color: textValue(thread.color) || actColors[index % actColors.length],
       status: textValue(thread.status) || "planned",
       orderIndex: context.plan.threads.length + index

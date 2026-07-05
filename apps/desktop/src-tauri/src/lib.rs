@@ -435,6 +435,7 @@ pub struct PlotThread {
     pub book_id: String,
     pub name: String,
     pub description: String,
+    pub resolution: String,
     pub color: String,
     pub status: String,
     pub order_index: i64,
@@ -609,6 +610,7 @@ pub struct Character {
     pub aliases_json: String,
     pub role: String,
     pub short_description: String,
+    pub appearance: String,
     pub external_goal: String,
     pub internal_need: String,
     pub wound: String,
@@ -837,6 +839,7 @@ pub struct UpsertPlotThreadInput {
     pub book_id: String,
     pub name: String,
     pub description: String,
+    pub resolution: String,
     pub color: String,
     pub status: String,
     pub order_index: i64,
@@ -1005,6 +1008,7 @@ pub struct UpsertCharacterInput {
     pub aliases_json: String,
     pub role: String,
     pub short_description: String,
+    pub appearance: String,
     pub external_goal: String,
     pub internal_need: String,
     pub wound: String,
@@ -1891,11 +1895,12 @@ pub async fn upsert_plot_thread_in_pool(
     sqlx::query(
         r#"
         INSERT INTO plot_threads
-          (id, book_id, plan_version_id, name, description, color, status, order_index, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, book_id, plan_version_id, name, description, resolution, color, status, order_index, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           name = excluded.name,
           description = excluded.description,
+          resolution = excluded.resolution,
           color = excluded.color,
           status = excluded.status,
           order_index = excluded.order_index,
@@ -1907,6 +1912,7 @@ pub async fn upsert_plot_thread_in_pool(
     .bind(&plan_version_id)
     .bind(input.name)
     .bind(input.description)
+    .bind(input.resolution)
     .bind(input.color)
     .bind(input.status)
     .bind(input.order_index)
@@ -3618,14 +3624,15 @@ pub async fn upsert_character_in_pool(
     sqlx::query(
         r#"
         INSERT INTO characters
-          (id, project_id, character_type, name, aliases_json, role, short_description, external_goal, internal_need, wound, false_belief, secret, strengths_json, weaknesses_json, voice_notes, arc_summary, knowledge_notes, visual_prompt, image_asset_id, status, order_index, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, project_id, character_type, name, aliases_json, role, short_description, appearance, external_goal, internal_need, wound, false_belief, secret, strengths_json, weaknesses_json, voice_notes, arc_summary, knowledge_notes, visual_prompt, image_asset_id, status, order_index, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           character_type = excluded.character_type,
           name = excluded.name,
           aliases_json = excluded.aliases_json,
           role = excluded.role,
           short_description = excluded.short_description,
+          appearance = excluded.appearance,
           external_goal = excluded.external_goal,
           internal_need = excluded.internal_need,
           wound = excluded.wound,
@@ -3650,6 +3657,7 @@ pub async fn upsert_character_in_pool(
     .bind(input.aliases_json)
     .bind(input.role)
     .bind(input.short_description)
+    .bind(input.appearance)
     .bind(input.external_goal)
     .bind(input.internal_need)
     .bind(input.wound)
@@ -9143,6 +9151,7 @@ mod tests {
                 book_id: created.book.id.clone(),
                 name: "Glowny watek".into(),
                 description: "Droga bohatera".into(),
+                resolution: "".into(),
                 color: "#3f8f6b".into(),
                 status: "planned".into(),
                 order_index: 0,
@@ -9321,6 +9330,7 @@ mod tests {
                 book_id: created.book.id.clone(),
                 name: "Watek".into(),
                 description: "".into(),
+                resolution: "".into(),
                 color: "#3f8f6b".into(),
                 status: "planned".into(),
                 order_index: 0,
@@ -9405,6 +9415,7 @@ mod tests {
                 aliases_json: "[]".into(),
                 role: "bohaterka".into(),
                 short_description: "Kartografka".into(),
+                appearance: "".into(),
                 external_goal: "Odnalezc mape".into(),
                 internal_need: "Zaufac komus".into(),
                 wound: "".into(),
@@ -9433,6 +9444,7 @@ mod tests {
                 aliases_json: "[]".into(),
                 role: "rywal".into(),
                 short_description: "".into(),
+                appearance: "".into(),
                 external_goal: "".into(),
                 internal_need: "".into(),
                 wound: "".into(),
@@ -9553,6 +9565,7 @@ mod tests {
                 aliases_json: "[]".into(),
                 role: "".into(),
                 short_description: "".into(),
+                appearance: "".into(),
                 external_goal: "".into(),
                 internal_need: "".into(),
                 wound: "".into(),
@@ -9581,6 +9594,7 @@ mod tests {
                 aliases_json: "[]".into(),
                 role: "".into(),
                 short_description: "".into(),
+                appearance: "".into(),
                 external_goal: "".into(),
                 internal_need: "".into(),
                 wound: "".into(),
@@ -9694,6 +9708,7 @@ mod tests {
                 aliases_json: "[]".into(),
                 role: "".into(),
                 short_description: "".into(),
+                appearance: "".into(),
                 external_goal: "".into(),
                 internal_need: "".into(),
                 wound: "".into(),

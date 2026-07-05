@@ -481,7 +481,9 @@ function compactRule(rule: WorldRule) {
     name: rule.name,
     scope: rule.scope,
     description: rule.description,
+    cost: rule.cost,
     limitation: rule.limitation,
+    exceptions: rule.exceptions,
     violationConsequences: rule.violationConsequences
   };
 }

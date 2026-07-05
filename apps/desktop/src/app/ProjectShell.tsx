@@ -251,8 +251,7 @@ export function ProjectShell({
 
         <div className="sidebar-bottom-nav">
           <Link
-            to="/projects/$projectId/ai"
-            params={{ projectId }}
+            to="/settings"
             className={activeSection === "ai" ? "nav-item active" : "nav-item"}
           >
             <ShieldCheck size={18} />

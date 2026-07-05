@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter, Link, Outlet, useParams } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, Link, Outlet, redirect, useParams } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { DashboardPage } from "../features/projects/DashboardPage";
 import { ProjectShell } from "./ProjectShell";
@@ -70,10 +70,14 @@ const projectExportRoute = createRoute({
   component: ProjectExportRoute
 });
 
+// Ustawienia AI mają jedną kanoniczną trasę (/settings) — stary adres per
+// projekt tylko przekierowuje, żeby nie utrzymywać dwóch wersji tej strony.
 const projectAiRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/projects/$projectId/ai",
-  component: ProjectAiRoute
+  beforeLoad: () => {
+    throw redirect({ to: "/settings" });
+  }
 });
 
 const projectAiLogRoute = createRoute({
@@ -171,15 +175,6 @@ function ProjectExportRoute() {
   return (
     <ProjectShell projectId={projectId} activeSection="export">
       <ExportPage projectId={projectId} />
-    </ProjectShell>
-  );
-}
-
-function ProjectAiRoute() {
-  const projectId = useProjectId();
-  return (
-    <ProjectShell projectId={projectId} activeSection="ai">
-      <AiSettingsPage />
     </ProjectShell>
   );
 }

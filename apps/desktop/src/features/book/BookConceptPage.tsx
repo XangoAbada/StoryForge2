@@ -21,7 +21,7 @@ import {
   useRef,
   useState
 } from "react";
-import { Button, Chip, Field, StatusPill } from "../../shared/ui";
+import { Button, Chip, Collapsible, Field, StatusPill } from "../../shared/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   checkCodexCli,
@@ -955,19 +955,21 @@ export function BookConceptPage({ projectId }: BookConceptPageProps) {
                     onGenerate={generateField}
                     onChange={(value) => updateField("title", value)}
                   />
-                  <TextField
-                    label="Alternatywne tytuły"
-                    field="alternativeTitlesJson"
-                    value={form.alternativeTitlesJson}
-                    placeholder="Jeden tytuł na linię albo po przecinku"
-                    rows={5}
-                    disabled={aiDisabled}
-                    loading={fieldStatus("alternativeTitlesJson")}
-                    onGenerate={generateField}
-                    onChange={(value) =>
-                      updateField("alternativeTitlesJson", value)
-                    }
-                  />
+                  <Collapsible title="Zaawansowane" description="Warianty tytułu do burzy mózgów — nie trafiają do promptów.">
+                    <TextField
+                      label="Alternatywne tytuły"
+                      field="alternativeTitlesJson"
+                      value={form.alternativeTitlesJson}
+                      placeholder="Jeden tytuł na linię albo po przecinku"
+                      rows={5}
+                      disabled={aiDisabled}
+                      loading={fieldStatus("alternativeTitlesJson")}
+                      onGenerate={generateField}
+                      onChange={(value) =>
+                        updateField("alternativeTitlesJson", value)
+                      }
+                    />
+                  </Collapsible>
                 </div>
 
                 <div className="cover-art-panel">

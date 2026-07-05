@@ -109,6 +109,7 @@ export type PlotThread = {
   bookId: string;
   name: string;
   description: string;
+  resolution: string;
   color: string;
   status: string;
   orderIndex: number;
@@ -250,6 +251,7 @@ export type Character = {
   aliasesJson: string;
   role: string;
   shortDescription: string;
+  appearance: string;
   externalGoal: string;
   internalNeed: string;
   wound: string;
@@ -408,6 +410,7 @@ export type UpsertCharacterInput = {
   aliasesJson: string;
   role: string;
   shortDescription: string;
+  appearance: string;
   externalGoal: string;
   internalNeed: string;
   wound: string;
@@ -650,6 +653,7 @@ export type UpsertPlotThreadInput = {
   bookId: string;
   name: string;
   description: string;
+  resolution: string;
   color: string;
   status: string;
   orderIndex: number;

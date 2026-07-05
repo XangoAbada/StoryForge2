@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Chip, EmptyState, Field, Modal, StatusPill, Tabs, TwoPane } from "../../shared/ui";
+import { Button, Chip, Collapsible, EmptyState, Field, Modal, StatusPill, Tabs, TwoPane } from "../../shared/ui";
 import { coverImageSource } from "../../shared/api/assets";
 import {
   deleteCharacter,
@@ -125,6 +125,7 @@ type CharacterFieldItem = {
 const characterFieldGroups: Array<{
   title: string;
   description: string;
+  advanced?: boolean;
   fields: CharacterFieldItem[];
 }> = [
   {
@@ -135,7 +136,8 @@ const characterFieldGroups: Array<{
       { field: "name", key: "name" },
       { field: "aliasesJson", key: "aliasesJson", list: true },
       { field: "role", key: "role" },
-      { field: "shortDescription", key: "shortDescription", rows: 3 }
+      { field: "shortDescription", key: "shortDescription", rows: 3 },
+      { field: "appearance", key: "appearance", rows: 3 }
     ]
   },
   {
@@ -150,14 +152,6 @@ const characterFieldGroups: Array<{
     ]
   },
   {
-    title: "Zasoby i ograniczenia",
-    description: "Mocne strony i słabości, które dają scenom tarcie oraz wiarygodne wybory.",
-    fields: [
-      { field: "strengthsJson", key: "strengthsJson", list: true },
-      { field: "weaknessesJson", key: "weaknessesJson", list: true }
-    ]
-  },
-  {
     title: "Głos, łuk i wiedza",
     description: "Sposób mówienia, kierunek przemiany i notatki potrzebne podczas pisania.",
     fields: [
@@ -167,9 +161,12 @@ const characterFieldGroups: Array<{
     ]
   },
   {
-    title: "Wizualia",
-    description: "Opis referencyjny używany przy generowaniu obrazu postaci.",
+    title: "Zaawansowane",
+    description: "Pola pomocnicze — nie trafiają do promptów pisania scen. Prompt wizualny zasila generowanie obrazu postaci.",
+    advanced: true,
     fields: [
+      { field: "strengthsJson", key: "strengthsJson", list: true },
+      { field: "weaknessesJson", key: "weaknessesJson", list: true },
       { field: "visualPrompt", key: "visualPrompt", rows: 4 }
     ]
   }
@@ -580,12 +577,8 @@ export function CharactersPage({ projectId }: CharactersPageProps) {
 
           {activeTab === "profile" ? (
             <form id="character-profile-form" className="bible-group-stack" onSubmit={saveCharacter}>
-              {characterFieldGroups.map((group) => (
-                <section className="bible-group" key={group.title}>
-                  <div className="bible-group-heading">
-                    <h4>{group.title}</h4>
-                    <p>{group.description}</p>
-                  </div>
+              {characterFieldGroups.map((group) => {
+                const fieldGrid = (
                   <div className="bible-field-grid">
                     {group.fields.map((item) => (
                       <CharacterField
@@ -601,8 +594,21 @@ export function CharactersPage({ projectId }: CharactersPageProps) {
                       />
                     ))}
                   </div>
-                </section>
-              ))}
+                );
+                return group.advanced ? (
+                  <Collapsible key={group.title} title={group.title} description={group.description}>
+                    {fieldGrid}
+                  </Collapsible>
+                ) : (
+                  <section className="bible-group" key={group.title}>
+                    <div className="bible-group-heading">
+                      <h4>{group.title}</h4>
+                      <p>{group.description}</p>
+                    </div>
+                    {fieldGrid}
+                  </section>
+                );
+              })}
             </form>
           ) : null}
 
@@ -1031,14 +1037,16 @@ function RelationModal({ state, workspace, saving, onClose, onSubmit, onDelete, 
           </select>
         </Field>
         <ModalAiField field="relationDescription" value={draft.description} target={target} onChange={(value) => setDraft({ ...draft, description: value })} onGenerate={onGenerate} onActivate={onActivate} />
-        <ModalAiField field="relationHistory" value={draft.history} target={target} onChange={(value) => setDraft({ ...draft, history: value })} onGenerate={onGenerate} onActivate={onActivate} />
         <ModalAiField field="relationConflict" value={draft.conflict} target={target} onChange={(value) => setDraft({ ...draft, conflict: value })} onGenerate={onGenerate} onActivate={onActivate} />
         <ModalAiField field="relationOpinion" value={draft.opinion} target={target} onChange={(value) => setDraft({ ...draft, opinion: value })} onGenerate={onGenerate} onActivate={onActivate} />
         <Field label={`Zaufanie: ${draft.trustLevel}%`} className="wide">
           <input type="range" min={0} max={100} value={draft.trustLevel} onChange={(event) => setDraft({ ...draft, trustLevel: Number(event.target.value) })} />
         </Field>
         <ModalAiField field="relationSecret" value={draft.secret} target={target} onChange={(value) => setDraft({ ...draft, secret: value })} onGenerate={onGenerate} onActivate={onActivate} />
-        <ModalAiField field="relationChangeOverTime" value={draft.changeOverTime} target={target} onChange={(value) => setDraft({ ...draft, changeOverTime: value })} onGenerate={onGenerate} onActivate={onActivate} />
+        <Collapsible className="wide" title="Zaawansowane" description="Pola pomocnicze — nie trafiają do promptów pisania scen.">
+          <ModalAiField field="relationHistory" value={draft.history} target={target} onChange={(value) => setDraft({ ...draft, history: value })} onGenerate={onGenerate} onActivate={onActivate} />
+          <ModalAiField field="relationChangeOverTime" value={draft.changeOverTime} target={target} onChange={(value) => setDraft({ ...draft, changeOverTime: value })} onGenerate={onGenerate} onActivate={onActivate} />
+        </Collapsible>
       </form>
     </Modal>
   );
@@ -1076,12 +1084,14 @@ function MemoryModal({ state, workspace, saving, onClose, onSubmit, onDelete, on
           </select>
         </Field>
         <ModalAiField field="memorySummary" value={draft.summary} target={target} onChange={(value) => setDraft({ ...draft, summary: value })} onGenerate={onGenerate} onActivate={onActivate} />
-        <ModalAiField field="memoryDetails" value={draft.details} target={target} onChange={(value) => setDraft({ ...draft, details: value })} onGenerate={onGenerate} onActivate={onActivate} />
         <ModalAiField field="memorySubject" value={draft.subject} target={target} onChange={(value) => setDraft({ ...draft, subject: value })} onGenerate={onGenerate} onActivate={onActivate} rows={1} />
         <ModalAiField field="memoryEmotion" value={draft.emotion} target={target} onChange={(value) => setDraft({ ...draft, emotion: value })} onGenerate={onGenerate} onActivate={onActivate} rows={1} />
         <Field label={`Ważność: ${draft.importance}%`} className="wide">
           <input type="range" min={0} max={100} value={draft.importance} onChange={(event) => setDraft({ ...draft, importance: Number(event.target.value) })} />
         </Field>
+        <Collapsible className="wide" title="Zaawansowane" description="Szczegóły nie trafiają do promptów pisania scen.">
+          <ModalAiField field="memoryDetails" value={draft.details} target={target} onChange={(value) => setDraft({ ...draft, details: value })} onGenerate={onGenerate} onActivate={onActivate} />
+        </Collapsible>
       </form>
     </Modal>
   );
@@ -1244,6 +1254,7 @@ function emptyCharacterInput(projectId: string, orderIndex: number): UpsertChara
     aliasesJson: "[]",
     role: "",
     shortDescription: "",
+    appearance: "",
     externalGoal: "",
     internalNeed: "",
     wound: "",
@@ -1270,6 +1281,7 @@ function characterToInput(character: Character): UpsertCharacterInput {
     aliasesJson: character.aliasesJson,
     role: character.role,
     shortDescription: character.shortDescription,
+    appearance: character.appearance,
     externalGoal: character.externalGoal,
     internalNeed: character.internalNeed,
     wound: character.wound,
@@ -1297,6 +1309,7 @@ function draftCharacterPreview(input: UpsertCharacterInput): Character {
     aliasesJson: input.aliasesJson,
     role: input.role,
     shortDescription: input.shortDescription,
+    appearance: input.appearance,
     externalGoal: input.externalGoal,
     internalNeed: input.internalNeed,
     wound: input.wound,
@@ -1341,6 +1354,7 @@ function applyCharacterProfileValue(input: UpsertCharacterInput, value: string):
       aliasesJson: arrayJsonValue(character.aliases, input.aliasesJson),
       role: stringValue(character.role, input.role),
       shortDescription: stringValue(character.shortDescription, input.shortDescription),
+      appearance: stringValue(character.appearance, input.appearance),
       externalGoal: stringValue(character.externalGoal, input.externalGoal),
       internalNeed: stringValue(character.internalNeed, input.internalNeed),
       wound: stringValue(character.wound, input.wound),
