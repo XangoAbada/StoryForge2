@@ -58,6 +58,7 @@ import {
   type SceneCritiqueReportFinding
 } from "../ai/sceneCritiqueStore";
 import { findQuoteRangeInDoc } from "./sceneDocSearch";
+import { proseToEditorHtml } from "./sceneProseHtml";
 import {
   buildPlanPromptPackage,
   planStoryBibleContext,
@@ -401,7 +402,7 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
       return;
     }
 
-    registerSceneEditorProposalTarget(draft.id, async (value, mode) => {
+    registerSceneEditorProposalTarget(draft.id, async (value, mode, selectedText) => {
       if (mode === "save_as_variant") {
         const nextVariants = [
           { id: createLocalId(), mode, text: value, createdAt: new Date().toISOString() },
@@ -419,17 +420,25 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
           .catch(() => undefined);
       }
 
-      if (mode === "replace_selection" && selectionText) {
-        editor.chain().focus().insertContent(value).run();
-      } else if (mode === "insert_after_selection" && selectionText) {
-        editor.chain().focus().insertContent(`${selectionText}\n\n${value}`).run();
+      // Zaznaczenie lokalizujemy po tekście z propozycji (żywe zaznaczenie ProseMirror
+      // ginie przy zmianie widoku), a prozę AI wstawiamy jako HTML z akapitami.
+      const html = proseToEditorHtml(value);
+      const range = selectedText ? findQuoteRangeInDoc(editor.state.doc, selectedText) : null;
+
+      if (mode === "replace_selection" && range) {
+        editor.chain().focus().insertContentAt(range, html).run();
+      } else if (mode === "insert_after_selection" && range) {
+        editor.chain().focus().insertContentAt(range.to, html).run();
       } else {
-        editor.chain().focus().setTextSelection(editor.state.doc.content.size).insertContent(`\n\n${value}`).run();
+        editor.chain().focus().setTextSelection(editor.state.doc.content.size).insertContent(html).run();
+        if (mode !== "append_to_scene" && selectedText) {
+          setStatusText("Nie znaleziono zaznaczonego fragmentu — tekst dodano na końcu sceny");
+        }
       }
     });
 
     return () => unregisterSceneEditorProposalTarget(draft.id ?? "");
-  }, [draft?.id, editor, selectionText, variants]);
+  }, [draft?.id, editor, variants]);
 
   // Handler "Zastosuj" z panelu krytyki — świeża wersja co render (domknięcia
   // nad draft/planem), rejestracja w registrze tylko przy zmianie sceny.
@@ -948,7 +957,7 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
                         key={variant.id}
                         onClick={() => {
                           setSelectedVariantId(variant.id);
-                          editor?.chain().focus().setTextSelection(editor.state.doc.content.size).insertContent(`\n\n${variant.text}`).run();
+                          editor?.chain().focus().setTextSelection(editor.state.doc.content.size).insertContent(proseToEditorHtml(variant.text)).run();
                         }}
                       >
                         <span>{new Date(variant.createdAt).toLocaleString("pl-PL")}</span>

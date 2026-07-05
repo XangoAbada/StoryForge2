@@ -419,12 +419,16 @@ export async function applyAiProposal(
         : "";
     const value = proposal.editableValue.trim();
     const insertMode = sceneEditorInsertMode(scopedPackageContext.insertMode);
+    const selectedText =
+      typeof scopedPackageContext.selectedText === "string"
+        ? scopedPackageContext.selectedText
+        : "";
 
     if (!targetEntityId) {
       throw new Error("Brak aktywnej sceny dla propozycji edytora.");
     }
 
-    const applied = await applySceneEditorProposal(targetEntityId, value, insertMode);
+    const applied = await applySceneEditorProposal(targetEntityId, value, insertMode, selectedText);
     if (!applied) {
       throw new Error("Nie ma już otwartego edytora sceny dla tej propozycji AI.");
     }
@@ -813,12 +817,16 @@ export function AiProposalPanel({
             : "";
         const value = proposal.editableValue.trim();
         const insertMode = sceneEditorInsertMode(scopedPackageContext.insertMode);
+        const selectedText =
+          typeof scopedPackageContext.selectedText === "string"
+            ? scopedPackageContext.selectedText
+            : "";
 
         if (!targetEntityId) {
           throw new Error("Brak aktywnej sceny dla propozycji edytora.");
         }
 
-        const applied = await applySceneEditorProposal(targetEntityId, value, insertMode);
+        const applied = await applySceneEditorProposal(targetEntityId, value, insertMode, selectedText);
         if (!applied) {
           throw new Error("Nie ma już otwartego edytora sceny dla tej propozycji AI.");
         }

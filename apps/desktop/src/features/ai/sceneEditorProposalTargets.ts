@@ -6,7 +6,8 @@ export type SceneEditorInsertMode =
 
 type SceneEditorProposalHandler = (
   value: string,
-  mode: SceneEditorInsertMode
+  mode: SceneEditorInsertMode,
+  selectedText: string
 ) => void | Promise<void>;
 
 const sceneEditorTargets = new Map<string, SceneEditorProposalHandler>();
@@ -25,13 +26,14 @@ export function unregisterSceneEditorProposalTarget(targetId: string) {
 export async function applySceneEditorProposal(
   targetId: string,
   value: string,
-  mode: SceneEditorInsertMode
+  mode: SceneEditorInsertMode,
+  selectedText: string
 ): Promise<boolean> {
   const handler = sceneEditorTargets.get(targetId);
   if (!handler) {
     return false;
   }
 
-  await handler(value, mode);
+  await handler(value, mode, selectedText);
   return true;
 }
