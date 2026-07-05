@@ -49,10 +49,16 @@
 }
 
 .scene-list-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  position: relative;
+}
+
+.scene-row-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
   gap: 4px;
-  align-items: start;
+  z-index: 1;
 }
 
 .scene-item {
@@ -60,6 +66,7 @@
   gap: 3px;
   width: 100%;
   padding: 9px 11px;
+  padding-right: 76px;
   border: 1px solid transparent;
   border-radius: var(--radius);
   background: transparent;

@@ -815,36 +815,38 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
                       <span>{words > 0 ? `${words.toLocaleString("pl-PL")} słów` : "—"}</span>
                     </span>
                   </button>
-                  <Button
-                    variant="icon"
-                    className={scene.isStyleReference ? "scene-style-reference-button active" : "scene-style-reference-button"}
-                    onClick={() =>
-                      styleReferenceMutation.mutate({
-                        sceneId: scene.id,
-                        isStyleReference: scene.isStyleReference ? 0 : 1
-                      })
-                    }
-                    disabled={styleReferenceMutation.isPending}
-                    title={
-                      scene.isStyleReference
-                        ? "Scena wzorcowa stylu — AI naśladuje jej prozę (kliknij, by odznaczyć)"
-                        : "Oznacz jako scenę wzorcową stylu dla AI"
-                    }
-                    aria-label={`Wzorzec stylu: ${scene.title || "Scena bez tytułu"}`}
-                    aria-pressed={Boolean(scene.isStyleReference)}
-                  >
-                    <Star size={14} fill={scene.isStyleReference ? "currentColor" : "none"} />
-                  </Button>
-                  <Button
-                    variant="icon"
-                    className="scene-context-add-button"
-                    onClick={() => addSceneEditorContextSource(scenePromptContextSource(scene))}
-                    disabled={!activePromptContextTarget || contextSourceAlreadyAdded(activePromptContextTarget.sources, scenePromptContextSource(scene).key)}
-                    title={`Dodaj scenę do aktywnego kontekstu AI: ${scene.title || "Scena bez tytułu"}`}
-                    aria-label={`Dodaj scenę do aktywnego kontekstu AI: ${scene.title || "Scena bez tytułu"}`}
-                  >
-                    <Plus size={14} />
-                  </Button>
+                  <div className="scene-row-actions">
+                    <Button
+                      variant="icon"
+                      className={scene.isStyleReference ? "scene-style-reference-button active" : "scene-style-reference-button"}
+                      onClick={() =>
+                        styleReferenceMutation.mutate({
+                          sceneId: scene.id,
+                          isStyleReference: scene.isStyleReference ? 0 : 1
+                        })
+                      }
+                      disabled={styleReferenceMutation.isPending}
+                      title={
+                        scene.isStyleReference
+                          ? "Scena wzorcowa stylu — AI naśladuje jej prozę (kliknij, by odznaczyć)"
+                          : "Oznacz jako scenę wzorcową stylu dla AI"
+                      }
+                      aria-label={`Wzorzec stylu: ${scene.title || "Scena bez tytułu"}`}
+                      aria-pressed={Boolean(scene.isStyleReference)}
+                    >
+                      <Star size={14} fill={scene.isStyleReference ? "currentColor" : "none"} />
+                    </Button>
+                    <Button
+                      variant="icon"
+                      className="scene-context-add-button"
+                      onClick={() => addSceneEditorContextSource(scenePromptContextSource(scene))}
+                      disabled={!activePromptContextTarget || contextSourceAlreadyAdded(activePromptContextTarget.sources, scenePromptContextSource(scene).key)}
+                      title={`Dodaj scenę do aktywnego kontekstu AI: ${scene.title || "Scena bez tytułu"}`}
+                      aria-label={`Dodaj scenę do aktywnego kontekstu AI: ${scene.title || "Scena bez tytułu"}`}
+                    >
+                      <Plus size={14} />
+                    </Button>
+                  </div>
                 </li>
               );
             })}
