@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { coverImageSource } from "../../shared/api/assets";
 import { isTauriRuntime } from "../../shared/api/browserDevCommands";
+import { useTextProviderInfo } from "./textProviderInfo";
 import {
   acceptGeneratedBookCover,
   acceptGeneratedCharacterImage,
@@ -455,6 +456,7 @@ export function AiProposalPanel({
   useAiQueueRunner();
   useCoverGenerationProgressListener();
 
+  const providerInfo = useTextProviderInfo();
   const queryClient = useQueryClient();
   const [previewImage, setPreviewImage] = useState<{
     src: string;
@@ -898,7 +900,10 @@ export function AiProposalPanel({
         projectId: proposal.projectId,
         aiRunId: activeRun?.aiRunId ?? proposal.aiRunId
       });
-      cancelProposal(proposalId, "Generowanie Codex CLI zostało przerwane.");
+      cancelProposal(
+        proposalId,
+        `Generowanie ${providerInfo.providerLabel} zostało przerwane.`
+      );
       await queryClient.invalidateQueries({ queryKey: ["active-codex-runs", projectId] });
       return cancelled;
     }
@@ -931,7 +936,7 @@ export function AiProposalPanel({
     <section className="context-section compact proposal-panel">
       <div className="section-title-row">
         <div>
-          <p className="eyebrow">Codex CLI</p>
+          <p className="eyebrow">{providerInfo.providerLabel}</p>
           <h2>Kolejka AI</h2>
         </div>
         <span className="status-pill">
@@ -950,6 +955,7 @@ export function AiProposalPanel({
           <ProposalQueueItem
             key={proposal.id}
             proposal={proposal}
+            providerLabel={providerInfo.providerLabel}
             accepting={acceptMutation.isPending && acceptMutation.variables?.proposalId === proposal.id}
             retrying={proposal.status === "queued"}
             cancelling={cancelMutation.isPending && cancelMutation.variables === proposal.id}
@@ -989,6 +995,7 @@ export function AiProposalPanel({
 
 type ProposalQueueItemProps = {
   proposal: ActiveAiProposal;
+  providerLabel: string;
   accepting: boolean;
   retrying: boolean;
   cancelling: boolean;
@@ -1884,6 +1891,7 @@ function uniqueStrings(values: string[]): string[] {
 
 function ProposalQueueItem({
   proposal,
+  providerLabel,
   accepting,
   retrying,
   cancelling,
@@ -1995,8 +2003,8 @@ function ProposalQueueItem({
       {running ? (
         <p className="muted-text">
           {coverProposal
-            ? proposal.progressMessage ?? "Codex CLI generuje okładkę."
-            : "Codex CLI generuje wynik. Propozycja nie zapisze się bez akceptacji."}
+            ? proposal.progressMessage ?? `${providerLabel} generuje okładkę.`
+            : `${providerLabel} generuje wynik. Propozycja nie zapisze się bez akceptacji.`}
         </p>
       ) : null}
 
@@ -2191,7 +2199,7 @@ function ProposalQueueItem({
             variant="ghost"
             busy={cancelling}
             onClick={onCancel}
-            title="Przerwij aktualną generację Codex CLI."
+            title={`Przerwij aktualną generację ${providerLabel}.`}
           >
             {cancelling ? null : <CircleStop size={16} />}
             Przerwij
@@ -2231,6 +2239,7 @@ function useAiQueueRunner() {
   const reasoningEffort = useCodexSettingsStore(
     (state) => state.reasoningEffort
   );
+  const providerInfo = useTextProviderInfo();
 
   useEffect(() => {
     if (!queuedProposal || hasRunningProposal) {
@@ -2274,7 +2283,7 @@ function useAiQueueRunner() {
 
           if (result.aiRun.status !== "success") {
             if (result.aiRun.status === "cancelled") {
-              cancelProposal(proposalId, result.aiRun.errorMessage ?? "Generowanie Codex CLI zostało przerwane.");
+              cancelProposal(proposalId, result.aiRun.errorMessage ?? `Generowanie ${providerInfo.providerLabel} zostało przerwane.`);
               return;
             }
             throw new QueueRunError(
@@ -2338,7 +2347,7 @@ function useAiQueueRunner() {
 
           if (result.aiRun.status !== "success") {
             if (result.aiRun.status === "cancelled") {
-              cancelProposal(proposalId, result.aiRun.errorMessage ?? "Generowanie Codex CLI zostało przerwane.");
+              cancelProposal(proposalId, result.aiRun.errorMessage ?? `Generowanie ${providerInfo.providerLabel} zostało przerwane.`);
               return;
             }
             throw new QueueRunError(
@@ -2408,7 +2417,7 @@ function useAiQueueRunner() {
 
           if (result.aiRun.status !== "success") {
             if (result.aiRun.status === "cancelled") {
-              cancelProposal(proposalId, result.aiRun.errorMessage ?? "Generowanie Codex CLI zostało przerwane.");
+              cancelProposal(proposalId, result.aiRun.errorMessage ?? `Generowanie ${providerInfo.providerLabel} zostało przerwane.`);
               return;
             }
             throw new QueueRunError(
@@ -2458,11 +2467,11 @@ function useAiQueueRunner() {
 
         if (result.status !== "success" || !result.rawOutput) {
           if (result.status === "cancelled") {
-            cancelProposal(proposalId, result.errorMessage ?? "Generowanie Codex CLI zostało przerwane.");
+            cancelProposal(proposalId, result.errorMessage ?? `Generowanie ${providerInfo.providerLabel} zostało przerwane.`);
             return;
           }
           throw new QueueRunError(
-            result.errorMessage || "Codex CLI nie zwrócił wyniku.",
+            result.errorMessage || `${providerInfo.providerLabel} nie zwrócił wyniku.`,
             result.rawOutput ?? ""
           );
         }

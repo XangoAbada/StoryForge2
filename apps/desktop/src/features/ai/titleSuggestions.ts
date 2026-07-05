@@ -24,7 +24,7 @@ export type TitleSuggestionsResponse = z.infer<
 export function parseTitleSuggestions(rawOutput: string): TitleSuggestionsResponse {
   const candidate = extractJsonCandidate(rawOutput);
   if (!candidate) {
-    throw new Error("Nie znaleziono obiektu JSON w odpowiedzi Codex CLI.");
+    throw new Error("Nie znaleziono obiektu JSON w odpowiedzi AI.");
   }
 
   let parsed: unknown;

@@ -1,3 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
+
+import { getAiSettings } from "../../shared/api/commands";
 import type { AiSettings } from "../../shared/api/types";
 
 const CLAUDE_MODEL_LABELS: Record<string, string> = {
@@ -50,4 +53,17 @@ export function describeTextProvider(
     default:
       return { isCodex: true, providerLabel: "Codex CLI", modelLabel: "" };
   }
+}
+
+/**
+ * Hook zwracający opis aktywnego dostawcy tekstu z zapisanych AiSettings.
+ * Współdzieli cache zapytania (`["ai-settings"]`) z resztą aplikacji, więc nie
+ * powoduje dodatkowego fetcha.
+ */
+export function useTextProviderInfo(): TextProviderInfo {
+  const { data } = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: getAiSettings
+  });
+  return describeTextProvider(data);
 }
