@@ -554,6 +554,30 @@ export type SaveSceneAutoSummaryInput = {
   sourceHash: string;
 };
 
+export type SceneCritiqueRecord = {
+  id: string;
+  projectId: string;
+  bookId: string;
+  sceneId: string;
+  aiRunId: string | null;
+  summary: string;
+  findingsJson: string;
+  sourceHash: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaveSceneCritiqueInput = {
+  id?: string;
+  projectId: string;
+  bookId: string;
+  sceneId: string;
+  aiRunId?: string | null;
+  summary: string;
+  findingsJson: string;
+  sourceHash: string;
+};
+
 export type SetSceneStyleReferenceInput = {
   sceneId: string;
   isStyleReference: number;
@@ -741,6 +765,7 @@ export type AIAction =
   | "rewrite_selection"
   | "expand_selection"
   | "analyze_scene_story_bible_opportunities"
+  | "critique_scene"
   | "summarize_scene"
   | "summarize_chapter"
   | "summarize_story_so_far";

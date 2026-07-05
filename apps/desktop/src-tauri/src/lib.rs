@@ -934,6 +934,34 @@ pub struct SetSceneStyleReferenceInput {
     pub is_style_reference: i64,
 }
 
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneCritiqueRecord {
+    pub id: String,
+    pub project_id: String,
+    pub book_id: String,
+    pub scene_id: String,
+    pub ai_run_id: Option<String>,
+    pub summary: String,
+    pub findings_json: String,
+    pub source_hash: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveSceneCritiqueInput {
+    pub id: Option<String>,
+    pub project_id: String,
+    pub book_id: String,
+    pub scene_id: String,
+    pub ai_run_id: Option<String>,
+    pub summary: String,
+    pub findings_json: String,
+    pub source_hash: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveChapterAutoSummaryInput {
@@ -2723,6 +2751,66 @@ pub async fn save_scene_auto_summary_in_pool(
         .fetch_one(pool)
         .await
         .map_err(AppError::from)
+}
+
+pub async fn save_scene_critique_in_pool(
+    pool: &SqlitePool,
+    input: SaveSceneCritiqueInput,
+) -> Result<SceneCritiqueRecord, AppError> {
+    let now = Utc::now().to_rfc3339();
+    let id = input
+        .id
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    // Jeden raport na scenę — kolejna krytyka nadpisuje poprzednią.
+    sqlx::query(
+        r#"
+        INSERT INTO scene_critiques (
+            id, project_id, book_id, scene_id, ai_run_id,
+            summary, findings_json, source_hash, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(scene_id) DO UPDATE SET
+            ai_run_id = excluded.ai_run_id,
+            summary = excluded.summary,
+            findings_json = excluded.findings_json,
+            source_hash = excluded.source_hash,
+            updated_at = excluded.updated_at
+        "#,
+    )
+    .bind(&id)
+    .bind(&input.project_id)
+    .bind(&input.book_id)
+    .bind(&input.scene_id)
+    .bind(&input.ai_run_id)
+    .bind(&input.summary)
+    .bind(&input.findings_json)
+    .bind(&input.source_hash)
+    .bind(&now)
+    .bind(&now)
+    .execute(pool)
+    .await?;
+
+    sqlx::query_as::<_, SceneCritiqueRecord>(
+        "SELECT * FROM scene_critiques WHERE scene_id = ?",
+    )
+    .bind(&input.scene_id)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::from)
+}
+
+pub async fn list_scene_critiques_in_pool(
+    pool: &SqlitePool,
+    book_id: &str,
+) -> Result<Vec<SceneCritiqueRecord>, AppError> {
+    sqlx::query_as::<_, SceneCritiqueRecord>(
+        "SELECT * FROM scene_critiques WHERE book_id = ? ORDER BY updated_at DESC",
+    )
+    .bind(book_id)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::from)
 }
 
 pub async fn set_scene_style_reference_in_pool(
@@ -6200,6 +6288,26 @@ async fn save_scene_auto_summary(
 }
 
 #[tauri::command]
+async fn save_scene_critique(
+    state: State<'_, AppState>,
+    input: SaveSceneCritiqueInput,
+) -> Result<SceneCritiqueRecord, String> {
+    save_scene_critique_in_pool(&state.db, input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn list_scene_critiques(
+    state: State<'_, AppState>,
+    book_id: String,
+) -> Result<Vec<SceneCritiqueRecord>, String> {
+    list_scene_critiques_in_pool(&state.db, &book_id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
 async fn set_scene_style_reference(
     state: State<'_, AppState>,
     input: SetSceneStyleReferenceInput,
@@ -8436,6 +8544,8 @@ pub fn run() {
             get_scene_snapshot,
             restore_scene_snapshot,
             save_scene_auto_summary,
+            save_scene_critique,
+            list_scene_critiques,
             set_scene_style_reference,
             save_chapter_auto_summary,
             save_story_so_far,

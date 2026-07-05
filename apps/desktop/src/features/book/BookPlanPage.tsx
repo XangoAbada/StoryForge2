@@ -1037,6 +1037,7 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         }}
         onGenerate={activatePlanPromptContext}
         onActivatePrompt={activatePlanPromptContext}
+        onEnsureSaved={(input) => upsertScene(input)}
         onLinkThreadToChapter={(threadId, chapterId) =>
           chapterThreadMutation.mutate({
             bookId,

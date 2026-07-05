@@ -20,8 +20,10 @@ import {
   getBookPlan,
   listActiveCodexRuns,
   listAiProposals,
+  listSceneCritiques,
   markAiProposalAccepted,
   markAiProposalRejected,
+  saveSceneCritique,
   moveBeatToChapter,
   runCodexPrompt,
   saveStoryStructure,
@@ -98,6 +100,21 @@ import {
   SCENE_STORY_BIBLE_AUDIT_FIELD
 } from "./sceneStoryBibleAuditPromptPackage";
 import { buildScenePromptContext } from "./scenePromptContext";
+import {
+  parseSceneCritiqueResult,
+  SCENE_CRITIQUE_CATEGORY_LABELS,
+  SCENE_CRITIQUE_FIELD,
+  SCENE_CRITIQUE_SEVERITY_LABELS
+} from "./sceneCritiquePromptPackage";
+import {
+  applyCritiqueFinding,
+  hasCritiqueApplyTarget,
+  SceneCritiqueReport,
+  SceneCritiqueReportFinding,
+  serializeCritiqueFindings,
+  subscribeCritiqueApplyTargets,
+  useSceneCritiqueStore
+} from "./sceneCritiqueStore";
 import {
   PendingSceneAuditPrompt,
   PendingSceneAssignment,
@@ -468,6 +485,34 @@ export function AiProposalPanel({
     () => pendingAssignments.filter((assignment) => assignment.projectId === projectId),
     [pendingAssignments, projectId]
   );
+  const critiques = useSceneCritiqueStore((state) => state.critiques);
+  const visibleCritiques = useMemo(
+    () =>
+      critiques.filter(
+        (critique) =>
+          critique.projectId === projectId &&
+          critique.findings.some((finding) => finding.status === "open")
+      ),
+    [critiques, projectId]
+  );
+  const hydrateCritiques = useSceneCritiqueStore((state) => state.hydrate);
+  const panelProjectQuery = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: () => getProject(projectId),
+    retry: 0
+  });
+  const panelBookId = panelProjectQuery.data?.book.id;
+  const sceneCritiquesQuery = useQuery({
+    queryKey: ["scene-critiques", panelBookId],
+    queryFn: () => listSceneCritiques(panelBookId ?? ""),
+    enabled: Boolean(panelBookId),
+    retry: 0
+  });
+  useEffect(() => {
+    if (sceneCritiquesQuery.data) {
+      hydrateCritiques(sceneCritiquesQuery.data);
+    }
+  }, [hydrateCritiques, sceneCritiquesQuery.data]);
   const persistentProposalQuery = useQuery({
     queryKey: ["ai-proposals", projectId],
     queryFn: () => listAiProposals(projectId),
@@ -855,7 +900,8 @@ export function AiProposalPanel({
     visibleProposals.length === 0 &&
     visibleDiscoveries.length === 0 &&
     visibleAuditPrompts.length === 0 &&
-    visibleAssignments.length === 0
+    visibleAssignments.length === 0 &&
+    visibleCritiques.length === 0
   ) {
     return (
       <section className="context-section compact">
@@ -889,6 +935,7 @@ export function AiProposalPanel({
       <SceneAuditPromptPanel prompts={visibleAuditPrompts} />
       <SceneAssignmentPanel projectId={projectId} assignments={visibleAssignments} />
       <SceneDiscoveryPanel projectId={projectId} discoveries={visibleDiscoveries} />
+      <SceneCritiquePanel critiques={visibleCritiques} />
 
       <div className="proposal-queue-list">
         {visibleProposals.map((proposal) => (
@@ -1051,6 +1098,119 @@ function SceneAssignmentPanel({
       {assignmentMutation.isError ? (
         <p className="warning-text">Nie udało się przypisać elementu do sceny.</p>
       ) : null}
+    </div>
+  );
+}
+
+async function persistCritiqueReport(
+  report: SceneCritiqueReport,
+  aiRunId?: string
+): Promise<void> {
+  try {
+    await saveSceneCritique({
+      id: report.id,
+      projectId: report.projectId,
+      bookId: report.bookId,
+      sceneId: report.sceneId,
+      aiRunId: aiRunId ?? null,
+      summary: report.summary,
+      findingsJson: serializeCritiqueFindings(report.findings),
+      sourceHash: report.sourceHash
+    });
+  } catch (error) {
+    console.warn("Nie udało się zapisać raportu krytyki sceny.", error);
+  }
+}
+
+function SceneCritiquePanel({ critiques }: { critiques: SceneCritiqueReport[] }) {
+  const setFindingStatus = useSceneCritiqueStore((state) => state.setFindingStatus);
+  // Rejestr celów "Zastosuj" żyje poza Zustand — subskrybujemy zmiany, żeby
+  // przyciski odblokowały się po otwarciu sceny w edytorze.
+  const [, forceRender] = useState(0);
+  useEffect(
+    () => subscribeCritiqueApplyTargets(() => forceRender((value) => value + 1)),
+    []
+  );
+
+  if (critiques.length === 0) {
+    return null;
+  }
+
+  function updateFinding(
+    critique: SceneCritiqueReport,
+    findingId: string,
+    status: SceneCritiqueReportFinding["status"]
+  ) {
+    setFindingStatus(critique.sceneId, findingId, status);
+    const current = useSceneCritiqueStore
+      .getState()
+      .critiques.find((item) => item.sceneId === critique.sceneId);
+    if (current) {
+      void persistCritiqueReport(current);
+    }
+  }
+
+  return (
+    <div className="scene-discovery-list" aria-label="Uwagi redaktora">
+      {critiques.map((critique) => {
+        const openFindings = critique.findings.filter((finding) => finding.status === "open");
+        const canApply = hasCritiqueApplyTarget(critique.sceneId);
+        return (
+          <article className="scene-discovery-card" key={critique.id}>
+            <div>
+              <span className="scene-discovery-kind">Redaktor</span>
+              <h3>{critique.sceneTitle || "Scena"}</h3>
+              {critique.summary ? <p>{critique.summary}</p> : null}
+            </div>
+            {openFindings.map((finding) => (
+              <div className="scene-critique-finding" key={finding.id}>
+                <p>
+                  <strong>
+                    {SCENE_CRITIQUE_CATEGORY_LABELS[finding.category]} ·{" "}
+                    {SCENE_CRITIQUE_SEVERITY_LABELS[finding.severity]}
+                  </strong>{" "}
+                  — {finding.title}
+                </p>
+                <p>{finding.description}</p>
+                {finding.quote ? (
+                  <blockquote className="scene-critique-quote">„{finding.quote}"</blockquote>
+                ) : null}
+                <div className="scene-discovery-actions">
+                  {finding.quote ? (
+                    <Button
+                      variant="ai"
+                      size="sm"
+                      disabled={!canApply}
+                      title={
+                        canApply
+                          ? "Zaznacz cytowany fragment i wyślij do przepisania"
+                          : "Otwórz tę scenę w edytorze, aby zastosować uwagę"
+                      }
+                      onClick={() => {
+                        void applyCritiqueFinding(critique.sceneId, finding).then((applied) => {
+                          if (applied) {
+                            updateFinding(critique, finding.id, "applied");
+                          }
+                        });
+                      }}
+                    >
+                      <Sparkles size={14} />
+                      Zastosuj
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => updateFinding(critique, finding.id, "dismissed")}
+                  >
+                    Odrzuć
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -1738,8 +1898,11 @@ function ProposalQueueItem({
   const worldProposal = proposal.scope === "world";
   const sceneEditorProposal = proposal.scope === "sceneEditor";
   const sceneAuditProposal = proposal.field === SCENE_STORY_BIBLE_AUDIT_FIELD;
+  const sceneCritiqueProposal = proposal.field === SCENE_CRITIQUE_FIELD;
   const label = sceneAuditProposal
     ? "Analiza sceny"
+    : sceneCritiqueProposal
+    ? "Krytyka sceny"
     : exportArtworkProposal
     ? "Grafika eksportu"
     : coverProposal
@@ -1752,9 +1915,9 @@ function ProposalQueueItem({
           ? characterFieldConfigs[proposal.field as CharacterFieldKey]?.label ?? "Postać"
           : worldProposal
             ? worldFieldConfigs[proposal.field as WorldFieldKey]?.label ?? "Świat"
-            : sceneEditorProposal
+            : sceneEditorProposal && !sceneCritiqueProposal
               ? sceneEditorFieldLabel(proposal.field as SceneEditorFieldKey)
-              : conceptFieldConfigs[proposal.field as ConceptFieldKey].label;
+              : conceptFieldConfigs[proposal.field as ConceptFieldKey]?.label ?? "Pole";
   const running = proposal.status === "running";
   const queued = proposal.status === "queued";
   const success = proposal.status === "success";
@@ -1769,6 +1932,7 @@ function ProposalQueueItem({
     !characterProposal &&
     !worldProposal &&
     !sceneAuditProposal &&
+    !sceneCritiqueProposal &&
     !sceneEditorProposal &&
     !planProposal &&
     (longConceptFields.includes(proposal.field as ConceptFieldKey) || structured)
@@ -1798,7 +1962,9 @@ function ProposalQueueItem({
                       ? "Świat"
                       : sceneAuditProposal
                         ? "Analiza"
-                        : "Pole"}
+                        : sceneCritiqueProposal
+                          ? "Redaktor"
+                          : "Pole"}
           </p>
           <h3>{label}</h3>
         </div>
@@ -1911,7 +2077,7 @@ function ProposalQueueItem({
         </div>
       ) : null}
 
-      {success && !structured && !coverProposal && !characterImageProposal && !sceneAuditProposal ? (
+      {success && !structured && !coverProposal && !characterImageProposal && !sceneAuditProposal && !sceneCritiqueProposal ? (
         <label className="field-label">
           {sceneEditorProposal
             ? "Tekst do wstawienia po akceptacji"
@@ -1934,7 +2100,7 @@ function ProposalQueueItem({
         </p>
       ) : null}
 
-      {sceneEditorProposal && !sceneAuditProposal && success ? (
+      {sceneEditorProposal && !sceneAuditProposal && !sceneCritiqueProposal && success ? (
         <p className="muted-text">
           Akceptacja zastosuje tekst w aktywnym edytorze sceny zgodnie z trybem
           wstawiania zapisanym w prompcie. Do tego momentu manuskrypt się nie zmieni.
@@ -1943,6 +2109,10 @@ function ProposalQueueItem({
 
       {sceneAuditProposal && success ? (
         <p className="muted-text">Analiza zakończona. Znalezione elementy dodano do kart w prawym panelu.</p>
+      ) : null}
+
+      {sceneCritiqueProposal && success ? (
+        <p className="muted-text">Krytyka zakończona. Uwagi redaktora pojawiły się jako karty w tym panelu.</p>
       ) : null}
 
       {proposal.parsed && "rationale" in proposal.parsed && proposal.parsed.rationale ? (
@@ -1980,7 +2150,7 @@ function ProposalQueueItem({
       ) : null}
 
       <div className="button-row">
-        {!sceneAuditProposal ? (
+        {!sceneAuditProposal && !sceneCritiqueProposal ? (
           <Button
             variant="primary"
             busy={accepting}
@@ -2006,7 +2176,7 @@ function ProposalQueueItem({
           disabled={accepting || running}
         >
           <X size={16} />
-          {sceneAuditProposal ? "Zamknij" : "Odrzuć"}
+          {sceneAuditProposal || sceneCritiqueProposal ? "Zamknij" : "Odrzuć"}
         </Button>
         {running ? (
           <Button
@@ -2291,9 +2461,39 @@ function useAiQueueRunner() {
 
         const parsed = parseProposalResult(
           result.rawOutput,
-          snapshot.field as ConceptFieldKey | PlanFieldKey | CharacterFieldKey | WorldFieldKey | SceneEditorFieldKey | typeof SCENE_STORY_BIBLE_AUDIT_FIELD,
+          snapshot.field as ConceptFieldKey | PlanFieldKey | CharacterFieldKey | WorldFieldKey | SceneEditorFieldKey | typeof SCENE_STORY_BIBLE_AUDIT_FIELD | typeof SCENE_CRITIQUE_FIELD,
           snapshot.action
         );
+        if (parsed.kind === "scene_critique") {
+          const context =
+            "context" in snapshot.promptPackageJson
+              ? snapshot.promptPackageJson.context
+              : {};
+          const scopedContext =
+            context && typeof context === "object"
+              ? (context as Record<string, unknown>)
+              : {};
+          const sceneId =
+            typeof scopedContext.targetEntityId === "string"
+              ? scopedContext.targetEntityId
+              : "";
+          const sceneSnapshot = recordValue(scopedContext.scene);
+          const sceneTitle = stringRecordValue(sceneSnapshot.title, "Scena");
+          const sourceHash =
+            typeof scopedContext.sourceHash === "string" ? scopedContext.sourceHash : "";
+          if (sceneId) {
+            const report = useSceneCritiqueStore.getState().setCritique({
+              projectId: snapshot.projectId,
+              bookId: snapshot.bookId,
+              sceneId,
+              sceneTitle,
+              summary: parsed.summary,
+              findings: parsed.findings,
+              sourceHash
+            });
+            void persistCritiqueReport(report, result.id);
+          }
+        }
         if (parsed.kind === "scene_story_bible_audit") {
           const context =
             "context" in snapshot.promptPackageJson
@@ -2407,11 +2607,15 @@ function useCoverGenerationProgressListener() {
 
 export function parseProposalResult(
   rawOutput: string,
-  expectedField: ConceptFieldKey | PlanFieldKey | CharacterFieldKey | WorldFieldKey | SceneEditorFieldKey | typeof SCENE_STORY_BIBLE_AUDIT_FIELD,
+  expectedField: ConceptFieldKey | PlanFieldKey | CharacterFieldKey | WorldFieldKey | SceneEditorFieldKey | typeof SCENE_STORY_BIBLE_AUDIT_FIELD | typeof SCENE_CRITIQUE_FIELD,
   action: string
 ): ParsedAiProposal {
   if (action === "analyze_scene_story_bible_opportunities") {
     return parseSceneStoryBibleAuditResult(rawOutput);
+  }
+
+  if (action === "critique_scene") {
+    return parseSceneCritiqueResult(rawOutput);
   }
 
   if (isPlanAction(action)) {
@@ -3360,6 +3564,10 @@ export function proposalCanAccept(proposal: ActiveAiProposal): boolean {
   }
 
   if (proposal.field === SCENE_STORY_BIBLE_AUDIT_FIELD) {
+    return false;
+  }
+
+  if (proposal.field === SCENE_CRITIQUE_FIELD) {
     return false;
   }
 

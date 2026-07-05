@@ -27,6 +27,11 @@ import {
   type NormalizedSceneStoryBibleAudit,
   type SceneStoryBibleAuditPromptPackage
 } from "./sceneStoryBibleAuditPromptPackage";
+import {
+  SCENE_CRITIQUE_FIELD,
+  type NormalizedSceneCritique,
+  type SceneCritiquePromptPackage
+} from "./sceneCritiquePromptPackage";
 
 export type AiProposalStatus = "queued" | "running" | "success" | "error" | "cancelled";
 export type PendingAiProposalStatus = Extract<
@@ -55,12 +60,14 @@ export type AiTaskFieldKey =
   | typeof BOOK_COVER_FIELD
   | typeof CHARACTER_IMAGE_FIELD
   | typeof EXPORT_ARTWORK_FIELD
-  | typeof SCENE_STORY_BIBLE_AUDIT_FIELD;
+  | typeof SCENE_STORY_BIBLE_AUDIT_FIELD
+  | typeof SCENE_CRITIQUE_FIELD;
 export type ParsedAiProposal =
   | NormalizedConceptFieldSuggestion
   | NormalizedPremiseDevelopment
   | NormalizedPlanSuggestion
-  | NormalizedSceneStoryBibleAudit;
+  | NormalizedSceneStoryBibleAudit
+  | NormalizedSceneCritique;
 
 export type NormalizedPlanSuggestion = {
   kind: "book_plan_suggestion";
@@ -86,6 +93,7 @@ export type AiPromptSnapshot = {
     | WorldPromptPackage
     | SceneEditorPromptPackage
     | SceneStoryBibleAuditPromptPackage
+    | SceneCritiquePromptPackage
     | Record<string, unknown>;
   prompt: string;
   coverPrompt?: string;

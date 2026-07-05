@@ -69,6 +69,12 @@ type SceneEditModalProps = {
   ) => void;
   onActivatePrompt: (field: PlanFieldKey, targetEntity?: ScenePromptEntity) => void;
   onLinkThreadToChapter?: (threadId: string, chapterId: string) => void | Promise<void>;
+  /**
+   * Zapisuje scenę do bazy i zwraca zapisaną encję. Wywoływane przed generacją
+   * pola AI dla jeszcze niezapisanej sceny, żeby propozycja miała realny cel
+   * (akceptacja z bocznego panelu zapisuje pole do bazy po zamknięciu modala).
+   */
+  onEnsureSaved?: (draft: UpsertSceneInput) => Promise<Scene>;
 };
 
 const sceneTextFields: Array<{
@@ -99,7 +105,8 @@ export function SceneEditModal({
   onDelete,
   onGenerate,
   onActivatePrompt,
-  onLinkThreadToChapter
+  onLinkThreadToChapter,
+  onEnsureSaved
 }: SceneEditModalProps) {
   const scene =
     state?.mode === "edit"
@@ -236,6 +243,30 @@ export function SceneEditModal({
     }
   }
 
+  // Dla niezapisanej sceny zapisz ją najpierw, żeby generacja pola AI miała
+  // realny cel — inaczej akceptacja propozycji (po zamknięciu modala) nie ma
+  // czego zaktualizować w bazie.
+  async function ensureSceneSavedEntity(): Promise<ScenePromptEntity | undefined> {
+    if (!scenePromptEntity) {
+      return undefined;
+    }
+    if (draft.id || !onEnsureSaved) {
+      return scenePromptEntity;
+    }
+    const saved = await onEnsureSaved(draft);
+    setDraft((current) => ({ ...current, id: saved.id }));
+    setDraftTargetId(saved.id);
+    return saved;
+  }
+
+  async function generateSceneField(field: PlanFieldKey) {
+    const entity = await ensureSceneSavedEntity();
+    if (!entity) {
+      return;
+    }
+    onGenerate(field, entity, { ...draft, id: entity.id });
+  }
+
   if (!state) {
     return null;
   }
@@ -324,7 +355,7 @@ export function SceneEditModal({
                         targetEntity={scenePromptEntity}
                         rows={item.rows}
                         onChange={(value) => setDraft({ ...draft, [item.key]: value })}
-                        onGenerate={() => onGenerate(item.field, scenePromptEntity, draft)}
+                        onGenerate={() => void generateSceneField(item.field)}
                         onActivatePrompt={() => onActivatePrompt(item.field, scenePromptEntity)}
                       />
                     ))}

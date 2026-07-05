@@ -50,8 +50,10 @@ import {
   browserGetSceneSnapshot,
   browserRestoreSceneSnapshot,
   browserRunCodexPrompt,
+  browserListSceneCritiques,
   browserSaveChapterAutoSummary,
   browserSaveSceneAutoSummary,
+  browserSaveSceneCritique,
   browserSetSceneStyleReference,
   browserSaveStorySoFar,
   browserSaveStoryStructure,
@@ -123,6 +125,8 @@ import type {
   RunCodexPromptRequest,
   SaveChapterAutoSummaryInput,
   SaveSceneAutoSummaryInput,
+  SaveSceneCritiqueInput,
+  SceneCritiqueRecord,
   SetSceneStyleReferenceInput,
   SaveStorySoFarInput,
   SaveStoryStructureInput,
@@ -405,6 +409,22 @@ export function saveSceneAutoSummary(input: SaveSceneAutoSummaryInput): Promise<
   }
 
   return invoke("save_scene_auto_summary", { input });
+}
+
+export function saveSceneCritique(input: SaveSceneCritiqueInput): Promise<SceneCritiqueRecord> {
+  if (!isTauriRuntime()) {
+    return browserSaveSceneCritique(input);
+  }
+
+  return invoke("save_scene_critique", { input });
+}
+
+export function listSceneCritiques(bookId: string): Promise<SceneCritiqueRecord[]> {
+  if (!isTauriRuntime()) {
+    return browserListSceneCritiques(bookId);
+  }
+
+  return invoke("list_scene_critiques", { bookId });
 }
 
 export function setSceneStyleReference(input: SetSceneStyleReferenceInput): Promise<Scene> {

@@ -6268,6 +6268,149 @@ a:focus-visible {
   gap: 8px;
 }
 
+.scene-critique-finding {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0 10px;
+  border-top: 1px solid var(--ai-border);
+}
+
+.scene-critique-finding strong {
+  color: var(--ai);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.scene-critique-quote {
+  margin: 0;
+  padding: 4px 10px;
+  border-left: 2px solid var(--ai-border);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* --- Faza Redakcja --- */
+
+.editing-page {
+  display: grid;
+  gap: var(--s4);
+  align-content: start;
+}
+
+.editing-section {
+  display: grid;
+  gap: var(--s3);
+  align-content: start;
+}
+
+.editing-section h3 {
+  margin: var(--s2) 0 0;
+}
+
+.editing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.editing-table th,
+.editing-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.editing-table th {
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.editing-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.editing-report-meta {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.editing-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--s2);
+}
+
+.editing-stat-card {
+  display: grid;
+  gap: 6px;
+  padding: var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.editing-stat-card strong {
+  font-size: 18px;
+}
+
+.editing-stat-label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.editing-phrase-list {
+  margin: 0;
+  padding-left: 18px;
+  columns: 2;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.editing-summary-block {
+  display: grid;
+  gap: 8px;
+  padding: var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.editing-summary-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.editing-summary-heading h3,
+.editing-summary-heading h4 {
+  margin: 0;
+}
+
+.editing-summary-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.editing-summary-editor textarea {
+  width: 100%;
+  resize: vertical;
+}
+
 .proposal-queue-item {
   display: grid;
   gap: 11px;

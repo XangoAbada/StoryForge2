@@ -48,6 +48,17 @@ import {
   unregisterSceneEditorProposalTarget
 } from "../ai/sceneEditorProposalTargets";
 import {
+  buildSceneCritiquePromptPackage,
+  renderSceneCritiquePromptPackage,
+  SCENE_CRITIQUE_FIELD
+} from "../ai/sceneCritiquePromptPackage";
+import {
+  registerCritiqueApplyTarget,
+  unregisterCritiqueApplyTarget,
+  type SceneCritiqueReportFinding
+} from "../ai/sceneCritiqueStore";
+import { findQuoteRangeInDoc } from "./sceneDocSearch";
+import {
   buildPlanPromptPackage,
   planStoryBibleContext,
   PlanFieldKey,
@@ -116,6 +127,9 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [snapshotPreview, setSnapshotPreview] = useState<{ id: string; text: string } | null>(null);
   const lastSavedSignature = useRef("");
+  const critiqueApplyHandlerRef = useRef<(finding: SceneCritiqueReportFinding) => boolean>(
+    () => false
+  );
 
   const projectQuery = useQuery({
     queryKey: ["project", projectId],
@@ -417,6 +431,40 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
     return () => unregisterSceneEditorProposalTarget(draft.id ?? "");
   }, [draft?.id, editor, selectionText, variants]);
 
+  // Handler "Zastosuj" z panelu krytyki — świeża wersja co render (domknięcia
+  // nad draft/planem), rejestracja w registrze tylko przy zmianie sceny.
+  critiqueApplyHandlerRef.current = (finding) => {
+    if (!editor) {
+      return false;
+    }
+    const range = findQuoteRangeInDoc(editor.state.doc, finding.quote);
+    if (!range) {
+      setStatusText("Nie znaleziono cytatu w tekście sceny — uwaga została w panelu");
+      return false;
+    }
+    editor.chain().focus().setTextSelection(range).run();
+    const selectedText = editor.state.doc.textBetween(range.from, range.to, "\n");
+    const instruction = [finding.title, finding.description, finding.suggestion]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(" ");
+    queueEditorAction("rewriteSelection", "replace_selection", {
+      selectedText,
+      customInstruction: instruction
+    });
+    setStatusText("Fragment zaznaczony — propozycja przepisania w kolejce AI");
+    return true;
+  };
+
+  useEffect(() => {
+    if (!draft?.id || !editor) {
+      return;
+    }
+    const sceneId = draft.id;
+    registerCritiqueApplyTarget(sceneId, (finding) => critiqueApplyHandlerRef.current(finding));
+    return () => unregisterCritiqueApplyTarget(sceneId);
+  }, [draft?.id, editor]);
+
   const currentWordCount = draft?.actualWordCount ?? countWords(editor?.getText() ?? "");
   const targetWordCount = draft?.targetWordCount ?? selectedChapter?.targetWordCount ?? null;
   const pendingEditorStatus = selectedScene
@@ -424,6 +472,15 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
         projectId,
         bookId,
         scope: "sceneEditor",
+        targetEntityId: selectedScene.id
+      })
+    : null;
+  const pendingCritiqueStatus = selectedScene
+    ? pendingProposalStatus(proposals, {
+        projectId,
+        bookId,
+        scope: "sceneEditor",
+        field: SCENE_CRITIQUE_FIELD,
         targetEntityId: selectedScene.id
       })
     : null;
@@ -581,7 +638,13 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
     activatePlanPromptContext(field, planEntity);
   }
 
-  function queueEditorAction(field: SceneEditorFieldKey, mode: SceneEditorInsertMode = insertMode) {
+  function queueEditorAction(
+    field: SceneEditorFieldKey,
+    mode: SceneEditorInsertMode = insertMode,
+    // Stany React aktualizują się asynchronicznie — przy programowym zaznaczeniu
+    // (np. "Zastosuj" z krytyki) selekcję i instrukcję trzeba podać wprost.
+    overrides?: { selectedText?: string; customInstruction?: string }
+  ) {
     if (!projectQuery.data || !bookId || !selectedScene || !editor) {
       return;
     }
@@ -607,9 +670,9 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
       characters,
       world,
       field,
-      selectedText: selectionText,
+      selectedText: overrides?.selectedText ?? selectionText,
       currentText: editor.getText(),
-      customInstruction,
+      customInstruction: overrides?.customInstruction ?? customInstruction,
       insertMode: mode,
       targetWordCount: draft?.targetWordCount ?? selectedScene.targetWordCount ?? selectedChapter?.targetWordCount ?? null,
       manualContextSnippets: sceneEditorManualContextSnippets(plan, contextControl),
@@ -627,6 +690,46 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
       prompt: renderSceneEditorPromptPackage(promptPackage)
     });
     closePromptContextTarget(targetId);
+  }
+
+  function queueSceneCritique() {
+    if (!projectQuery.data || !bookId || !selectedScene || !editor) {
+      return;
+    }
+    const sceneText = editor.getText();
+    if (!sceneText.trim()) {
+      setStatusText("Scena nie ma jeszcze tekstu do krytyki");
+      return;
+    }
+    const sceneContext = buildScenePromptContext({
+      book: projectQuery.data.book,
+      plan,
+      characters,
+      world,
+      sceneId: selectedScene.id
+    });
+    if (!sceneContext) {
+      return;
+    }
+    const promptPackage = buildSceneCritiquePromptPackage({
+      project: projectQuery.data.project,
+      book: projectQuery.data.book,
+      scene: selectedScene,
+      sceneContext,
+      sceneText
+    });
+
+    enqueueProposal({
+      scope: "sceneEditor",
+      projectId,
+      bookId,
+      field: SCENE_CRITIQUE_FIELD,
+      action: promptPackage.action,
+      promptPackageId: promptPackage.id,
+      promptPackageJson: promptPackage,
+      prompt: renderSceneCritiquePromptPackage(promptPackage)
+    });
+    setStatusText("Redaktor czyta scenę…");
   }
 
   async function saveSceneFromModal(input: UpsertSceneInput, relations: Omit<SetSceneRelationsInput, "bookId" | "sceneId">) {
@@ -823,6 +926,15 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
                   <Sparkles size={15} />
                   {pendingEditorStatus ? "AI pracuje…" : "Generuj kontynuację"}
                 </Button>
+                <Button
+                  variant="ghost"
+                  busy={Boolean(pendingCritiqueStatus)}
+                  title="Krytyka redaktorska sceny: tempo, dialogi, POV, telling, powtórzenia, ciągłość. Uwagi pojawią się w prawym panelu."
+                  onClick={() => queueSceneCritique()}
+                >
+                  <PenLine size={15} />
+                  {pendingCritiqueStatus ? "Redaktor czyta…" : "Redaktor"}
+                </Button>
                 <details className="scene-variants-menu">
                   <summary>
                     <Sparkles size={15} aria-hidden />
@@ -964,6 +1076,7 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
           onDelete={(sceneId) => sceneDeleteMutation.mutate(sceneId)}
           onGenerate={activateSceneFieldPromptContext}
           onActivatePrompt={activatePlanPromptContext}
+          onEnsureSaved={(input) => upsertScene(input)}
           onLinkThreadToChapter={(threadId, chapterId) =>
             upsertChapterThreadRelation({
               bookId: bookId ?? "",

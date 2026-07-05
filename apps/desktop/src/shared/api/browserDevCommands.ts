@@ -45,6 +45,8 @@ import type {
   RunCodexPromptRequest,
   SaveChapterAutoSummaryInput,
   SaveSceneAutoSummaryInput,
+  SaveSceneCritiqueInput,
+  SceneCritiqueRecord,
   SetSceneStyleReferenceInput,
   SaveStorySoFarInput,
   SaveStoryStructureInput,
@@ -91,6 +93,8 @@ type BrowserPreviewState = {
   characterWorkspaces: Record<string, CharacterWorkspace>;
   worldWorkspaces: Record<string, WorldWorkspace>;
   exportPresets: ExportPreset[];
+  /** Opcjonalne, żeby stare zapisy localStorage nie wymagały migracji. */
+  sceneCritiques?: SceneCritiqueRecord[];
 };
 
 let memoryState: BrowserPreviewState = {
@@ -673,6 +677,40 @@ export async function browserSaveSceneAutoSummary(
   }
   writeState(state);
   return scene;
+}
+
+export async function browserSaveSceneCritique(
+  input: SaveSceneCritiqueInput
+): Promise<SceneCritiqueRecord> {
+  const state = readState();
+  const now = new Date().toISOString();
+  const critiques = state.sceneCritiques ?? [];
+  const existing = critiques.find((item) => item.sceneId === input.sceneId);
+  const record: SceneCritiqueRecord = {
+    id: existing?.id ?? input.id ?? `scene-critique:${Math.random().toString(36).slice(2)}`,
+    projectId: input.projectId,
+    bookId: input.bookId,
+    sceneId: input.sceneId,
+    aiRunId: input.aiRunId ?? null,
+    summary: input.summary,
+    findingsJson: input.findingsJson,
+    sourceHash: input.sourceHash,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now
+  };
+  state.sceneCritiques = [
+    record,
+    ...critiques.filter((item) => item.sceneId !== input.sceneId)
+  ];
+  writeState(state);
+  return record;
+}
+
+export async function browserListSceneCritiques(
+  bookId: string
+): Promise<SceneCritiqueRecord[]> {
+  const state = readState();
+  return (state.sceneCritiques ?? []).filter((item) => item.bookId === bookId);
 }
 
 export async function browserSetSceneStyleReference(
@@ -1900,7 +1938,8 @@ function readState(): BrowserPreviewState {
           plans: normalizePlans(parsed.plans),
           characterWorkspaces: normalizeCharacterWorkspaces(parsed.characterWorkspaces),
           worldWorkspaces: normalizeWorldWorkspaces(parsed.worldWorkspaces),
-          exportPresets: Array.isArray(parsed.exportPresets) ? parsed.exportPresets : []
+          exportPresets: Array.isArray(parsed.exportPresets) ? parsed.exportPresets : [],
+          sceneCritiques: Array.isArray(parsed.sceneCritiques) ? parsed.sceneCritiques : []
         })
       : { projects: [], aiRuns: [], aiProposals: [], plans: {}, characterWorkspaces: {}, worldWorkspaces: {}, exportPresets: [] };
   } catch {

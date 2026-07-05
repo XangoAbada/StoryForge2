@@ -705,6 +705,34 @@ async function applySingleField(
     });
   }
 
+  const scene = context.plan.scenes.find((item) => item.id === targetEntityId);
+  if (
+    scene &&
+    context.saveScene &&
+    ["sceneTitle", "sceneSummary", "sceneGoal", "sceneConflict", "sceneOutcome"].includes(
+      targetField
+    )
+  ) {
+    await context.saveScene({
+      id: scene.id,
+      bookId: scene.bookId,
+      chapterId: scene.chapterId,
+      orderIndex: scene.orderIndex,
+      title: targetField === "sceneTitle" ? value : scene.title,
+      summary: targetField === "sceneSummary" ? value : scene.summary,
+      goal: targetField === "sceneGoal" ? value : scene.goal,
+      conflict: targetField === "sceneConflict" ? value : scene.conflict,
+      outcome: targetField === "sceneOutcome" ? value : scene.outcome,
+      timeMarker: scene.timeMarker,
+      povCharacterId: scene.povCharacterId,
+      locationId: scene.locationId,
+      targetWordCount: scene.targetWordCount,
+      actualWordCount: scene.actualWordCount,
+      manuscriptContent: scene.manuscriptContent,
+      status: scene.status
+    });
+  }
+
   if (targetField === "threadChapterDescription") {
     const [threadId, chapterId] = targetEntityId.split(":");
     if (!threadId || !chapterId) {

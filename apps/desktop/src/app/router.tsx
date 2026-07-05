@@ -7,6 +7,7 @@ import { BookPlanPage } from "../features/book/BookPlanPage";
 import { CharactersPage } from "../features/characters/CharactersPage";
 import { WorldPage } from "../features/world/WorldPage";
 import { SceneEditorPage } from "../features/scenes/SceneEditorPage";
+import { EditingPage } from "../features/editing/EditingPage";
 import { ExportPage } from "../features/export/ExportPage";
 import { AiSettingsPage } from "../features/ai/AiSettingsPage";
 import { AiLogPage } from "../features/ai/AiLogPage";
@@ -57,6 +58,12 @@ const projectEditorRoute = createRoute({
   component: ProjectEditorRoute
 });
 
+const projectEditingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/projects/$projectId/editing",
+  component: ProjectEditingRoute
+});
+
 const projectExportRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/projects/$projectId/export",
@@ -90,6 +97,7 @@ const routeTree = rootRoute.addChildren([
   projectCharactersRoute,
   projectWorldRoute,
   projectEditorRoute,
+  projectEditingRoute,
   projectExportRoute,
   projectAiRoute,
   projectAiLogRoute
@@ -145,6 +153,15 @@ function ProjectEditorRoute() {
   return (
     <ProjectShell projectId={projectId} activeSection="editor">
       <SceneEditorPage projectId={projectId} />
+    </ProjectShell>
+  );
+}
+
+function ProjectEditingRoute() {
+  const projectId = useProjectId();
+  return (
+    <ProjectShell projectId={projectId} activeSection="editing">
+      <EditingPage projectId={projectId} />
     </ProjectShell>
   );
 }

@@ -36,7 +36,7 @@ import {
 
 type ProjectShellProps = {
   projectId: string;
-  activeSection: "concept" | "plan" | "characters" | "world" | "editor" | "export" | "ai" | "aiLog";
+  activeSection: "concept" | "plan" | "characters" | "world" | "editor" | "editing" | "export" | "ai" | "aiLog";
   children: ReactNode;
 };
 
@@ -115,6 +115,8 @@ export function ProjectShell({
             ? "Faza 5: Świat i reguły"
             : activeSection === "editor"
               ? "Faza 7: Edytor scen i rozdziałów"
+              : activeSection === "editing"
+                ? "Faza 8: Redakcja i statystyki"
               : activeSection === "export"
                 ? "Eksport książki"
           : activeSection === "aiLog"
@@ -229,7 +231,8 @@ export function ProjectShell({
               ["characters", "03", "Postacie"],
               ["world", "04", "Świat"],
               ["editor", "05", "Edytor"],
-              ["export", "06", "Eksport"]
+              ["editing", "06", "Redakcja"],
+              ["export", "07", "Eksport"]
             ] as const
           ).map(([section, num, label]) => (
             <Link
