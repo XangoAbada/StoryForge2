@@ -90,15 +90,11 @@ export const useSceneDiscoveryStore = create<SceneDiscoveryState>((set) => ({
     })),
   addAuditPrompt: (input) =>
     set((state) => {
-      const existing = state.pendingAuditPrompts.find(
-        (prompt) =>
-          prompt.sceneId === input.sceneId &&
-          prompt.sourceKind === input.sourceKind &&
-          prompt.analysisText === input.analysisText
+      // Jedna propozycja analizy na scenę: kolejna edycja aktualizuje istniejący
+      // wpis (najświeższy tekst), zamiast dokładać nowy przy każdej zmianie.
+      const rest = state.pendingAuditPrompts.filter(
+        (prompt) => prompt.sceneId !== input.sceneId
       );
-      if (existing) {
-        return state;
-      }
 
       return {
         pendingAuditPrompts: [
@@ -107,7 +103,7 @@ export const useSceneDiscoveryStore = create<SceneDiscoveryState>((set) => ({
             id: createAuditPromptId(input.sceneId),
             createdAt: new Date().toISOString()
           },
-          ...state.pendingAuditPrompts
+          ...rest
         ].slice(0, 12)
       };
     }),
