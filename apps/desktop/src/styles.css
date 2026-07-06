@@ -6446,6 +6446,18 @@ a:focus-visible {
   align-items: flex-end;
 }
 
+.brainstorm-composer-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.brainstorm-composer-chips {
+  padding: 2px 0;
+}
+
 .brainstorm-composer textarea {
   flex: 1;
   resize: vertical;

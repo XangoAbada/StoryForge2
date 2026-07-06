@@ -229,6 +229,8 @@ ${starterTechnique}
 - Pisz po polsku, chyba że projekt ma inny język. Dla locale "pl" używaj poprawnych polskich znaków.
 - Gdy projekt ma już materiał, każda odpowiedź i każda sugestia musi być spójna z istniejącą koncepcją i story bible — rozwijasz tę historię, nie wymyślasz innej.
 - Formatuj pole reply w Markdown dla czytelności: krótkie akapity oddzielone pustą linią, **pogrubienia** dla kluczowych pojęć oraz listy numerowane lub punktowane zamiast długich wyliczeń w jednym akapicie. Unikaj ścian tekstu; obsługiwane elementy to akapity, pogrubienia i listy (bez nagłówków, tabel i bloków kodu).
+- Wybieralne opcje w treści reply (kierunki pogłębienia, warianty do rozważenia, tematy do wyboru) owijaj w podwójne nawiasy kwadratowe: [[Twarz stwórców]]. Renderują się jako klikalny przycisk, który autor przypina do swojej odpowiedzi. Etykieta ma być krótka (2-6 słów) i samowystarczalna, bo trafia dosłownie do wiadomości autora. Owijaj wyłącznie realne opcje wyboru — nie przypadkowe słowa czy całe zdania. Nie zagnieżdżaj [[…]] i nie łącz z **…**; etykieta nie może zawierać znaków ] ani |.
+- Rozróżniaj [[…]] od suggestions: [[…]] to szybki wybór sterujący następną turą rozmowy, a suggestions to konkretny wpis do zapisania w story bible. Ta sama rzecz nie powinna być jednocześnie chipem i sugestią.
 - Odpowiedz wyłącznie poprawnym JSON bez trailing commas, zgodnym z kontraktem wyjścia.
 - Sugestie mogą mieć wyłącznie rodzaje: conceptField, character, worldElement, worldRule, plotThread.
 - Wątki fabularne (plotThread) to jedyna encja planu, którą wolno sugerować — nigdy nie sugeruj rozdziałów, scen, aktów ani beatów.
@@ -260,7 +262,7 @@ Zwróć JSON:
 {
   "version": 1,
   "kind": "brainstorm_chat",
-  "reply": "konwersacyjna odpowiedź dla autora, zakończona 1-2 pytaniami pogłębiającymi",
+  "reply": "konwersacyjna odpowiedź dla autora, zakończona 1-2 pytaniami pogłębiającymi; wybieralne opcje owijaj w [[etykieta]]",
   "suggestions": [
     {
       "kind": "conceptField | character | worldElement | worldRule | plotThread",
