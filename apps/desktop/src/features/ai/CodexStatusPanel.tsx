@@ -8,6 +8,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { checkCodexCli, listCodexModels } from "../../shared/api/commands";
+import { REASONING_LEVELS } from "../../shared/api/types";
 import type { ReasoningEffort } from "../../shared/api/types";
 import { useCodexSettingsStore } from "./codexSettingsStore";
 import { Button } from "../../shared/ui";
@@ -16,16 +17,7 @@ type CodexStatusPanelProps = {
   compact?: boolean;
 };
 
-const reasoningLevels: Array<{
-  value: ReasoningEffort;
-  label: string;
-  hint: string;
-}> = [
-  { value: "low", label: "Low", hint: "Szybciej, mniej analizy." },
-  { value: "medium", label: "Medium", hint: "Balans jakości i czasu." },
-  { value: "high", label: "High", hint: "Głębsze rozumowanie dla trudnych pól." },
-  { value: "xhigh", label: "XHigh", hint: "Najgłębsze rozumowanie, wolniejsze." }
-];
+const reasoningLevels = REASONING_LEVELS;
 
 export function CodexStatusPanel({ compact = false }: CodexStatusPanelProps) {
   const queryClient = useQueryClient();

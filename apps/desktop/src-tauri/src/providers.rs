@@ -123,6 +123,16 @@ pub(crate) async fn execute_claude_cli(
         .stderr(Stdio::piped())
         .kill_on_drop(true);
 
+    // Claude CLI odpowiednikiem reasoning jest `--effort` (low/medium/high/xhigh).
+    let effort = request
+        .reasoning_effort
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if let Some(effort) = effort {
+        command.arg("--effort").arg(effort);
+    }
+
     let (status, stdout, stderr) = run_registered_codex_command(
         registry,
         ActiveCodexRun {
@@ -131,7 +141,7 @@ pub(crate) async fn execute_claude_cli(
             action: request.action.clone(),
             started_at: Utc::now().to_rfc3339(),
             model: Some(model.to_string()),
-            reasoning_effort: None,
+            reasoning_effort: request.reasoning_effort.clone(),
             phase: "running".into(),
         },
         &mut command,

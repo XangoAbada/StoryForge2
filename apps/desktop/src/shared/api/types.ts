@@ -833,6 +833,22 @@ export type AIAction =
 
 export type ReasoningEffort = "low" | "medium" | "high" | "xhigh";
 
+/**
+ * Poziomy reasoning/effort współdzielone przez panel modelu (topbar),
+ * CodexStatusPanel i ustawienia AI. Wartości są zgodne z `claude --effort`
+ * (low/medium/high/xhigh) oraz z reasoning Codeksa i OpenAI API.
+ */
+export const REASONING_LEVELS: Array<{
+  value: ReasoningEffort;
+  label: string;
+  hint: string;
+}> = [
+  { value: "low", label: "Low", hint: "Szybciej, mniej analizy." },
+  { value: "medium", label: "Medium", hint: "Balans jakości i czasu." },
+  { value: "high", label: "High", hint: "Głębsze rozumowanie dla trudnych pól." },
+  { value: "xhigh", label: "XHigh", hint: "Najgłębsze rozumowanie, wolniejsze." }
+];
+
 export type CodexCliStatus = {
   available: boolean;
   path?: string;

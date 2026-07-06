@@ -15,8 +15,51 @@ const ANTHROPIC_MODEL_LABELS: Record<string, string> = {
   "claude-haiku-4-5": "Claude Haiku 4.5"
 };
 
+/** Katalogi modeli współdzielone przez ustawienia AI i panel modelu (topbar). */
+export const CLAUDE_MODELS: Array<{ value: string; label: string }> = [
+  { value: "sonnet", label: "Sonnet (zalecany)" },
+  { value: "opus", label: "Opus (najmocniejszy)" },
+  { value: "haiku", label: "Haiku (najszybszy)" }
+];
+
+export const OPENAI_TEXT_MODELS = ["gpt-5.5", "gpt-5", "gpt-4.1"];
+
+export const ANTHROPIC_MODELS: Array<{ value: string; label: string }> = [
+  { value: "claude-sonnet-5", label: "Claude Sonnet 5 (zalecany)" },
+  { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
+  { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" }
+];
+
+export type TextModelChoice = {
+  field: keyof AiSettings;
+  options: Array<{ value: string; label: string }>;
+};
+
+/**
+ * Zwraca pole AiSettings i listę modeli do wyboru dla aktywnego dostawcy.
+ * Dla Codeksa zwraca null — jego model bierze się z osobnego katalogu
+ * (`listCodexModels`) i `useCodexSettingsStore`.
+ */
+export function textModelChoices(settings: AiSettings): TextModelChoice | null {
+  switch (settings.textProvider) {
+    case "claude-cli":
+      return { field: "claudeModel", options: CLAUDE_MODELS };
+    case "openai-api":
+      return {
+        field: "openaiTextModel",
+        options: [...new Set([settings.openaiTextModel, ...OPENAI_TEXT_MODELS])].map(
+          (model) => ({ value: model, label: model })
+        )
+      };
+    case "anthropic-api":
+      return { field: "anthropicModel", options: ANTHROPIC_MODELS };
+    default:
+      return null;
+  }
+}
+
 export type TextProviderInfo = {
-  /** Czy aktywny jest Codex CLI (jedyny dostawca z modelem i reasoning sterowanymi z panelu). */
+  /** Czy aktywny jest Codex CLI (model z `useCodexSettingsStore`, nie z AiSettings). */
   isCodex: boolean;
   providerLabel: string;
   /** Model efektywny dla dostawców innych niż Codex (pusty dla Codeksa — model bierze się z panelu). */

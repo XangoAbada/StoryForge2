@@ -19,26 +19,18 @@ import {
 import type {
   AiSettings,
   ImageProviderId,
+  ReasoningEffort,
   TextProviderId
 } from "../../shared/api/types";
-import { DEFAULT_AI_SETTINGS } from "../../shared/api/types";
+import { DEFAULT_AI_SETTINGS, REASONING_LEVELS } from "../../shared/api/types";
 import { Button, Field, StatusPill } from "../../shared/ui";
 import { CodexStatusPanel } from "./CodexStatusPanel";
 import { useCodexSettingsStore } from "./codexSettingsStore";
-
-const CLAUDE_MODELS = [
-  { value: "sonnet", label: "Sonnet (zalecany)" },
-  { value: "opus", label: "Opus (najmocniejszy)" },
-  { value: "haiku", label: "Haiku (najszybszy)" }
-];
-
-const OPENAI_TEXT_MODELS = ["gpt-5.5", "gpt-5", "gpt-4.1"];
-
-const ANTHROPIC_MODELS = [
-  { value: "claude-sonnet-5", label: "Claude Sonnet 5 (zalecany)" },
-  { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
-  { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" }
-];
+import {
+  ANTHROPIC_MODELS,
+  CLAUDE_MODELS,
+  OPENAI_TEXT_MODELS
+} from "./textProviderInfo";
 
 const TEXT_PROVIDERS: Array<{ value: TextProviderId; label: string; hint: string }> = [
   {
@@ -92,6 +84,12 @@ export function AiSettingsPage() {
   const timeoutSeconds = useCodexSettingsStore((state) => state.timeoutSeconds);
   const setTimeoutSeconds = useCodexSettingsStore(
     (state) => state.setTimeoutSeconds
+  );
+  const reasoningEffort = useCodexSettingsStore(
+    (state) => state.reasoningEffort
+  );
+  const setReasoningEffort = useCodexSettingsStore(
+    (state) => state.setReasoningEffort
   );
 
   const settingsQuery = useQuery({
@@ -336,6 +334,31 @@ export function AiSettingsPage() {
               </select>
             </label>
           ) : null}
+
+          <label className="field-label narrow">
+            Poziom reasoning
+            <select
+              value={reasoningEffort}
+              onChange={(event) =>
+                setReasoningEffort(event.target.value as ReasoningEffort)
+              }
+              title={
+                REASONING_LEVELS.find((level) => level.value === reasoningEffort)
+                  ?.hint
+              }
+            >
+              {REASONING_LEVELS.map((level) => (
+                <option value={level.value} key={level.value}>
+                  {level.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="help-text">
+            Wspólny dla Codeksa, OpenAI API i Claude Code CLI (dla Claude mapuje
+            się na <code>--effort</code>). Ta sama wartość steruje suwakiem w
+            panelu modelu na górnym pasku.
+          </p>
         </div>
       </div>
 

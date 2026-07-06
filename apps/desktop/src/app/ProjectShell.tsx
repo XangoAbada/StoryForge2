@@ -17,15 +17,20 @@ import {
   useRef,
   useState
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getAiSettings,
   getProject,
   listCodexModels,
+  saveAiSettings,
   searchProject
 } from "../shared/api/commands";
-import type { ReasoningEffort, SearchResult } from "../shared/api/types";
-import { describeTextProvider } from "../features/ai/textProviderInfo";
+import type { SearchResult } from "../shared/api/types";
+import { REASONING_LEVELS } from "../shared/api/types";
+import {
+  describeTextProvider,
+  textModelChoices
+} from "../features/ai/textProviderInfo";
 import { AiProposalPanel } from "../features/ai/AiProposalPanel";
 import { AiPromptContextPanel } from "../features/ai/AiPromptContextPanel";
 import { useCodexSettingsStore } from "../features/ai/codexSettingsStore";
@@ -40,16 +45,7 @@ type ProjectShellProps = {
   children: ReactNode;
 };
 
-const reasoningLevels: Array<{
-  value: ReasoningEffort;
-  label: string;
-  hint: string;
-}> = [
-  { value: "low", label: "Low", hint: "Szybciej, mniej analizy." },
-  { value: "medium", label: "Medium", hint: "Balans jakości i czasu." },
-  { value: "high", label: "High", hint: "Głębsze rozumowanie dla trudnych pól." },
-  { value: "xhigh", label: "XHigh", hint: "Najgłębsze rozumowanie, wolniejsze." }
-];
+const reasoningLevels = REASONING_LEVELS;
 
 export function ProjectShell({
   projectId,
@@ -57,6 +53,7 @@ export function ProjectShell({
   children
 }: ProjectShellProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const location = useLocation({
     select: (currentLocation) => ({
       href: currentLocation.href
@@ -87,6 +84,15 @@ export function ProjectShell({
     retry: 0
   });
   const providerInfo = describeTextProvider(aiSettingsQuery.data);
+  const modelChoice = aiSettingsQuery.data
+    ? textModelChoices(aiSettingsQuery.data)
+    : null;
+  const saveAiSettingsMutation = useMutation({
+    mutationFn: saveAiSettings,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["ai-settings"] });
+    }
+  });
   const contextPanelWidth = useCodexSettingsStore(
     (state) => state.contextPanelWidth
   );
@@ -306,68 +312,84 @@ export function ProjectShell({
             </summary>
             <div className="model-menu-body">
               {providerInfo.isCodex ? (
-                <>
-                  <label className="field-label">
-                    Model
-                    <select
-                      value={model}
-                      onChange={(event) => setModel(event.target.value)}
-                      title="Model używany przez codex exec przy generowaniu treści pól."
-                    >
-                      {modelOptions.map((option) => (
-                        <option value={option.value} key={option.value} title={option.title}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="field-label">
-                    Poziom reasoning
-                    <div className="reasoning-control">
-                      <input
-                        type="range"
-                        min={0}
-                        max={reasoningLevels.length - 1}
-                        step={1}
-                        value={reasoningIndex}
-                        onChange={(event) => updateReasoning(Number(event.target.value))}
-                        title={reasoningLevels[reasoningIndex]?.hint}
-                      />
-                      <div className="reasoning-labels" aria-hidden="true">
-                        {reasoningLevels.map((level) => (
-                          <span
-                            key={level.value}
-                            className={level.value === reasoningEffort ? "active" : ""}
-                            title={level.hint}
-                          >
-                            {level.label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </label>
-
-                  {modelQuery.data?.fallback ? (
-                    <p className="muted-text">{modelQuery.data.errorMessage}</p>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <p className="muted-text">
-                    Aktywny dostawca tekstu: <strong>{providerInfo.providerLabel}</strong>
-                    {providerInfo.modelLabel ? ` (${providerInfo.modelLabel})` : ""}. Model
-                    i parametry ustawisz w ustawieniach AI. Suwak reasoning dotyczy tylko
-                    Codeksa.
-                  </p>
-                  <Link
-                    className="model-menu-settings-link"
-                    to="/projects/$projectId/ai"
-                    params={{ projectId }}
+                <label className="field-label">
+                  Model
+                  <select
+                    value={model}
+                    onChange={(event) => setModel(event.target.value)}
+                    title="Model używany przez codex exec przy generowaniu treści pól."
                   >
-                    Otwórz ustawienia AI
-                  </Link>
-                </>
+                    {modelOptions.map((option) => (
+                      <option value={option.value} key={option.value} title={option.title}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : modelChoice ? (
+                <label className="field-label">
+                  Model
+                  <select
+                    value={aiSettingsQuery.data?.[modelChoice.field] ?? ""}
+                    disabled={saveAiSettingsMutation.isPending}
+                    onChange={(event) => {
+                      if (!aiSettingsQuery.data) {
+                        return;
+                      }
+                      saveAiSettingsMutation.mutate({
+                        ...aiSettingsQuery.data,
+                        [modelChoice.field]: event.target.value
+                      });
+                    }}
+                    title={`Model używany przez ${providerInfo.providerLabel}.`}
+                  >
+                    {modelChoice.options.map((option) => (
+                      <option value={option.value} key={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
+              <label className="field-label">
+                Poziom reasoning
+                <div className="reasoning-control">
+                  <input
+                    type="range"
+                    min={0}
+                    max={reasoningLevels.length - 1}
+                    step={1}
+                    value={reasoningIndex}
+                    onChange={(event) => updateReasoning(Number(event.target.value))}
+                    title={reasoningLevels[reasoningIndex]?.hint}
+                  />
+                  <div className="reasoning-labels" aria-hidden="true">
+                    {reasoningLevels.map((level) => (
+                      <span
+                        key={level.value}
+                        className={level.value === reasoningEffort ? "active" : ""}
+                        title={level.hint}
+                      >
+                        {level.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </label>
+
+              {providerInfo.isCodex ? (
+                modelQuery.data?.fallback ? (
+                  <p className="muted-text">{modelQuery.data.errorMessage}</p>
+                ) : null
+              ) : (
+                <Link
+                  className="model-menu-settings-link"
+                  to="/projects/$projectId/ai"
+                  params={{ projectId }}
+                >
+                  Otwórz ustawienia AI
+                </Link>
               )}
             </div>
           </details>
