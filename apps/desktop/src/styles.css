@@ -7142,6 +7142,25 @@ button.nav-item {
   color: var(--accent);
 }
 
+.ai-cost-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.book-cost {
+  color: var(--text-soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.proposal-cost {
+  font-variant-numeric: tabular-nums;
+}
+
 .topbar-select {
   display: inline-flex;
   gap: 10px;

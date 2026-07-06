@@ -2,8 +2,13 @@ import { Check, FileJson, History, Loader2 } from "lucide-react";
 import { ReactNode } from "react";
 import { Button, Chip, StatusPill } from "../../shared/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listAiRuns, markAiProposalAccepted } from "../../shared/api/commands";
+import {
+  getAiSettings,
+  listAiRuns,
+  markAiProposalAccepted
+} from "../../shared/api/commands";
 import type { AiLogEntry } from "../../shared/api/types";
+import { costOf, formatCostLabel, imageCostOf } from "./pricing";
 import { formatLocalDateTime } from "../../shared/date";
 import { applyAiProposal } from "./AiProposalPanel";
 import { conceptFieldConfigs, ConceptFieldKey } from "./promptPackage";
@@ -35,6 +40,7 @@ export function AiLogPage({ projectId }: AiLogPageProps) {
     onSuccess: async (_payload, proposal) => {
       clearProposal(proposal.id);
       await queryClient.invalidateQueries({ queryKey: ["ai-runs", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["ai-run-usage-totals", projectId] });
       await queryClient.invalidateQueries({ queryKey: ["ai-proposals", projectId] });
       await queryClient.invalidateQueries({ queryKey: ["book-plan"] });
       await queryClient.invalidateQueries({ queryKey: ["character-workspace", projectId] });
@@ -100,6 +106,24 @@ export function AiLogPage({ projectId }: AiLogPageProps) {
   );
 }
 
+function entryCostLabel(entry: AiLogEntry, plnPerUsd: number): string {
+  const cost =
+    entry.imageCount > 0
+      ? imageCostOf(entry.providerId, entry.model, entry.imageSize, entry.imageCount)
+      : costOf(
+          {
+            inputTokens: entry.inputTokens,
+            outputTokens: entry.outputTokens,
+            cacheReadTokens: entry.cacheReadTokens,
+            cacheCreationTokens: entry.cacheCreationTokens,
+            tokensEstimated: entry.tokensEstimated
+          },
+          entry.providerId,
+          entry.model
+        );
+  return formatCostLabel(cost, plnPerUsd);
+}
+
 function AiLogEntryDetails({
   entry,
   applying,
@@ -111,6 +135,12 @@ function AiLogEntryDetails({
   applyErrorMessage: string;
   onApply: (proposal: ActiveAiProposal) => void;
 }) {
+  const aiSettingsQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: getAiSettings
+  });
+  const plnPerUsd = aiSettingsQuery.data?.plnPerUsd ?? 4;
+  const totalTokens = entry.inputTokens + entry.outputTokens;
   const summary = requestSummary(entry);
   const proposal = proposalFromLogEntry(entry);
   const canApply =
@@ -151,6 +181,19 @@ function AiLogEntryDetails({
             <Chip tone="ai" title="Stopień rozumowania">
               {reasoningLabel(entry.reasoningEffort)}
             </Chip>
+            {entry.status === "success" ? (
+              <Chip
+                tone="accent"
+                title="Szacunkowy koszt wg oficjalnego cennika (~ = szacowane tokeny)"
+              >
+                {entryCostLabel(entry, plnPerUsd)}
+                {entry.imageCount > 0
+                  ? ` · ${entry.imageCount} obr.`
+                  : totalTokens > 0
+                    ? ` · ${totalTokens} tok.${entry.tokensEstimated ? " (szac.)" : ""}`
+                    : ""}
+              </Chip>
+            ) : null}
           </div>
           <div className="ai-log-prompt">
             <h4>Prompt</h4>

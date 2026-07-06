@@ -6,6 +6,7 @@ import type {
   Act,
   AiLogEntry,
   AiProposalRecord,
+  AiRunUsageGroup,
   AiSettings,
   AiRunResult,
   ActiveCodexRun,
@@ -91,6 +92,21 @@ import {
 } from "../../features/export/exportFormatting";
 
 const STORAGE_KEY = "storyforge2.browserPreview.projects";
+
+// Domyślne pola zużycia tokenów dla mocków (rzeczywisty koszt liczy backend).
+const AI_RUN_TOKEN_DEFAULTS = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
+  tokensEstimated: false
+} as const;
+
+const AI_LOG_USAGE_DEFAULTS = {
+  ...AI_RUN_TOKEN_DEFAULTS,
+  imageCount: 0,
+  imageSize: null as string | null
+};
 
 type BrowserPreviewState = {
   projects: ProjectDetails[];
@@ -1423,6 +1439,52 @@ export async function browserListAiRuns(projectId: string): Promise<AiLogEntry[]
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
+function aggregateUsage(runs: AiLogEntry[]): AiRunUsageGroup[] {
+  const groups = new Map<string, AiRunUsageGroup>();
+  for (const run of runs) {
+    if (run.status !== "success") {
+      continue;
+    }
+    const model = run.model ?? "";
+    const imageSize = run.imageSize ?? null;
+    const key = `${run.projectId}|${run.providerId}|${model}|${imageSize ?? ""}`;
+    const existing =
+      groups.get(key) ??
+      ({
+        projectId: run.projectId,
+        providerId: run.providerId,
+        model,
+        imageSize,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        imageCount: 0,
+        anyEstimated: 0,
+        runCount: 0
+      } satisfies AiRunUsageGroup);
+    existing.inputTokens += run.inputTokens ?? 0;
+    existing.outputTokens += run.outputTokens ?? 0;
+    existing.cacheReadTokens += run.cacheReadTokens ?? 0;
+    existing.cacheCreationTokens += run.cacheCreationTokens ?? 0;
+    existing.imageCount += run.imageCount ?? 0;
+    existing.anyEstimated = Math.max(existing.anyEstimated, run.tokensEstimated ? 1 : 0);
+    existing.runCount += 1;
+    groups.set(key, existing);
+  }
+  return [...groups.values()];
+}
+
+export async function browserListAiRunUsageTotals(projectId: string): Promise<AiRunUsageGroup[]> {
+  const state = readState();
+  return aggregateUsage(state.aiRuns.filter((run) => run.projectId === projectId));
+}
+
+export async function browserListAiRunUsageTotalsAll(): Promise<AiRunUsageGroup[]> {
+  const state = readState();
+  return aggregateUsage(state.aiRuns);
+}
+
 export async function browserListAiProposals(projectId: string): Promise<AiProposalRecord[]> {
   return readState()
     .aiProposals.filter(
@@ -1593,7 +1655,8 @@ export async function browserRunCodexPrompt(
     status: "error",
     rawOutput: null,
     errorMessage,
-    durationMs: 0
+    durationMs: 0,
+    ...AI_RUN_TOKEN_DEFAULTS
   };
 }
 
@@ -1633,7 +1696,8 @@ export async function browserGenerateNewProjectTitle(
       rationale: "Browser preview generated a deterministic title.",
       warnings: []
     }),
-    durationMs: 0
+    durationMs: 0,
+    ...AI_RUN_TOKEN_DEFAULTS
   };
 }
 
@@ -1704,7 +1768,8 @@ export async function browserGenerateBookCover(
       action: "generate_cover_image",
       status: "success",
       rawOutput,
-      durationMs: 0
+      durationMs: 0,
+      ...AI_RUN_TOKEN_DEFAULTS
     },
     imagePath,
     prompt: input.coverPrompt,
@@ -1802,7 +1867,8 @@ export async function browserGenerateCharacterImage(
       action: "generate_character_image",
       status: "success",
       rawOutput,
-      durationMs: 0
+      durationMs: 0,
+      ...AI_RUN_TOKEN_DEFAULTS
     },
     imagePath,
     prompt: input.imagePrompt,
@@ -1858,7 +1924,8 @@ export async function browserAcceptGeneratedCharacterImage(
       action: "generate_character_image",
       status: "success",
       rawOutput: null,
-      durationMs: 0
+      durationMs: 0,
+      ...AI_RUN_TOKEN_DEFAULTS
     },
     imagePath: input.imagePath,
     prompt: input.imagePrompt,
@@ -1995,7 +2062,8 @@ export async function browserGenerateExportArtwork(
       action: "generate_export_artwork",
       status: "success",
       rawOutput: JSON.stringify({ imagePath }),
-      durationMs: 0
+      durationMs: 0,
+      ...AI_RUN_TOKEN_DEFAULTS
     },
     imagePath,
     prompt: input.imagePrompt,
@@ -2037,7 +2105,8 @@ export async function browserAcceptGeneratedExportArtwork(
       promptPackageId: "accepted-export-artwork",
       action: "generate_export_artwork",
       status: "success",
-      durationMs: 0
+      durationMs: 0,
+      ...AI_RUN_TOKEN_DEFAULTS
     },
     imagePath: input.imagePath,
     prompt: input.imagePrompt,
@@ -2139,9 +2208,12 @@ function definedOnly(input: BookConceptInput): BookConceptInput {
   ) as BookConceptInput;
 }
 
-function appendAiRun(entry: AiLogEntry): void {
+function appendAiRun(
+  entry: Omit<AiLogEntry, keyof typeof AI_LOG_USAGE_DEFAULTS> &
+    Partial<typeof AI_LOG_USAGE_DEFAULTS>
+): void {
   const state = readState();
-  state.aiRuns.unshift(entry);
+  state.aiRuns.unshift({ ...AI_LOG_USAGE_DEFAULTS, ...entry });
   writeState(state);
 }
 

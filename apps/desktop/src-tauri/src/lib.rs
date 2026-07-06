@@ -271,6 +271,7 @@ pub struct CoverGenerationProgress {
 pub struct AiRunResult {
     pub id: String,
     pub provider_id: String,
+    pub model: String,
     pub prompt_package_id: String,
     pub action: String,
     pub status: String,
@@ -278,6 +279,11 @@ pub struct AiRunResult {
     pub stderr: Option<String>,
     pub error_message: Option<String>,
     pub duration_ms: u128,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_read_tokens: u64,
+    pub cache_creation_tokens: u64,
+    pub tokens_estimated: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -298,6 +304,13 @@ pub struct AiLogEntry {
     pub completed_at: Option<String>,
     pub decision_status: Option<String>,
     pub proposal_snapshot: Option<Value>,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_read_tokens: i64,
+    pub cache_creation_tokens: i64,
+    pub tokens_estimated: bool,
+    pub image_count: i64,
+    pub image_size: Option<String>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -317,6 +330,32 @@ struct AiLogEntryRow {
     completed_at: Option<String>,
     decision_status: Option<String>,
     proposal_snapshot_json: Option<String>,
+    input_tokens: i64,
+    output_tokens: i64,
+    cache_read_tokens: i64,
+    cache_creation_tokens: i64,
+    tokens_estimated: i64,
+    image_count: i64,
+    image_size: Option<String>,
+}
+
+/// Zsumowane zużycie tokenów/obrazów pogrupowane tak, aby front zastosował
+/// cennik per (dostawca, model, rozmiar obrazu). `any_estimated` to MAX z flagi
+/// szacowania w grupie (1 = w grupie jest choć jeden szacowany run).
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct AiRunUsageGroup {
+    pub project_id: String,
+    pub provider_id: String,
+    pub model: String,
+    pub image_size: Option<String>,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_read_tokens: i64,
+    pub cache_creation_tokens: i64,
+    pub image_count: i64,
+    pub any_estimated: i64,
+    pub run_count: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -4555,7 +4594,14 @@ pub async fn list_ai_runs_in_pool(
           ai_runs.created_at,
           ai_runs.completed_at,
           ai_proposals.decision_status,
-          ai_proposals.payload_json AS proposal_snapshot_json
+          ai_proposals.payload_json AS proposal_snapshot_json,
+          ai_runs.input_tokens,
+          ai_runs.output_tokens,
+          ai_runs.cache_read_tokens,
+          ai_runs.cache_creation_tokens,
+          ai_runs.tokens_estimated,
+          ai_runs.image_count,
+          ai_runs.image_size
         FROM ai_runs
         LEFT JOIN ai_proposals ON ai_proposals.ai_run_id = ai_runs.id
         WHERE ai_runs.project_id = ?
@@ -4590,9 +4636,72 @@ pub async fn list_ai_runs_in_pool(
                 completed_at: row.completed_at,
                 decision_status: row.decision_status,
                 proposal_snapshot,
+                input_tokens: row.input_tokens,
+                output_tokens: row.output_tokens,
+                cache_read_tokens: row.cache_read_tokens,
+                cache_creation_tokens: row.cache_creation_tokens,
+                tokens_estimated: row.tokens_estimated != 0,
+                image_count: row.image_count,
+                image_size: row.image_size,
             })
         })
         .collect()
+}
+
+pub async fn list_ai_run_usage_totals_in_pool(
+    pool: &SqlitePool,
+    project_id: &str,
+) -> Result<Vec<AiRunUsageGroup>, AppError> {
+    let rows = sqlx::query_as::<_, AiRunUsageGroup>(
+        r#"
+        SELECT
+          project_id,
+          provider_id,
+          model,
+          image_size,
+          COALESCE(SUM(input_tokens), 0)          AS input_tokens,
+          COALESCE(SUM(output_tokens), 0)         AS output_tokens,
+          COALESCE(SUM(cache_read_tokens), 0)     AS cache_read_tokens,
+          COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+          COALESCE(SUM(image_count), 0)           AS image_count,
+          COALESCE(MAX(tokens_estimated), 0)      AS any_estimated,
+          COUNT(*)                                AS run_count
+        FROM ai_runs
+        WHERE project_id = ? AND status = 'success'
+        GROUP BY project_id, provider_id, model, image_size
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+pub async fn list_ai_run_usage_totals_all_in_pool(
+    pool: &SqlitePool,
+) -> Result<Vec<AiRunUsageGroup>, AppError> {
+    let rows = sqlx::query_as::<_, AiRunUsageGroup>(
+        r#"
+        SELECT
+          project_id,
+          provider_id,
+          model,
+          image_size,
+          COALESCE(SUM(input_tokens), 0)          AS input_tokens,
+          COALESCE(SUM(output_tokens), 0)         AS output_tokens,
+          COALESCE(SUM(cache_read_tokens), 0)     AS cache_read_tokens,
+          COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+          COALESCE(SUM(image_count), 0)           AS image_count,
+          COALESCE(MAX(tokens_estimated), 0)      AS any_estimated,
+          COUNT(*)                                AS run_count
+        FROM ai_runs
+        WHERE status = 'success'
+        GROUP BY project_id, provider_id, model, image_size
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
 }
 
 pub async fn list_ai_proposals_in_pool(
@@ -4891,8 +5000,8 @@ pub(crate) async fn generate_book_cover_in_pool(
     sqlx::query(
         r#"
         INSERT INTO ai_runs
-          (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, status, created_at)
-        VALUES (?, ?, ?, ?, ?, 'generate_cover_image', ?, ?, 'running', ?)
+          (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, status, created_at, image_count, image_size)
+        VALUES (?, ?, ?, ?, ?, 'generate_cover_image', ?, ?, 'running', ?, 1, '1024x1536')
         "#,
     )
     .bind(&ai_run_id)
@@ -5025,6 +5134,12 @@ pub(crate) async fn generate_book_cover_in_pool(
             },
             error_message: None,
             duration_ms,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            tokens_estimated: false,
+            model: String::new(),
         },
         image_path: final_image_path_text,
         prompt: input.cover_prompt,
@@ -5062,8 +5177,8 @@ pub(crate) async fn generate_character_image_in_pool(
     sqlx::query(
         r#"
         INSERT INTO ai_runs
-          (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, status, created_at)
-        VALUES (?, ?, ?, ?, ?, 'generate_character_image', ?, ?, 'running', ?)
+          (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, status, created_at, image_count, image_size)
+        VALUES (?, ?, ?, ?, ?, 'generate_character_image', ?, ?, 'running', ?, 1, '1024x1536')
         "#,
     )
     .bind(&ai_run_id)
@@ -5196,6 +5311,12 @@ pub(crate) async fn generate_character_image_in_pool(
             },
             error_message: None,
             duration_ms,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            tokens_estimated: false,
+            model: String::new(),
         },
         image_path: final_image_path_text,
         prompt: input.image_prompt,
@@ -5275,6 +5396,12 @@ pub async fn accept_generated_character_image_in_pool(
             stderr: None,
             error_message: None,
             duration_ms: 0,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            tokens_estimated: false,
+            model: String::new(),
         },
         image_path: input.image_path,
         prompt: input.image_prompt,
@@ -5465,8 +5592,8 @@ pub(crate) async fn generate_export_artwork_in_pool(
     sqlx::query(
         r#"
         INSERT INTO ai_runs
-          (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, status, created_at)
-        VALUES (?, ?, ?, ?, ?, 'generate_export_artwork', ?, ?, 'running', ?)
+          (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, status, created_at, image_count, image_size)
+        VALUES (?, ?, ?, ?, ?, 'generate_export_artwork', ?, ?, 'running', ?, 1, '1024x1024')
         "#,
     )
     .bind(&ai_run_id)
@@ -5598,6 +5725,12 @@ pub(crate) async fn generate_export_artwork_in_pool(
             },
             error_message: None,
             duration_ms,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            tokens_estimated: false,
+            model: String::new(),
         },
         image_path: file_path,
         prompt: input.image_prompt,
@@ -5649,6 +5782,12 @@ pub async fn accept_generated_export_artwork_in_pool(
             stderr: None,
             error_message: None,
             duration_ms: 0,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            tokens_estimated: false,
+            model: String::new(),
         },
         image_path: input.image_path,
         prompt: input.image_prompt,
@@ -7393,6 +7532,25 @@ async fn list_ai_runs(
 }
 
 #[tauri::command]
+async fn list_ai_run_usage_totals(
+    state: State<'_, AppState>,
+    project_id: String,
+) -> Result<Vec<AiRunUsageGroup>, String> {
+    list_ai_run_usage_totals_in_pool(&state.db, &project_id)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn list_ai_run_usage_totals_all(
+    state: State<'_, AppState>,
+) -> Result<Vec<AiRunUsageGroup>, String> {
+    list_ai_run_usage_totals_all_in_pool(&state.db)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
 async fn list_ai_proposals(
     state: State<'_, AppState>,
     project_id: String,
@@ -7958,8 +8116,8 @@ pub(crate) async fn generate_new_project_title_with_codex(
     .await;
     let duration_ms = started_at.elapsed().as_millis();
 
-    let (status, raw_output, stderr, error_message) = match run_result {
-        Ok((stdout, stderr)) => (
+    let (status, raw_output, stderr, error_message, usage) = match run_result {
+        Ok((stdout, stderr, usage)) => (
             "success".to_string(),
             Some(stdout),
             if stderr.trim().is_empty() {
@@ -7968,6 +8126,7 @@ pub(crate) async fn generate_new_project_title_with_codex(
                 Some(stderr)
             },
             None,
+            usage,
         ),
         Err(AppError::Timeout(seconds)) => (
             "timeout".to_string(),
@@ -7976,19 +8135,31 @@ pub(crate) async fn generate_new_project_title_with_codex(
             Some(format!(
                 "Codex CLI przekroczył limit czasu po {seconds} sekundach"
             )),
+            providers::TokenUsage::default(),
         ),
         Err(AppError::Cancelled) => (
             "cancelled".to_string(),
             None,
             None,
             Some("Generowanie Codex CLI zostało przerwane.".to_string()),
+            providers::TokenUsage::default(),
         ),
-        Err(error) => ("error".to_string(), None, None, Some(error.to_string())),
+        Err(error) => (
+            "error".to_string(),
+            None,
+            None,
+            Some(error.to_string()),
+            providers::TokenUsage::default(),
+        ),
     };
 
     Ok(AiRunResult {
         id: ai_run_id,
         provider_id,
+        model: settings
+            .effective_text_model()
+            .or_else(|| codex_request.model.clone())
+            .unwrap_or_default(),
         prompt_package_id: codex_request.prompt_package_id,
         action: codex_request.action,
         status,
@@ -7996,6 +8167,11 @@ pub(crate) async fn generate_new_project_title_with_codex(
         stderr,
         error_message,
         duration_ms,
+        input_tokens: usage.input_tokens,
+        output_tokens: usage.output_tokens,
+        cache_read_tokens: usage.cache_read_tokens,
+        cache_creation_tokens: usage.cache_creation_tokens,
+        tokens_estimated: usage.estimated,
     })
 }
 
@@ -8047,8 +8223,8 @@ pub(crate) async fn run_codex_prompt_in_pool(
     let duration_ms = started_at.elapsed().as_millis();
     let completed_at = Utc::now().to_rfc3339();
 
-    let (status, raw_output, stderr, error_message) = match run_result {
-        Ok((stdout, stderr)) => (
+    let (status, raw_output, stderr, error_message, usage) = match run_result {
+        Ok((stdout, stderr, usage)) => (
             "success".to_string(),
             Some(stdout),
             if stderr.trim().is_empty() {
@@ -8057,6 +8233,7 @@ pub(crate) async fn run_codex_prompt_in_pool(
                 Some(stderr)
             },
             None,
+            usage,
         ),
         Err(AppError::Timeout(seconds)) => (
             "timeout".to_string(),
@@ -8065,20 +8242,30 @@ pub(crate) async fn run_codex_prompt_in_pool(
             Some(format!(
                 "Codex CLI przekroczył limit czasu po {seconds} sekundach"
             )),
+            providers::TokenUsage::default(),
         ),
         Err(AppError::Cancelled) => (
             "cancelled".to_string(),
             None,
             None,
             Some("Generowanie Codex CLI zostało przerwane.".to_string()),
+            providers::TokenUsage::default(),
         ),
-        Err(error) => ("error".to_string(), None, None, Some(error.to_string())),
+        Err(error) => (
+            "error".to_string(),
+            None,
+            None,
+            Some(error.to_string()),
+            providers::TokenUsage::default(),
+        ),
     };
 
     sqlx::query(
         r#"
         UPDATE ai_runs
-        SET raw_output = ?, status = ?, error_message = ?, completed_at = ?
+        SET raw_output = ?, status = ?, error_message = ?, completed_at = ?,
+            input_tokens = ?, output_tokens = ?, cache_read_tokens = ?,
+            cache_creation_tokens = ?, tokens_estimated = ?
         WHERE id = ?
         "#,
     )
@@ -8086,6 +8273,11 @@ pub(crate) async fn run_codex_prompt_in_pool(
     .bind(&status)
     .bind(&error_message)
     .bind(&completed_at)
+    .bind(usage.input_tokens as i64)
+    .bind(usage.output_tokens as i64)
+    .bind(usage.cache_read_tokens as i64)
+    .bind(usage.cache_creation_tokens as i64)
+    .bind(i64::from(usage.estimated))
     .bind(&ai_run_id)
     .execute(pool)
     .await?;
@@ -8093,6 +8285,7 @@ pub(crate) async fn run_codex_prompt_in_pool(
     Ok(AiRunResult {
         id: ai_run_id,
         provider_id,
+        model: effective_model.unwrap_or_default(),
         prompt_package_id: request.prompt_package_id,
         action: request.action,
         status,
@@ -8100,6 +8293,11 @@ pub(crate) async fn run_codex_prompt_in_pool(
         stderr,
         error_message,
         duration_ms,
+        input_tokens: usage.input_tokens,
+        output_tokens: usage.output_tokens,
+        cache_read_tokens: usage.cache_read_tokens,
+        cache_creation_tokens: usage.cache_creation_tokens,
+        tokens_estimated: usage.estimated,
     })
 }
 
@@ -8110,7 +8308,7 @@ async fn execute_text_provider(
     request: &RunCodexPromptRequest,
     settings: &AiSettings,
     timeout_seconds: u64,
-) -> Result<(String, String), AppError> {
+) -> Result<(String, String, providers::TokenUsage), AppError> {
     match settings.text_provider.as_str() {
         ai_settings::TEXT_PROVIDER_CLAUDE => {
             providers::execute_claude_cli(
@@ -9139,7 +9337,7 @@ async fn execute_codex(
     ai_run_id: &str,
     request: &RunCodexPromptRequest,
     timeout_seconds: u64,
-) -> Result<(String, String), AppError> {
+) -> Result<(String, String, providers::TokenUsage), AppError> {
     let app_data_dir = app.path().app_data_dir().map_err(|error| {
         AppError::Process(format!(
             "Nie udało się ustalić katalogu danych aplikacji: {error}"
@@ -9232,7 +9430,9 @@ async fn execute_codex(
     .await?;
 
     if status.success() {
-        Ok((stdout, stderr))
+        // Codex CLI nie zwraca stabilnego `usage` — szacujemy z długości tekstu.
+        let usage = providers::TokenUsage::estimate_from_text(&request.prompt, &stdout);
+        Ok((stdout, stderr, usage))
     } else {
         Err(AppError::Process(if stderr.trim().is_empty() {
             "Codex CLI zwrócił niezerowy status.".into()
@@ -9477,6 +9677,8 @@ pub fn run() {
             set_world_element_relations,
             set_world_rule_relations,
             list_ai_runs,
+            list_ai_run_usage_totals,
+            list_ai_run_usage_totals_all,
             list_ai_proposals,
             upsert_ai_proposal_snapshot,
             mark_ai_proposal_accepted,
@@ -9841,6 +10043,93 @@ mod tests {
             logs[0].raw_output.as_deref(),
             Some(r#"{"kind":"concept_field_suggestion","value":"Premisa"}"#)
         );
+    }
+
+    #[tokio::test]
+    async fn ai_run_usage_totals_sum_tokens_and_images_per_group() {
+        let pool = test_pool().await;
+        let created = create_project_in_pool(
+            &pool,
+            CreateProjectInput {
+                name: "Projekt kosztów".into(),
+                language: None,
+            },
+        )
+        .await
+        .unwrap();
+        let now = Utc::now().to_rfc3339();
+
+        // Dwa udane teksty tego samego modelu (sumują się), jeden szacowany.
+        for (id, input, output, estimated) in [
+            ("run-a", 100_i64, 40_i64, 0_i64),
+            ("run-b", 50, 10, 1),
+        ] {
+            sqlx::query(
+                r#"
+                INSERT INTO ai_runs
+                  (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, status, created_at, completed_at, input_tokens, output_tokens, tokens_estimated)
+                VALUES (?, ?, 'anthropic-api', 'claude-sonnet-5', '', 'generate_premise', '{}', 'p', 'success', ?, ?, ?, ?, ?)
+                "#,
+            )
+            .bind(id)
+            .bind(&created.project.id)
+            .bind(&now)
+            .bind(&now)
+            .bind(input)
+            .bind(output)
+            .bind(estimated)
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+
+        // Jeden udany obraz i jeden nieudany run (pomijany przez status != success).
+        sqlx::query(
+            r#"
+            INSERT INTO ai_runs
+              (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, status, created_at, completed_at, image_count, image_size)
+            VALUES ('run-img', ?, 'openai-api', 'gpt-image-1', '', 'generate_cover_image', '{}', 'p', 'success', ?, ?, 1, '1024x1536')
+            "#,
+        )
+        .bind(&created.project.id)
+        .bind(&now)
+        .bind(&now)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(
+            r#"
+            INSERT INTO ai_runs
+              (id, project_id, provider_id, model, reasoning_effort, action, prompt_package_json, prompt, status, created_at, input_tokens)
+            VALUES ('run-err', ?, 'anthropic-api', 'claude-sonnet-5', '', 'generate_premise', '{}', 'p', 'error', ?, 9999)
+            "#,
+        )
+        .bind(&created.project.id)
+        .bind(&now)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let totals = list_ai_run_usage_totals_in_pool(&pool, &created.project.id)
+            .await
+            .unwrap();
+
+        let text = totals
+            .iter()
+            .find(|group| group.provider_id == "anthropic-api")
+            .expect("brak grupy tekstowej");
+        assert_eq!(text.input_tokens, 150); // 100 + 50, błędny run pominięty
+        assert_eq!(text.output_tokens, 50);
+        assert_eq!(text.any_estimated, 1); // MAX z flagi
+        assert_eq!(text.run_count, 2);
+
+        let image = totals
+            .iter()
+            .find(|group| group.provider_id == "openai-api")
+            .expect("brak grupy obrazów");
+        assert_eq!(image.image_count, 1);
+        assert_eq!(image.image_size.as_deref(), Some("1024x1536"));
     }
 
     #[tokio::test]

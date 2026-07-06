@@ -21,6 +21,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getAiSettings,
   getProject,
+  listAiRunUsageTotals,
   listCodexModels,
   saveAiSettings,
   searchProject
@@ -31,6 +32,7 @@ import {
   describeTextProvider,
   textModelChoices
 } from "../features/ai/textProviderInfo";
+import { formatPln, formatUsd, totalCostOf } from "../features/ai/pricing";
 import { AiProposalPanel } from "../features/ai/AiProposalPanel";
 import { AiPromptContextPanel } from "../features/ai/AiPromptContextPanel";
 import { useCodexSettingsStore } from "../features/ai/codexSettingsStore";
@@ -93,6 +95,14 @@ export function ProjectShell({
       void queryClient.invalidateQueries({ queryKey: ["ai-settings"] });
     }
   });
+  const plnPerUsd = aiSettingsQuery.data?.plnPerUsd ?? 4;
+  const usageTotalsQuery = useQuery({
+    queryKey: ["ai-run-usage-totals", projectId],
+    queryFn: () => listAiRunUsageTotals(projectId),
+    retry: 0,
+    refetchInterval: 5000
+  });
+  const totalCost = totalCostOf(usageTotalsQuery.data ?? []);
   const contextPanelWidth = useCodexSettingsStore(
     (state) => state.contextPanelWidth
   );
@@ -297,6 +307,19 @@ export function ProjectShell({
           <span className="autosave-status">
             <CheckCircle2 size={16} />
             Zapisano automatycznie • 10:42
+          </span>
+          <span
+            className="ai-cost-chip"
+            title="Szacunkowy łączny koszt generacji AI w tym projekcie wg oficjalnych cenników (jakby przez API). ~ oznacza wynik częściowo szacowany."
+          >
+            {totalCost.hasPricing ? (
+              <>
+                ≈ {totalCost.estimated ? "~" : ""}
+                {formatUsd(totalCost.usd)} ({formatPln(totalCost.usd, plnPerUsd)})
+              </>
+            ) : (
+              "≈ brak cennika"
+            )}
           </span>
           <details className="model-menu-panel">
             <summary

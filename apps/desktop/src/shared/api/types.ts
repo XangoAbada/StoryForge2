@@ -882,6 +882,7 @@ export type AiSettings = {
   sdwebuiBaseUrl: string;
   comfyuiBaseUrl: string;
   comfyuiWorkflowJson: string;
+  plnPerUsd: number;
 };
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
@@ -896,7 +897,8 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   anthropicModel: "claude-sonnet-5",
   sdwebuiBaseUrl: "http://127.0.0.1:7860",
   comfyuiBaseUrl: "http://127.0.0.1:8188",
-  comfyuiWorkflowJson: ""
+  comfyuiWorkflowJson: "",
+  plnPerUsd: 4.0
 };
 
 export type CodexModelReasoningLevel = {
@@ -941,9 +943,19 @@ export type GenerateNewProjectTitleRequest = {
   reasoningEffort?: ReasoningEffort;
 };
 
+export type AiTokenUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  tokensEstimated: boolean;
+};
+
 export type AiRunResult = {
   id: string;
   providerId: string;
+  /** Model użyty do generacji (do wyceny). Opcjonalny dla starszych makiet/testów. */
+  model?: string | null;
   promptPackageId: string;
   action: string;
   status: "success" | "error" | "cancelled" | "timeout" | string;
@@ -951,6 +963,26 @@ export type AiRunResult = {
   stderr?: string | null;
   errorMessage?: string | null;
   durationMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  tokensEstimated: boolean;
+};
+
+/// Zsumowane zużycie z backendu (list_ai_run_usage_totals). Do wyceny w TS.
+export type AiRunUsageGroup = {
+  projectId: string;
+  providerId: string;
+  model: string;
+  imageSize?: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  imageCount: number;
+  anyEstimated: number;
+  runCount: number;
 };
 
 export type ActiveCodexRun = {
@@ -979,6 +1011,13 @@ export type AiLogEntry = {
   completedAt?: string | null;
   decisionStatus?: AiProposalDecisionStatus | null;
   proposalSnapshot?: unknown;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  tokensEstimated: boolean;
+  imageCount: number;
+  imageSize?: string | null;
 };
 
 export type AiProposalDecisionStatus = "pending" | "accepted" | "rejected";

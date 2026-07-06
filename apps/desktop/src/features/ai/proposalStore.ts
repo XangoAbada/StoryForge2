@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { upsertAiProposalSnapshot } from "../../shared/api/commands";
-import type { AIAction, AiProposalRecord } from "../../shared/api/types";
+import type { AIAction, AiProposalRecord, AiTokenUsage } from "../../shared/api/types";
 import type { NormalizedConceptFieldSuggestion } from "./conceptFieldSuggestion";
 import type { NormalizedPremiseDevelopment } from "./premiseDevelopment";
 import type { CoverPromptPackage } from "./coverPromptPackage";
@@ -111,6 +111,10 @@ export type ActiveAiProposal = AiPromptSnapshot & {
   selectedFields: Partial<Record<ConceptFieldKey, boolean>>;
   errorMessage: string;
   durationMs?: number;
+  usage?: AiTokenUsage;
+  /** Dostawca i model użyte do tej generacji — do wyceny niezależnej od bieżących ustawień. */
+  usageProviderId?: string;
+  usageModel?: string | null;
   coverImagePath?: string;
   coverGeneratedAt?: string;
   characterImagePath?: string;
@@ -140,6 +144,9 @@ type ProposalResult = Pick<
   Partial<
     Pick<
       ActiveAiProposal,
+      | "usage"
+      | "usageProviderId"
+      | "usageModel"
       | "editableFields"
       | "selectedFields"
       | "coverImagePath"
@@ -333,6 +340,9 @@ export const useProposalStore = create<ProposalState>((set) => ({
                 selectedFields: {},
                 errorMessage: "",
                 durationMs: undefined,
+                usage: undefined,
+                usageProviderId: undefined,
+                usageModel: undefined,
                 coverImagePath: undefined,
                 coverGeneratedAt: undefined,
                 characterImagePath: undefined,

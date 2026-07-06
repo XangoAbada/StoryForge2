@@ -9,11 +9,14 @@ import {
   createProject,
   deleteProject,
   exportProject,
+  getAiSettings,
   getProject,
   importProject,
+  listAiRunUsageTotalsAll,
   listProjects,
   revealExportFile
 } from "../../shared/api/commands";
+import { formatPln, formatUsd, totalCostOf } from "../ai/pricing";
 import { coverImageSource } from "../../shared/api/assets";
 import { formatLocalDateTime } from "../../shared/date";
 import { AiProposalPanel } from "../ai/AiProposalPanel";
@@ -88,6 +91,22 @@ export function DashboardPage() {
     queryFn: () => checkCodexCli(codexPath),
     retry: 0
   });
+
+  const usageTotalsQuery = useQuery({
+    queryKey: ["ai-run-usage-totals-all"],
+    queryFn: listAiRunUsageTotalsAll,
+    retry: 0
+  });
+  const aiSettingsQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: getAiSettings,
+    retry: 0
+  });
+  const plnPerUsd = aiSettingsQuery.data?.plnPerUsd ?? 4;
+  const projectCost = (projectId: string) =>
+    totalCostOf(
+      (usageTotalsQuery.data ?? []).filter((group) => group.projectId === projectId)
+    );
 
   const createMutation = useMutation({
     mutationFn: () => createProject({ name, language: "pl" }),
@@ -468,6 +487,21 @@ export function DashboardPage() {
                           <StatusPill tone="warn">AI w toku</StatusPill>
                         ) : null}
                       </span>
+                      {(() => {
+                        const cost = projectCost(project.id);
+                        if (!cost.hasPricing || cost.usd <= 0) {
+                          return null;
+                        }
+                        return (
+                          <span
+                            className="book-cost"
+                            title="Szacunkowy koszt generacji AI wg oficjalnych cenników (jakby przez API)."
+                          >
+                            ≈ {cost.estimated ? "~" : ""}
+                            {formatUsd(cost.usd)} ({formatPln(cost.usd, plnPerUsd)})
+                          </span>
+                        );
+                      })()}
                     </span>
                   </Link>
                   <div className="book-actions">

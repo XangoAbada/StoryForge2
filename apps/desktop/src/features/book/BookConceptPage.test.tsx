@@ -12,6 +12,14 @@ import { useCodexSettingsStore } from "../ai/codexSettingsStore";
 import { BOOK_COVER_FIELD, useProposalStore } from "../ai/proposalStore";
 import { BookConceptPage } from "./BookConceptPage";
 import type { AiRunResult, ProjectDetails } from "../../shared/api/types";
+
+const TEST_USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
+  tokensEstimated: false
+};
 import {
   acceptGeneratedBookCover,
   checkCodexCli,
@@ -150,7 +158,8 @@ describe("BookConceptPage AI flow", () => {
         action: "generate_cover_image",
         status: "success",
         rawOutput: "{}",
-        durationMs: 12
+        durationMs: 12,
+      ...TEST_USAGE
       },
       imagePath: "data:image/png;base64,test",
       prompt: "cover prompt",
@@ -648,7 +657,8 @@ describe("BookConceptPage AI flow", () => {
       action: "generate_premise",
       status: "success",
       rawOutput: premiseSuggestionOutput,
-      durationMs: 12
+      durationMs: 12,
+      ...TEST_USAGE
     });
 
     renderWithQueryClient();
@@ -847,7 +857,8 @@ describe("BookConceptPage AI flow", () => {
         action: "generate_cover_image",
         status: "success",
         rawOutput: "{}",
-        durationMs: 12
+        durationMs: 12,
+      ...TEST_USAGE
       },
       imagePath: "data:image/png;base64,new-cover",
       prompt: "cover prompt",
@@ -885,7 +896,8 @@ describe("BookConceptPage AI flow", () => {
         action: "generate_cover_image",
         status: "success",
         rawOutput: "{}",
-        durationMs: 12
+        durationMs: 12,
+      ...TEST_USAGE
       },
       imagePath: localCoverPath,
       prompt: "cover prompt",
@@ -921,7 +933,8 @@ function successfulRun(): AiRunResult {
     action: "generate_working_title",
     status: "success",
     rawOutput: conceptFieldOutput,
-    durationMs: 12
+    durationMs: 12,
+    ...TEST_USAGE
   };
 }
 
