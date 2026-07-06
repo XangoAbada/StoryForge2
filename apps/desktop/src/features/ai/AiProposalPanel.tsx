@@ -15,6 +15,7 @@ import {
   generateCharacterImage,
   generateExportArtwork,
   generateNewProjectTitle,
+  getAiSettings,
   getCharacterWorkspace,
   getProject,
   getWorldWorkspace,
@@ -46,6 +47,8 @@ import {
   updateBookConcept
 } from "../../shared/api/commands";
 import type {
+  AiRunResult,
+  AiTokenUsage,
   BookConceptInput,
   BookPlan,
   Character,
@@ -143,11 +146,22 @@ import {
   useAiPromptContextStore,
   worldPromptContextTargetId
 } from "./aiPromptContextStore";
+import { costOf, formatCostLabel } from "./pricing";
 
 type AiProposalPanelProps = {
   projectId: string;
   onAcceptValue?: (value: string) => void | Promise<void>;
 };
+
+function usageFromRun(run: AiRunResult): AiTokenUsage {
+  return {
+    inputTokens: run.inputTokens,
+    outputTokens: run.outputTokens,
+    cacheReadTokens: run.cacheReadTokens,
+    cacheCreationTokens: run.cacheCreationTokens,
+    tokensEstimated: run.tokensEstimated
+  };
+}
 
 export async function applyAiProposal(
   proposal: ActiveAiProposal,
@@ -457,6 +471,11 @@ export function AiProposalPanel({
   useCoverGenerationProgressListener();
 
   const providerInfo = useTextProviderInfo();
+  const aiSettingsQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: getAiSettings
+  });
+  const plnPerUsd = aiSettingsQuery.data?.plnPerUsd ?? 4;
   const queryClient = useQueryClient();
   const [previewImage, setPreviewImage] = useState<{
     src: string;
@@ -863,6 +882,7 @@ export function AiProposalPanel({
       clearProposal(proposalId);
       closePromptContextForProposal(proposal);
       await queryClient.invalidateQueries({ queryKey: ["ai-runs", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["ai-run-usage-totals", projectId] });
       await queryClient.invalidateQueries({ queryKey: ["ai-proposals", projectId] });
       if (proposal.scope !== "newProject") {
         await queryClient.invalidateQueries({ queryKey: ["book-plan", proposal.bookId] });
@@ -956,6 +976,9 @@ export function AiProposalPanel({
             key={proposal.id}
             proposal={proposal}
             providerLabel={providerInfo.providerLabel}
+            providerId={providerInfo.providerId}
+            model={providerInfo.model}
+            plnPerUsd={plnPerUsd}
             accepting={acceptMutation.isPending && acceptMutation.variables?.proposalId === proposal.id}
             retrying={proposal.status === "queued"}
             cancelling={cancelMutation.isPending && cancelMutation.variables === proposal.id}
@@ -967,6 +990,7 @@ export function AiProposalPanel({
               void markAiProposalRejected(proposal.id).finally(() => {
                 clearProposal(proposal.id);
                 void queryClient.invalidateQueries({ queryKey: ["ai-runs", projectId] });
+                void queryClient.invalidateQueries({ queryKey: ["ai-run-usage-totals", projectId] });
                 void queryClient.invalidateQueries({ queryKey: ["ai-proposals", projectId] });
               });
             }}
@@ -996,6 +1020,9 @@ export function AiProposalPanel({
 type ProposalQueueItemProps = {
   proposal: ActiveAiProposal;
   providerLabel: string;
+  providerId: string;
+  model: string;
+  plnPerUsd: number;
   accepting: boolean;
   retrying: boolean;
   cancelling: boolean;
@@ -1892,6 +1919,9 @@ function uniqueStrings(values: string[]): string[] {
 function ProposalQueueItem({
   proposal,
   providerLabel,
+  providerId,
+  model,
+  plnPerUsd,
   accepting,
   retrying,
   cancelling,
@@ -2011,6 +2041,21 @@ function ProposalQueueItem({
       {running && activeRun ? (
         <p className="muted-text">
           Aktywny proces: {activeRun.action} / {activeRun.phase}
+        </p>
+      ) : null}
+
+      {success &&
+      proposal.usage &&
+      !coverProposal &&
+      !characterImageProposal &&
+      !exportArtworkProposal ? (
+        <p className="muted-text proposal-cost">
+          Koszt:{" "}
+          {formatCostLabel(
+            costOf(proposal.usage, providerId, model),
+            plnPerUsd
+          )}{" "}
+          · {proposal.usage.inputTokens + proposal.usage.outputTokens} tok.
         </p>
       ) : null}
 
@@ -2297,6 +2342,7 @@ function useAiQueueRunner() {
             rawOutput: result.aiRun.rawOutput ?? "",
             editableValue: result.imagePath,
             durationMs: result.aiRun.durationMs,
+            usage: usageFromRun(result.aiRun),
             coverImagePath: result.imagePath,
             coverGeneratedAt: result.generatedAt,
             progressMessage: "Okładka gotowa do akceptacji.",
@@ -2361,6 +2407,7 @@ function useAiQueueRunner() {
             rawOutput: result.aiRun.rawOutput ?? "",
             editableValue: result.imagePath,
             durationMs: result.aiRun.durationMs,
+            usage: usageFromRun(result.aiRun),
             coverImagePath: result.imagePath,
             characterImagePath: result.imagePath,
             characterGeneratedAt: result.generatedAt,
@@ -2431,6 +2478,7 @@ function useAiQueueRunner() {
             rawOutput: result.aiRun.rawOutput ?? "",
             editableValue: result.imagePath,
             durationMs: result.aiRun.durationMs,
+            usage: usageFromRun(result.aiRun),
             coverImagePath: result.imagePath,
             exportArtworkPath: result.imagePath,
             exportArtworkGeneratedAt: result.generatedAt,
@@ -2543,7 +2591,8 @@ function useAiQueueRunner() {
           editableValue: parsed.textValue,
           editableFields: editableFieldsFromParsed(parsed),
           selectedFields: selectedFieldsFromParsed(parsed),
-          durationMs: result.durationMs
+          durationMs: result.durationMs,
+          usage: usageFromRun(result)
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

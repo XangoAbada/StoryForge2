@@ -21,6 +21,10 @@ export type TextProviderInfo = {
   providerLabel: string;
   /** Model efektywny dla dostawców innych niż Codex (pusty dla Codeksa — model bierze się z panelu). */
   modelLabel: string;
+  /** Kanoniczne ID dostawcy używane do wyceny (patrz pricing.ts). */
+  providerId: string;
+  /** Surowy identyfikator modelu do wyceny (pusty dla Codeksa — model z panelu). */
+  model: string;
 };
 
 /**
@@ -35,23 +39,35 @@ export function describeTextProvider(
       return {
         isCodex: false,
         providerLabel: "Claude Code CLI",
-        modelLabel: CLAUDE_MODEL_LABELS[settings.claudeModel] ?? settings.claudeModel
+        modelLabel: CLAUDE_MODEL_LABELS[settings.claudeModel] ?? settings.claudeModel,
+        providerId: "claude-cli",
+        model: settings.claudeModel
       };
     case "openai-api":
       return {
         isCodex: false,
         providerLabel: "OpenAI API",
-        modelLabel: settings.openaiTextModel
+        modelLabel: settings.openaiTextModel,
+        providerId: "openai-api",
+        model: settings.openaiTextModel
       };
     case "anthropic-api":
       return {
         isCodex: false,
         providerLabel: "Anthropic API",
         modelLabel:
-          ANTHROPIC_MODEL_LABELS[settings.anthropicModel] ?? settings.anthropicModel
+          ANTHROPIC_MODEL_LABELS[settings.anthropicModel] ?? settings.anthropicModel,
+        providerId: "anthropic-api",
+        model: settings.anthropicModel
       };
     default:
-      return { isCodex: true, providerLabel: "Codex CLI", modelLabel: "" };
+      return {
+        isCodex: true,
+        providerLabel: "Codex CLI",
+        modelLabel: "",
+        providerId: "codex-cli",
+        model: ""
+      };
   }
 }
 

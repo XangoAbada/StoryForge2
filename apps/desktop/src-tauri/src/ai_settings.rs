@@ -28,6 +28,8 @@ pub struct AiSettings {
     pub sdwebui_base_url: String,
     pub comfyui_base_url: String,
     pub comfyui_workflow_json: String,
+    /// Kurs przeliczenia szacunkowego kosztu USD→PLN pokazywanego w UI.
+    pub pln_per_usd: f64,
 }
 
 impl Default for AiSettings {
@@ -45,6 +47,7 @@ impl Default for AiSettings {
             sdwebui_base_url: "http://127.0.0.1:7860".into(),
             comfyui_base_url: "http://127.0.0.1:8188".into(),
             comfyui_workflow_json: String::new(),
+            pln_per_usd: 4.0,
         }
     }
 }

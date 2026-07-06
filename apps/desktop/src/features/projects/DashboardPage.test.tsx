@@ -7,6 +7,14 @@ import { useCodexSettingsStore } from "../ai/codexSettingsStore";
 import { useProposalStore } from "../ai/proposalStore";
 import { DashboardPage } from "./DashboardPage";
 import type { ProjectDetails, ProjectSummary } from "../../shared/api/types";
+
+const TEST_USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
+  tokensEstimated: false
+};
 import {
   checkCodexCli,
   chooseExportDirectory,
@@ -57,6 +65,7 @@ vi.mock("../../shared/api/commands", async () => ({
   getProject: vi.fn(),
   listActiveCodexRuns: vi.fn(() => Promise.resolve([])),
   listAiProposals: vi.fn(() => Promise.resolve([])),
+  listAiRunUsageTotalsAll: vi.fn(() => Promise.resolve([])),
   listCodexModels: vi.fn(),
   listProjects: vi.fn(),
   markAiProposalAccepted: vi.fn(() => Promise.resolve()),
@@ -170,7 +179,8 @@ describe("DashboardPage", () => {
       action: "generate_working_title",
       status: "success",
       rawOutput: titleOutput,
-      durationMs: 10
+      durationMs: 10,
+      ...TEST_USAGE
     });
     vi.mocked(generateNewProjectTitle).mockResolvedValue({
       id: "new-title-run-1",
@@ -179,7 +189,8 @@ describe("DashboardPage", () => {
       action: "generate_working_title",
       status: "success",
       rawOutput: titleOutput,
-      durationMs: 10
+      durationMs: 10,
+      ...TEST_USAGE
     });
     vi.mocked(updateBookConcept).mockResolvedValue({
       ...projectDetails.book,

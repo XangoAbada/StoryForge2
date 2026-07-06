@@ -12,6 +12,8 @@ import {
   browserListCodexModels,
   browserListPlanVersions,
   browserListAiRuns,
+  browserListAiRunUsageTotals,
+  browserListAiRunUsageTotalsAll,
   browserListAiProposals,
   browserListActiveCodexRuns,
   browserMarkAiProposalAccepted,
@@ -92,6 +94,7 @@ import type {
   ActiveCodexRun,
   AiLogEntry,
   AiProposalRecord,
+  AiRunUsageGroup,
   Act,
   Beat,
   Book,
@@ -609,6 +612,22 @@ export function listAiRuns(projectId: string): Promise<AiLogEntry[]> {
   }
 
   return invoke("list_ai_runs", { projectId });
+}
+
+export function listAiRunUsageTotals(projectId: string): Promise<AiRunUsageGroup[]> {
+  if (!isTauriRuntime()) {
+    return browserListAiRunUsageTotals(projectId);
+  }
+
+  return invoke("list_ai_run_usage_totals", { projectId });
+}
+
+export function listAiRunUsageTotalsAll(): Promise<AiRunUsageGroup[]> {
+  if (!isTauriRuntime()) {
+    return browserListAiRunUsageTotalsAll();
+  }
+
+  return invoke("list_ai_run_usage_totals_all");
 }
 
 export function listAiProposals(projectId: string): Promise<AiProposalRecord[]> {

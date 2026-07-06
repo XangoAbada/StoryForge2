@@ -4,8 +4,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listAiRuns } from "../../shared/api/commands";
 import { AiLogPage } from "./AiLogPage";
 
+const TEST_USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
+  tokensEstimated: false,
+  imageCount: 0,
+  imageSize: null
+};
+
 vi.mock("../../shared/api/commands", () => ({
-  listAiRuns: vi.fn()
+  listAiRuns: vi.fn(),
+  getAiSettings: vi.fn(async () =>
+    (await import("../../shared/api/types")).DEFAULT_AI_SETTINGS
+  )
 }));
 
 function renderLogPage() {
@@ -51,7 +64,8 @@ describe("AiLogPage", () => {
         }),
         status: "success",
         createdAt: "2026-06-05T12:00:00Z",
-        completedAt: "2026-06-05T12:00:05Z"
+        completedAt: "2026-06-05T12:00:05Z",
+        ...TEST_USAGE
       },
       {
         id: "run-2",
@@ -74,7 +88,8 @@ describe("AiLogPage", () => {
         }),
         status: "success",
         createdAt: "2026-06-05T12:10:00Z",
-        completedAt: "2026-06-05T12:10:05Z"
+        completedAt: "2026-06-05T12:10:05Z",
+        ...TEST_USAGE
       }
     ]);
 

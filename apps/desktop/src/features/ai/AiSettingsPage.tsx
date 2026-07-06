@@ -462,6 +462,17 @@ export function AiSettingsPage() {
         />
       </Field>
 
+      <Field label="Kurs USD→PLN (szacunek kosztów)" className="field-label-narrow">
+        <input
+          type="number"
+          min={0}
+          step={0.1}
+          value={draft.plnPerUsd}
+          onChange={(event) => update("plnPerUsd", Number(event.target.value))}
+          title="Używany tylko do orientacyjnego przeliczenia kosztów generacji na PLN."
+        />
+      </Field>
+
       {missingKeyWarning ? (
         <p className="warning-text">{missingKeyWarning}</p>
       ) : null}

@@ -17,6 +17,50 @@ use crate::{
     ActiveCodexRunHandle, ActiveCodexRunRegistry, AppError, RunCodexPromptRequest,
 };
 
+/// Zużycie tokenów pojedynczej generacji. Wartości rzeczywiste pochodzą z
+/// odpowiedzi API/CLI; gdy dostawca ich nie zwraca, `estimate_from_text`
+/// szacuje je z długości tekstu i ustawia `estimated = true`.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct TokenUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_read_tokens: u64,
+    pub cache_creation_tokens: u64,
+    pub estimated: bool,
+}
+
+impl TokenUsage {
+    /// Zgrubny szacunek: ~1 token na 4 znaki (Unicode scalar values).
+    pub(crate) fn estimate_from_text(prompt: &str, output: &str) -> Self {
+        let approx = |s: &str| ((s.chars().count() as u64) + 3) / 4;
+        TokenUsage {
+            input_tokens: approx(prompt),
+            output_tokens: approx(output),
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            estimated: true,
+        }
+    }
+}
+
+/// Wyciąga rzeczywiste zużycie z obiektu `usage` (Anthropic Messages oraz
+/// top-level `usage` z Claude CLI mają identyczne nazwy pól).
+fn anthropic_usage_from(usage: Option<&Value>) -> TokenUsage {
+    let field = |name: &str| {
+        usage
+            .and_then(|value| value.get(name))
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    };
+    TokenUsage {
+        input_tokens: field("input_tokens"),
+        output_tokens: field("output_tokens"),
+        cache_read_tokens: field("cache_read_input_tokens"),
+        cache_creation_tokens: field("cache_creation_input_tokens"),
+        estimated: false,
+    }
+}
+
 /// Odpowiednik run_registered_codex_command dla futures (HTTP): rejestruje run,
 /// obsługuje timeout i anulowanie z UI przez istniejący rejestr.
 pub(crate) async fn run_registered_future<T, F>(
@@ -68,7 +112,7 @@ pub(crate) async fn execute_claude_cli(
     request: &RunCodexPromptRequest,
     settings: &AiSettings,
     timeout_seconds: u64,
-) -> Result<(String, String), AppError> {
+) -> Result<(String, String, TokenUsage), AppError> {
     let app_data_dir = app.path().app_data_dir().map_err(|error| {
         AppError::Process(format!(
             "Nie udało się ustalić katalogu danych aplikacji: {error}"
@@ -170,9 +214,12 @@ pub(crate) async fn execute_claude_cli(
         .and_then(Value::as_bool)
         .unwrap_or(false);
     let result_text = parsed.get("result").and_then(Value::as_str);
+    // Claude CLI raportuje realne `usage` mimo rozliczenia subskrypcyjnego —
+    // wyceniamy je w TS wg oficjalnego cennika API (ignorujemy total_cost_usd).
+    let usage = anthropic_usage_from(parsed.get("usage"));
 
     match (is_error, result_text) {
-        (false, Some(text)) => Ok((text.to_string(), stderr)),
+        (false, Some(text)) => Ok((text.to_string(), stderr, usage)),
         _ => Err(AppError::Process(format!(
             "Claude CLI zgłosił błąd: {}",
             result_text
@@ -192,7 +239,7 @@ pub(crate) async fn execute_openai_text(
     request: &RunCodexPromptRequest,
     settings: &AiSettings,
     timeout_seconds: u64,
-) -> Result<(String, String), AppError> {
+) -> Result<(String, String, TokenUsage), AppError> {
     if settings.openai_api_key.trim().is_empty() {
         return Err(AppError::Process(
             "Brak klucza OpenAI API. Uzupełnij go na stronie ustawień AI.".into(),
@@ -215,6 +262,7 @@ pub(crate) async fn execute_openai_text(
     }
 
     let api_key = settings.openai_api_key.clone();
+    let prompt_for_estimate = request.prompt.clone();
     let run = text_run(ai_run_id, request, Some(model));
     let fut = async move {
         let response = http_client()?
@@ -260,7 +308,29 @@ pub(crate) async fn execute_openai_text(
                 "OpenAI API zwróciło pustą odpowiedź tekstową.".into(),
             ));
         }
-        Ok((text, String::new()))
+
+        let usage = payload.get("usage");
+        let token_usage = if usage.is_some() {
+            TokenUsage {
+                input_tokens: usage
+                    .and_then(|value| value.get("input_tokens"))
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0),
+                output_tokens: usage
+                    .and_then(|value| value.get("output_tokens"))
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0),
+                cache_read_tokens: usage
+                    .and_then(|value| value.pointer("/input_tokens_details/cached_tokens"))
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0),
+                cache_creation_tokens: 0,
+                estimated: false,
+            }
+        } else {
+            TokenUsage::estimate_from_text(&prompt_for_estimate, &text)
+        };
+        Ok((text, String::new(), token_usage))
     };
 
     run_registered_future(registry, run, timeout_seconds, fut).await
@@ -272,7 +342,7 @@ pub(crate) async fn execute_anthropic_text(
     request: &RunCodexPromptRequest,
     settings: &AiSettings,
     timeout_seconds: u64,
-) -> Result<(String, String), AppError> {
+) -> Result<(String, String, TokenUsage), AppError> {
     if settings.anthropic_api_key.trim().is_empty() {
         return Err(AppError::Process(
             "Brak klucza Anthropic API. Uzupełnij go na stronie ustawień AI.".into(),
@@ -329,7 +399,8 @@ pub(crate) async fn execute_anthropic_text(
                 "Anthropic API zwróciło pustą odpowiedź tekstową.".into(),
             ));
         }
-        Ok((text, String::new()))
+        let token_usage = anthropic_usage_from(payload.get("usage"));
+        Ok((text, String::new(), token_usage))
     };
 
     run_registered_future(registry, run, timeout_seconds, fut).await
