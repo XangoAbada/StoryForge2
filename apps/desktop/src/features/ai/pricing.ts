@@ -34,21 +34,25 @@ const CLAUDE_CLI_MODEL_MAP: Record<string, string> = {
   haiku: "claude-haiku-4-5"
 };
 
-// TODO(user): uzupełnić z https://openai.com/api/pricing (USD / 1M tokenów).
-// Dopóki wartości = 0, model traktujemy jako "brak cennika".
+// Oficjalny cennik OpenAI API (USD / 1M tokenów), stan 2026-07.
+// cacheReadPer1M = zniżka na cached input; OpenAI nie ma cache-write.
 const OPENAI_PRICING: Record<string, ModelPricing> = {
-  "gpt-5.5": { inputPer1M: 0, outputPer1M: 0 }, // TODO(user)
-  "gpt-5": { inputPer1M: 0, outputPer1M: 0 }, // TODO(user)
-  "gpt-4.1": { inputPer1M: 0, outputPer1M: 0 } // TODO(user)
-  // Modele Codex CLI (np. "gpt-5.5-codex") — TODO(user): dodać lub zmapować.
+  "gpt-5.5": { inputPer1M: 5, outputPer1M: 30, cacheReadPer1M: 0.5 },
+  "gpt-5": { inputPer1M: 1.25, outputPer1M: 10, cacheReadPer1M: 0.125 },
+  "gpt-4.1": { inputPer1M: 2, outputPer1M: 8, cacheReadPer1M: 0.5 }
+  // ponytail: modele Codex CLI (np. "gpt-5.5-codex") nieznane cenowo →
+  // "brak cennika". Dodać alias tutaj, gdy poznamy ID modelu z codex CLI.
 };
 
-// TODO(user): uzupełnić z oficjalnego cennika (USD / 1 obraz), per rozmiar.
-// Dostawcy lokalni (SD WebUI / ComfyUI) są darmowi → 0.
+// Cennik OpenAI Images (USD / 1 obraz) — przyjęta jakość "medium"
+// (aplikacja nie wybiera jakości przy generacji okładek/portretów).
+// ponytail: kalibracja — jeśli backend prosi o inną jakość, skoryguj wartości.
+// UWAGA: gpt-image-1 ma być wycofany 2026-10-23 — zaktualizuj model po tej dacie.
+// Dostawcy lokalni (SD WebUI / ComfyUI) są darmowi → 0 (obsłużone osobno).
 const IMAGE_PRICING: Record<string, Record<string, number>> = {
   "gpt-image-1": {
-    "1024x1024": 0, // TODO(user)
-    "1024x1536": 0 // TODO(user)
+    "1024x1024": 0.042,
+    "1024x1536": 0.063
   }
 };
 
@@ -157,6 +161,24 @@ export function totalCostOf(groups: AiRunUsageGroup[]): CostBreakdown {
     }
   }
   return { usd, estimated, hasPricing: hasAny };
+}
+
+/// Suma kosztów pojedynczych generacji (np. wszystkich wiadomości sesji).
+export function sumCosts(costs: CostBreakdown[]): CostBreakdown {
+  let usd = 0;
+  let estimated = false;
+  let hasPricing = false;
+  for (const cost of costs) {
+    if (!cost.hasPricing) {
+      continue;
+    }
+    hasPricing = true;
+    usd += cost.usd;
+    if (cost.estimated) {
+      estimated = true;
+    }
+  }
+  return { usd, estimated, hasPricing };
 }
 
 export function formatUsd(usd: number): string {

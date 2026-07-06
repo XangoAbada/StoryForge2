@@ -6440,6 +6440,12 @@ a:focus-visible {
   color: var(--ai);
 }
 
+.brainstorm-message-cost {
+  margin-top: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .brainstorm-composer {
   display: flex;
   gap: 8px;

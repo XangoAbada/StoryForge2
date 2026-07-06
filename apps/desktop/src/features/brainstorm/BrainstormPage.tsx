@@ -6,16 +6,19 @@ import {
   appendBrainstormMessage,
   createBrainstormSession,
   deleteBrainstormSession,
+  getAiSettings,
   getBookPlan,
   getCharacterWorkspace,
   getProject,
   getWorldWorkspace,
+  listAiRuns,
   listBrainstormMessages,
   listBrainstormSessions,
   renameBrainstormSession,
   runCodexPrompt
 } from "../../shared/api/commands";
 import type { BrainstormMessage, BrainstormSuggestion } from "../../shared/api/types";
+import { costOf, formatCostLabel, sumCosts, type CostBreakdown } from "../ai/pricing";
 import {
   buildBrainstormChatPromptPackage,
   dedupeBrainstormSuggestions,
@@ -94,6 +97,50 @@ export function BrainstormPage({ projectId }: { projectId: string }) {
     retry: 0
   });
   const messages = useMemo(() => messagesQuery.data ?? [], [messagesQuery.data]);
+
+  // Koszt liczymy z tych samych runów (ai_runs), które napędzają log AI i
+  // licznik projektu — mapujemy po aiRunId zapisanym przy wiadomości asystenta.
+  const aiSettingsQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: getAiSettings,
+    retry: 0
+  });
+  const plnPerUsd = aiSettingsQuery.data?.plnPerUsd ?? 4;
+  const aiRunsQuery = useQuery({
+    queryKey: ["ai-runs", projectId],
+    queryFn: () => listAiRuns(projectId),
+    retry: 0
+  });
+  const runCostById = useMemo(() => {
+    const map = new Map<string, CostBreakdown>();
+    for (const run of aiRunsQuery.data ?? []) {
+      map.set(
+        run.id,
+        costOf(
+          {
+            inputTokens: run.inputTokens,
+            outputTokens: run.outputTokens,
+            cacheReadTokens: run.cacheReadTokens,
+            cacheCreationTokens: run.cacheCreationTokens,
+            tokensEstimated: run.tokensEstimated
+          },
+          run.providerId,
+          run.model
+        )
+      );
+    }
+    return map;
+  }, [aiRunsQuery.data]);
+  const sessionCost = useMemo(
+    () =>
+      sumCosts(
+        messages.flatMap((message) => {
+          const cost = message.aiRunId ? runCostById.get(message.aiRunId) : undefined;
+          return cost ? [cost] : [];
+        })
+      ),
+    [messages, runCostById]
+  );
 
   const [draft, setDraft] = useState("");
   // Ulotny wybór inline-chipów z odpowiedzi AI — etykiety przypięte do composera,
@@ -263,6 +310,9 @@ export function BrainstormPage({ projectId }: { projectId: string }) {
       setIsSending(false);
       await queryClient.invalidateQueries({ queryKey: ["brainstorm-messages", session.id] });
       await queryClient.invalidateQueries({ queryKey: ["brainstorm-sessions", projectId] });
+      // Odśwież koszt od razu: chip sesji tu oraz licznik projektu w górnym pasku.
+      await queryClient.invalidateQueries({ queryKey: ["ai-runs", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["ai-run-usage-totals", projectId] });
     }
   }
 
@@ -346,6 +396,14 @@ export function BrainstormPage({ projectId }: { projectId: string }) {
                   Rozwijaj pomysł w rozmowie — sugestie do koncepcji, postaci, świata i wątków
                   zbierają się w panelu AI po prawej.
                 </p>
+                {sessionCost.hasPricing ? (
+                  <span
+                    className="ai-cost-chip"
+                    title="Szacunkowy łączny koszt tej sesji brainstormu wg oficjalnych cenników (jakby przez API). ~ oznacza tokeny szacowane."
+                  >
+                    Koszt sesji: {formatCostLabel(sessionCost, plnPerUsd)}
+                  </span>
+                ) : null}
               </div>
               <div className="button-row">
                 <Button variant="ghost" size="sm" onClick={() => setRenameDraft(activeSession.name)}>
@@ -401,6 +459,16 @@ export function BrainstormPage({ projectId }: { projectId: string }) {
                   ) : (
                     <p className="brainstorm-plain">{message.content}</p>
                   )}
+                  {message.role === "assistant" &&
+                  message.aiRunId &&
+                  runCostById.get(message.aiRunId)?.hasPricing ? (
+                    <span
+                      className="ai-cost-chip brainstorm-message-cost"
+                      title="Szacunkowy koszt tej odpowiedzi wg oficjalnego cennika (jakby przez API)."
+                    >
+                      {formatCostLabel(runCostById.get(message.aiRunId)!, plnPerUsd)}
+                    </span>
+                  ) : null}
                 </article>
               ))}
               {isSending ? (

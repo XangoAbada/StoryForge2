@@ -5,6 +5,7 @@ import {
   formatCostLabel,
   formatPln,
   imageCostOf,
+  sumCosts,
   totalCostOf
 } from "./pricing";
 
@@ -34,8 +35,14 @@ describe("costOf", () => {
     expect(cost.usd).toBeCloseTo(30, 6);
   });
 
-  it("returns no pricing for unpriced OpenAI models", () => {
+  it("prices OpenAI gpt-5.5 at 5/30 input/output", () => {
     const cost = costOf(oneMillion, "openai-api", "gpt-5.5");
+    expect(cost.hasPricing).toBe(true);
+    expect(cost.usd).toBeCloseTo(35, 6); // 5 + 30
+  });
+
+  it("returns no pricing for unknown OpenAI models", () => {
+    const cost = costOf(oneMillion, "openai-api", "gpt-nonexistent");
     expect(cost.hasPricing).toBe(false);
     expect(formatCostLabel(cost)).toBe("brak cennika");
   });
@@ -58,8 +65,14 @@ describe("imageCostOf", () => {
     expect(cost.usd).toBe(0);
   });
 
-  it("returns no pricing when an image price is not filled in", () => {
-    const cost = imageCostOf("openai-api", "gpt-image-1", "1024x1024", 1);
+  it("prices OpenAI gpt-image-1 per image by size", () => {
+    const cost = imageCostOf("openai-api", "gpt-image-1", "1024x1536", 2);
+    expect(cost.hasPricing).toBe(true);
+    expect(cost.usd).toBeCloseTo(0.126, 6); // 2 × 0.063
+  });
+
+  it("returns no pricing for an unknown image size", () => {
+    const cost = imageCostOf("openai-api", "gpt-image-1", "512x512", 1);
     expect(cost.hasPricing).toBe(false);
   });
 });
@@ -95,8 +108,27 @@ describe("totalCostOf", () => {
       }
     ];
     const total = totalCostOf(groups);
-    expect(total.usd).toBeCloseTo(2, 6); // tylko grupa Sonnet (cena wprowadzająca: 2/1M input)
+    expect(total.usd).toBeCloseTo(7, 6); // Sonnet 2/1M + gpt-5.5 5/1M input
     expect(total.hasPricing).toBe(true);
+    expect(total.estimated).toBe(true); // grupa gpt-5.5 ma anyEstimated = 1
+  });
+});
+
+describe("sumCosts", () => {
+  it("sums priced costs and OR-s the estimated flag", () => {
+    const total = sumCosts([
+      { usd: 0.01, estimated: false, hasPricing: true },
+      { usd: 0.02, estimated: true, hasPricing: true },
+      { usd: 0, estimated: false, hasPricing: false } // pominięty
+    ]);
+    expect(total.usd).toBeCloseTo(0.03, 6);
+    expect(total.hasPricing).toBe(true);
+    expect(total.estimated).toBe(true);
+  });
+
+  it("reports no pricing when every cost lacks pricing", () => {
+    const total = sumCosts([{ usd: 0, estimated: false, hasPricing: false }]);
+    expect(total.hasPricing).toBe(false);
   });
 });
 
