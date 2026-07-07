@@ -6696,7 +6696,7 @@ pub async fn import_project_in_pool(
         AppError::Process(format!("Nie udało się odczytać pliku projektu: {error}"))
     })?;
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|_| {
-        AppError::Process("To nie jest prawidłowy plik ZIP z projektem StoryForge.".into())
+        AppError::Process("To nie jest prawidłowy plik ZIP z projektem Bowri.".into())
     })?;
     let mut entries: HashMap<String, Vec<u8>> = HashMap::new();
     for index in 0..archive.len() {
@@ -6712,14 +6712,14 @@ pub async fn import_project_in_pool(
 
     let manifest_bytes = entries.get("manifest.json").ok_or_else(|| {
         AppError::Process(
-            "Brak manifest.json — wybrany plik nie jest paczką projektu StoryForge.".into(),
+            "Brak manifest.json — wybrany plik nie jest paczką projektu Bowri.".into(),
         )
     })?;
     let manifest: ProjectTransferManifest = serde_json::from_slice(manifest_bytes)
         .map_err(|_| AppError::Process("Nieprawidłowy manifest paczki projektu.".into()))?;
     if manifest.format_version != PROJECT_TRANSFER_FORMAT_VERSION {
         return Err(AppError::Process(format!(
-            "Nieobsługiwana wersja formatu pliku projektu ({}). Zaktualizuj aplikację StoryForge.",
+            "Nieobsługiwana wersja formatu pliku projektu ({}). Zaktualizuj aplikację Bowri.",
             manifest.format_version
         )));
     }
@@ -7691,8 +7691,8 @@ async fn import_project(
 async fn choose_import_file() -> Result<Option<String>, String> {
     let selected = tokio::task::spawn_blocking(|| {
         rfd::FileDialog::new()
-            .set_title("Wybierz plik projektu StoryForge")
-            .add_filter("Projekt StoryForge (ZIP)", &["zip"])
+            .set_title("Wybierz plik projektu Bowri")
+            .add_filter("Projekt Bowri (ZIP)", &["zip"])
             .pick_file()
             .map(|path| path.to_string_lossy().to_string())
     })
@@ -8626,7 +8626,7 @@ async fn execute_codex_image_generation(
         .clone()
         .unwrap_or_else(|| "codex".to_string());
     let command_spec = resolve_codex_command(&codex_path).await;
-    let instruction = "Run the StoryForge2 cover image prompt from stdin. You must invoke the built-in $imagegen/image_generation tool to create a brand-new PNG from scratch before returning. Do not edit, extend, inpaint, upscale, vary, reuse, or derive from any previous image. Do not run shell commands, inspect the filesystem, copy files, or move files. Never return placeholder paths such as _image_id_.png. Return only compact JSON with imagePath set to the actual generated PNG path; if the exact filename is unavailable, return the generated_images session directory. StoryForge2 will resolve and copy the final PNG.";
+    let instruction = "Run the Bowri cover image prompt from stdin. You must invoke the built-in $imagegen/image_generation tool to create a brand-new PNG from scratch before returning. Do not edit, extend, inpaint, upscale, vary, reuse, or derive from any previous image. Do not run shell commands, inspect the filesystem, copy files, or move files. Never return placeholder paths such as _image_id_.png. Return only compact JSON with imagePath set to the actual generated PNG path; if the exact filename is unavailable, return the generated_images session directory. Bowri will resolve and copy the final PNG.";
 
     emit_cover_progress(
         app,
@@ -8797,7 +8797,7 @@ async fn execute_codex_character_image_generation(
         .clone()
         .unwrap_or_else(|| "codex".to_string());
     let command_spec = resolve_codex_command(&codex_path).await;
-    let instruction = "Run the StoryForge2 character image prompt from stdin. You must invoke the built-in $imagegen/image_generation tool to create a brand-new PNG portrait/reference image from scratch before returning. Do not edit, extend, inpaint, upscale, vary, reuse, or derive from any previous image. Do not run shell commands, inspect the filesystem, copy files, or move files. Never return placeholder paths such as _image_id_.png. Return only compact JSON with imagePath set to the actual generated PNG path; if the exact filename is unavailable, return the generated_images session directory. StoryForge2 will resolve and copy the final PNG.";
+    let instruction = "Run the Bowri character image prompt from stdin. You must invoke the built-in $imagegen/image_generation tool to create a brand-new PNG portrait/reference image from scratch before returning. Do not edit, extend, inpaint, upscale, vary, reuse, or derive from any previous image. Do not run shell commands, inspect the filesystem, copy files, or move files. Never return placeholder paths such as _image_id_.png. Return only compact JSON with imagePath set to the actual generated PNG path; if the exact filename is unavailable, return the generated_images session directory. Bowri will resolve and copy the final PNG.";
 
     let mut command = Command::new(command_spec.program);
     command
@@ -8938,7 +8938,7 @@ async fn execute_codex_export_artwork_generation(
         .clone()
         .unwrap_or_else(|| "codex".to_string());
     let command_spec = resolve_codex_command(&codex_path).await;
-    let instruction = "Run the StoryForge2 export artwork prompt from stdin. You must invoke the built-in $imagegen/image_generation tool to create a brand-new PNG decorative separator, ornament, or editorial illustration from scratch before returning. Do not make a book cover or character portrait unless the prompt explicitly asks for it. Do not render text, labels, watermarks, signatures, or logos inside the image. Do not edit, extend, inpaint, upscale, vary, reuse, or derive from any previous image. Do not run shell commands, inspect the filesystem, copy files, or move files. Never return placeholder paths such as _image_id_.png. Return only compact JSON with imagePath set to the actual generated PNG path; if the exact filename is unavailable, return the generated_images session directory. StoryForge2 will resolve and copy the final PNG.";
+    let instruction = "Run the Bowri export artwork prompt from stdin. You must invoke the built-in $imagegen/image_generation tool to create a brand-new PNG decorative separator, ornament, or editorial illustration from scratch before returning. Do not make a book cover or character portrait unless the prompt explicitly asks for it. Do not render text, labels, watermarks, signatures, or logos inside the image. Do not edit, extend, inpaint, upscale, vary, reuse, or derive from any previous image. Do not run shell commands, inspect the filesystem, copy files, or move files. Never return placeholder paths such as _image_id_.png. Return only compact JSON with imagePath set to the actual generated PNG path; if the exact filename is unavailable, return the generated_images session directory. Bowri will resolve and copy the final PNG.";
 
     let mut command = Command::new(command_spec.program);
     command
@@ -9137,7 +9137,7 @@ async fn reject_duplicate_previous_cover_file(
         };
         if existing_bytes == generated_bytes {
             return Err(AppError::Process(
-                "Codex CLI zwrocil obraz identyczny z poprzednia propozycja okladki. Ponow generowanie; StoryForge nie zapisze zduplikowanego PNG jako nowej okladki.".into(),
+                "Codex CLI zwrocil obraz identyczny z poprzednia propozycja okladki. Ponow generowanie; Bowri nie zapisze zduplikowanego PNG jako nowej okladki.".into(),
             ));
         }
     }
@@ -9376,7 +9376,7 @@ async fn execute_codex(
         .clone()
         .unwrap_or_else(|| "codex".to_string());
     let command_spec = resolve_codex_command(&codex_path).await;
-    let instruction = "Run the StoryForge2 writing-assistant prompt from stdin. Return only the requested output contract.";
+    let instruction = "Run the Bowri writing-assistant prompt from stdin. Return only the requested output contract.";
 
     let mut command = Command::new(command_spec.program);
     command.args(command_spec.prefix_args).arg("exec");
@@ -9727,7 +9727,7 @@ pub fn run() {
             start_claude_login
         ])
         .run(tauri::generate_context!())
-        .expect("error while running StoryForge2");
+        .expect("error while running Bowri");
 }
 
 #[cfg(test)]

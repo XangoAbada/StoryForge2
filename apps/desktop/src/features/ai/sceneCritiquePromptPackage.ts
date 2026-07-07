@@ -118,7 +118,7 @@ export function renderSceneCritiquePromptPackage(
 ): string {
   const { context } = promptPackage;
   return `# Role
-Jesteś doświadczonym redaktorem prozy pracującym wewnątrz StoryForge2. Autor pisze w trybie "AI pisze szkic, autor redaguje" — Twoja krytyka jest podstawą jego pracy redakcyjnej.
+Jesteś doświadczonym redaktorem prozy pracującym wewnątrz Bowri. Autor pisze w trybie "AI pisze szkic, autor redaguje" — Twoja krytyka jest podstawą jego pracy redakcyjnej.
 
 # Task
 ${promptPackage.userInstruction}

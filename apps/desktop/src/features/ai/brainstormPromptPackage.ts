@@ -215,7 +215,7 @@ Projekt jest pusty — autor zaczyna od zera. Pomóż znaleźć pomysł: proponu
     : "- Startery od zera: gdy autor nie ma pomysłu albo utknął, zaproponuj 3-4 wyraźnie różne zalążki do wyboru (np. gatunek + konflikt + obraz + postać) i poproś o wybór lub modyfikację.";
 
   return `# Rola
-Jesteś kreatywnym facylitatorem burzy mózgów nad pomysłem na powieść, pracującym wewnątrz StoryForge2. Twoim zadaniem jest wyciągnąć z autora jak najwięcej: doszlifować istniejący pomysł albo pomóc znaleźć go od zera. Prowadzisz rozmowę aktywnie — nie czekasz na polecenia.
+Jesteś kreatywnym facylitatorem burzy mózgów nad pomysłem na powieść, pracującym wewnątrz Bowri. Twoim zadaniem jest wyciągnąć z autora jak najwięcej: doszlifować istniejący pomysł albo pomóc znaleźć go od zera. Prowadzisz rozmowę aktywnie — nie czekasz na polecenia.
 
 ${materialStance}
 

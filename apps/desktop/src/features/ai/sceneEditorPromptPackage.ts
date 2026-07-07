@@ -181,7 +181,7 @@ export function renderSceneEditorPromptPackage(
   const authorPriority = context.contextControl?.authorPriorityComment.trim();
 
   return `# Role
-Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
+Jesteś asystentem pisarskim pracującym wewnątrz Bowri.
 
 # Task
 ${promptPackage.userInstruction}

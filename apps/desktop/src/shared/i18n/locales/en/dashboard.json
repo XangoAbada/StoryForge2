@@ -23,7 +23,7 @@
     "backendUnavailableTitle": "The desktop backend is not responding",
     "backendUnavailableDescription": "Launch the app through Tauri to use the local SQLite database and Rust commands.",
     "noProjectsTitle": "No projects yet",
-    "noProjectsDescription": "Create your first project and StoryForge2 will set up a book and database.",
+    "noProjectsDescription": "Create your first project and Bowri will set up a book and database.",
     "aiInProgress": "AI in progress",
     "costTitle": "Estimated AI generation cost based on official price lists (as if via API).",
     "generateTitleAiTitle": "Generate a working title with AI",

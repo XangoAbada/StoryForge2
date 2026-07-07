@@ -190,7 +190,7 @@ export function renderWorldPromptPackage(promptPackage: WorldPromptPackage): str
           : `- Wygeneruj tylko docelowe pole "${config.label}".`;
 
   return `# Role
-Jestes asystentem pisarskim pracujacym wewnatrz StoryForge2.
+Jestes asystentem pisarskim pracujacym wewnatrz Bowri.
 
 # Task
 ${promptPackage.userInstruction}

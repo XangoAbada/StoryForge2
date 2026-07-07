@@ -25,7 +25,7 @@
     "backendUnavailableTitle": "Backend desktopowy nie odpowiada",
     "backendUnavailableDescription": "Uruchom aplikację przez Tauri, aby korzystać z lokalnej bazy SQLite i komend Rust.",
     "noProjectsTitle": "Jeszcze nie ma projektów",
-    "noProjectsDescription": "Utwórz pierwszy projekt, a StoryForge2 założy książkę i bazę.",
+    "noProjectsDescription": "Utwórz pierwszy projekt, a Bowri założy książkę i bazę.",
     "aiInProgress": "AI w toku",
     "costTitle": "Szacunkowy koszt generacji AI wg oficjalnych cenników (jakby przez API).",
     "generateTitleAiTitle": "Generuj tytuł roboczy z AI",

@@ -272,7 +272,7 @@
       "reasoning": "Reasoning effort",
       "version": "Version: {{version}}",
       "backendUnavailable": "The Tauri backend is not available in this view or the command could not be run.",
-      "loginHint": "Run `codex` in a terminal and log in with the official Codex CLI method. StoryForge2 does not store tokens or credentials."
+      "loginHint": "Run `codex` in a terminal and log in with the official Codex CLI method. Bowri does not store tokens or credentials."
     },
     "providerStatus": {
       "eyebrow": "AI provider",

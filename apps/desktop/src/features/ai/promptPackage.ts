@@ -657,7 +657,7 @@ Pole "${config.label}" jest puste albo wymaga nowej propozycji. Wygeneruj komple
   const bookContext = renderBookContext(book, contextControl);
 
   return `# Role
-Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
+Jesteś asystentem pisarskim pracującym wewnątrz Bowri.
 
 # Task
 ${promptPackage.userInstruction}
@@ -729,7 +729,7 @@ export function renderNewProjectTitlePromptPackage(
   );
 
   return `# Role
-Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
+Jesteś asystentem pisarskim pracującym wewnątrz Bowri.
 
 # Task
 ${promptPackage.userInstruction}

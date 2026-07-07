@@ -126,7 +126,7 @@ export function renderSceneSummaryPromptPackage(
 ): string {
   const { context } = promptPackage;
   return `# Role
-Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
+Jesteś asystentem pisarskim pracującym wewnątrz Bowri.
 
 # Task
 ${promptPackage.userInstruction}
@@ -257,7 +257,7 @@ export function renderChapterSummaryPromptPackage(
 ): string {
   const { context } = promptPackage;
   return `# Role
-Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
+Jesteś asystentem pisarskim pracującym wewnątrz Bowri.
 
 # Task
 ${promptPackage.userInstruction}
@@ -362,7 +362,7 @@ export function renderStorySoFarPromptPackage(
 ): string {
   const { context } = promptPackage;
   return `# Role
-Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
+Jesteś asystentem pisarskim pracującym wewnątrz Bowri.
 
 # Task
 ${promptPackage.userInstruction}

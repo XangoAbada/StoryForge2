@@ -270,7 +270,7 @@ export function renderCharacterPromptPackage(promptPackage: CharacterPromptPacka
   if (promptPackage.context.targetField === "characterImage") {
     return `Generate one portrait/reference PNG character image with $imagegen.
 Create it from scratch as a fresh image generation. Do not edit, reuse, vary, or derive from any existing image.
-StoryForge2 final target path:
+Bowri final target path:
 {OUTPUT_FILE}
 
 Image brief:
@@ -294,7 +294,7 @@ Return only compact JSON after generation:
         ? "- Wygeneruj komplet pól tekstowych jednego wspomnienia. Nie twórz ani nie zapisuj postaci."
       : `- Wygeneruj tylko docelowe pole "${config.label}".`;
   return `# Role
-Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
+Jesteś asystentem pisarskim pracującym wewnątrz Bowri.
 
 # Task
 ${promptPackage.userInstruction}

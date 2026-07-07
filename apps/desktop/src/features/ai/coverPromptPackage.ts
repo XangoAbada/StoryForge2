@@ -95,9 +95,9 @@ export function renderBookCoverPromptPackage(
 ): string {
   return `Generate one portrait PNG book cover image with $imagegen.
 Create it from scratch as a fresh image generation. Do not edit, extend, inpaint, upscale, reuse, vary, or derive from any existing cover, preview, file, or prior generated image.
-StoryForge2 final target path:
+Bowri final target path:
 ${outputFilePath}
-Do not copy, move, inspect, or modify files yourself. StoryForge2 will copy the generated PNG to that target path after you return.
+Do not copy, move, inspect, or modify files yourself. Bowri will copy the generated PNG to that target path after you return.
 
 Image brief:
 ${promptPackage.coverPrompt}

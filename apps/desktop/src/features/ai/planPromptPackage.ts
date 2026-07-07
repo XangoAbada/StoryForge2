@@ -621,7 +621,7 @@ Uwzględnij tę treść i rozwiń ją w lepszą, pełniejszą propozycję. Może
 Pole "${config.label}" jest puste albo wymaga nowej propozycji. Wygeneruj kompletną docelową wartość pola.`;
 
   return `# Role
-Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
+Jesteś asystentem pisarskim pracującym wewnątrz Bowri.
 
 # Task
 ${promptPackage.userInstruction}

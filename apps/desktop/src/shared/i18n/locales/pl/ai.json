@@ -272,7 +272,7 @@
       "reasoning": "Stopień rozumowania",
       "version": "Wersja: {{version}}",
       "backendUnavailable": "Backend Tauri nie jest dostępny w tym widoku albo komenda nie mogła zostać wykonana.",
-      "loginHint": "Uruchom `codex` w terminalu i zaloguj się oficjalną metodą Codex CLI. StoryForge2 nie zapisuje tokenów ani danych logowania."
+      "loginHint": "Uruchom `codex` w terminalu i zaloguj się oficjalną metodą Codex CLI. Bowri nie zapisuje tokenów ani danych logowania."
     },
     "providerStatus": {
       "eyebrow": "Dostawca AI",

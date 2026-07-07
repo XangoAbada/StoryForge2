@@ -236,7 +236,7 @@ export function CodexStatusPanel({ compact = false }: CodexStatusPanelProps) {
         {!compact && unavailable ? (
           <p className="help-text">
             Uruchom `codex` w terminalu i zaloguj się oficjalną metodą Codex CLI.
-            StoryForge2 nie zapisuje tokenów ani danych logowania.
+            Bowri nie zapisuje tokenów ani danych logowania.
           </p>
         ) : null}
       </div>

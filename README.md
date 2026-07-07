@@ -1,54 +1,74 @@
-# StoryForge2
+<div align="center">
 
-StoryForge2 is a local desktop writing workspace built with Tauri 2, React, Vite, TypeScript and SQLite.
+# Bowri
 
-The V1 AI provider is `codex-cli-bridge`: the app calls the official Codex CLI through Tauri commands, shows proposals in the UI, and saves changes only after user approval.
-Cover generation also uses `codex-cli-bridge`: the app asks Codex CLI to run built-in image generation with `--enable image_generation`, so it uses the same Codex authentication as text generation.
+**A local-first desktop workspace for writing novels with an AI co-author.**
 
-## Development
+Brainstorm the idea, build the plan, draft scenes, and export a finished book — all on your machine, with your own AI account and nothing stored in the cloud.
 
-```sh
-npm install
-npm run desktop
-```
+[![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Rust](https://img.shields.io/badge/Rust-stable-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org)
 
-`npm run desktop` starts the Vite browser preview only. It is useful for
-frontend work, but it does not provide the Tauri/Rust backend, SQLite commands
-or Codex CLI checks.
+</div>
 
-## Desktop App
+---
 
-To run the real desktop app with Tauri, use PowerShell from the repository root:
+## What is Bowri?
 
-```powershell
-cd D:\Projects\StoryForge2
-npm install
-npm run tauri -- dev
-```
+Bowri is a desktop writing studio for long-form fiction. It walks a book from a
+blank page to an exportable manuscript through a guided workflow, and it treats
+AI as a proposal engine — every change the model suggests is shown in the UI and
+saved **only after you approve it**.
 
-Cover generation requires the official Codex CLI to be installed and authenticated:
+Your work lives in a local SQLite database. Bowri never uploads your manuscript;
+the only thing that leaves your machine is the prompt you send to your own AI
+account.
 
-```powershell
-codex --version
-codex login
-npm run tauri -- dev
-```
+## Features
 
-Image generation can take several minutes. StoryForge2 keeps a 600-second
-minimum timeout for covers and copies the final PNG into the app's `covers`
-directory after Codex CLI finishes.
+- **📖 Guided writing workflow** — Brainstorm → Concept → Plan → Characters → World → Scene editor → Editing → Export.
+- **🤖 AI co-author, human in control** — the model proposes; you review a diff-style preview and accept or reject. Nothing is written behind your back.
+- **🧠 Story bible awareness** — characters, world, and continuity summaries are fed back into prompts so the AI stays consistent across chapters.
+- **🎨 Cover & character art** — generate a book cover, character portraits, and editorial illustrations through the same AI account.
+- **💸 Cost visibility** — token usage and generation cost are surfaced per request.
+- **📝 Rich scene editor** — a TipTap-based editor built for drafting and redrafting prose.
+- **📦 Portable projects** — export a project as a self-contained ZIP and re-import it anywhere.
+- **🌍 Bilingual UI** — Polish and English out of the box (i18next).
+- **🔒 Local-first & private** — SQLite on disk, no accounts, no telemetry, no credentials stored by the app.
 
-The desktop app requires Rust/Cargo. If `cargo` is installed but the terminal
-does not see it yet, open a new terminal or temporarily add Cargo to `PATH`:
+## AI provider
 
-```powershell
-$env:PATH="$env:USERPROFILE\.cargo\bin;$env:PATH"
-cargo --version
-npm run tauri -- dev
-```
+Bowri's V1 AI backend is **`codex-cli-bridge`**. The app shells out to the
+official [Codex CLI](https://developers.openai.com/codex/cli) through Tauri
+commands, so it reuses your existing Codex authentication for both text and
+image generation. Bowri stores no tokens or credentials of its own — run
+`codex login` once and you are set.
 
-On Windows, install Rust with `rustup` if needed. Use the default MSVC toolchain
-when the installer asks:
+## Tech stack
+
+| Layer      | Technology                                             |
+| ---------- | ------------------------------------------------------ |
+| Shell      | [Tauri 2](https://tauri.app) (Rust)                    |
+| Frontend   | React 19, TypeScript, Vite                             |
+| Routing    | TanStack Router                                        |
+| State/data | TanStack Query, Zustand, Zod                           |
+| Editor     | TipTap 3                                               |
+| Storage    | SQLite (local)                                         |
+| AI         | `codex-cli-bridge` → official Codex CLI                |
+| i18n       | i18next / react-i18next (Polish + English)             |
+
+## Getting started
+
+### Prerequisites
+
+- **Node.js** 18+ and npm
+- **Rust** (stable, MSVC toolchain on Windows) — required for the desktop build
+- **Codex CLI** — required for AI text and image generation
+
+Install Rust on Windows if you don't have it:
 
 ```powershell
 winget install Rustlang.Rustup
@@ -56,22 +76,76 @@ rustup default stable
 cargo --version
 ```
 
-If `npm run tauri -- dev` fails with:
-
-```text
-failed to run `cargo metadata` ... program not found
-```
-
-then Tauri cannot find `cargo`. Fix it by installing Rust, opening a new
-PowerShell window, and confirming this command works before retrying Tauri:
+Authenticate the Codex CLI (used for all AI features):
 
 ```powershell
-cargo --version
+codex --version
+codex login
+```
+
+### Run the desktop app
+
+From the repository root, with PowerShell:
+
+```powershell
+npm install
 npm run tauri -- dev
 ```
 
-Frontend-only tests can be run with:
+This launches the full Tauri app with the Rust backend, SQLite storage, and
+Codex CLI integration.
+
+> **Note:** Image generation (covers, character art) can take several minutes.
+> Bowri keeps a 600-second minimum timeout and copies the final PNG into the
+> app's `covers` directory once Codex CLI finishes.
+
+### Frontend-only preview
+
+For UI work you can run just the Vite dev server:
+
+```sh
+npm run desktop
+```
+
+This starts the browser preview only — it has **no** Rust backend, SQLite
+commands, or Codex CLI checks. Use it for styling and layout, not for testing
+real behavior.
+
+### Tests
 
 ```sh
 npm test
 ```
+
+## Project structure
+
+```
+Bowri/
+├─ apps/
+│  └─ desktop/
+│     ├─ src/                 # React frontend
+│     │  ├─ app/              # Router & app shell
+│     │  ├─ features/         # Brainstorm, book, characters, world, scenes, editing, export, ai
+│     │  └─ shared/           # UI kit, i18n, API bindings
+│     └─ src-tauri/           # Rust backend (Tauri commands, SQLite, Codex bridge)
+└─ docs/                      # Design system & planning docs
+```
+
+## Troubleshooting
+
+**`failed to run cargo metadata … program not found`**
+Tauri can't find `cargo`. Install Rust, open a **new** terminal, and confirm
+`cargo --version` works before retrying. If Cargo is installed but not on
+`PATH` yet:
+
+```powershell
+$env:PATH="$env:USERPROFILE\.cargo\bin;$env:PATH"
+cargo --version
+npm run tauri -- dev
+```
+
+---
+
+<div align="center">
+<sub>Bowri — write locally, own your words.</sub>
+</div>

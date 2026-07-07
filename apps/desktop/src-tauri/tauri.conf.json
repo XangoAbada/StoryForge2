@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "StoryForge2",
+  "productName": "Bowri",
   "version": "0.1.0",
   "identifier": "dev.storyforge2.desktop",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "StoryForge2",
+        "title": "Bowri",
         "width": 1280,
         "height": 820,
         "minWidth": 960,

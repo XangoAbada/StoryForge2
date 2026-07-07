@@ -1,8 +1,8 @@
 [package]
 name = "storyforge2-desktop"
 version = "0.1.0"
-description = "StoryForge2 desktop shell"
-authors = ["StoryForge2"]
+description = "Bowri desktop shell"
+authors = ["Bowri"]
 edition = "2021"
 
 [lib]

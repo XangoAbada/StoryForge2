@@ -153,7 +153,7 @@ ${context.acceptedText || "(brak zaakceptowanego tekstu)"}`
 ${context.scenePlan?.analysisText || JSON.stringify(context.scenePlan ?? context.scene, null, 2)}`;
 
   return `# Role
-Jesteś asystentem pisarskim pracującym wewnątrz StoryForge2.
+Jesteś asystentem pisarskim pracującym wewnątrz Bowri.
 
 # Task
 ${promptPackage.userInstruction}
