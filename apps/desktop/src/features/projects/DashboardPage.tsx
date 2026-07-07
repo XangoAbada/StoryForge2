@@ -334,7 +334,7 @@ export function DashboardPage() {
         <header className="masthead">
           <p className="masthead-over">{t("dashboard.mastheadOver")}</p>
           <h1>
-            Story<em>Forge</em>
+            Bow<em>ri</em>
           </h1>
           <p className="masthead-tagline">{t("dashboard.mastheadTagline")}</p>
           <div className="masthead-controls">

@@ -2,11 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getAiSettings } from "../../shared/api/commands";
 import type { AiSettings } from "../../shared/api/types";
+import { CLAUDE_CLI_MODEL_MAP } from "./pricing";
 
 const CLAUDE_MODEL_LABELS: Record<string, string> = {
-  sonnet: "Sonnet",
-  opus: "Opus",
-  haiku: "Haiku"
+  "claude-fable-5": "Fable 5",
+  "claude-opus-4-8": "Opus 4.8",
+  "claude-opus-4-7": "Opus 4.7",
+  "claude-sonnet-5": "Sonnet 5",
+  "claude-sonnet-4-6": "Sonnet 4.6",
+  "claude-haiku-4-5": "Haiku 4.5"
 };
 
 const ANTHROPIC_MODEL_LABELS: Record<string, string> = {
@@ -15,11 +19,22 @@ const ANTHROPIC_MODEL_LABELS: Record<string, string> = {
   "claude-haiku-4-5": "Claude Haiku 4.5"
 };
 
+/**
+ * Stary, zapisany model Claude CLI bywa aliasem ("sonnet"/"opus"/"haiku").
+ * Mapujemy go na przypięte pełne ID, żeby <select> trafił w opcję.
+ */
+export function normalizeClaudeModel(value: string): string {
+  return CLAUDE_CLI_MODEL_MAP[value] ?? value;
+}
+
 /** Katalogi modeli współdzielone przez ustawienia AI i panel modelu (topbar). */
 export const CLAUDE_MODELS: Array<{ value: string; label: string }> = [
-  { value: "sonnet", label: "Sonnet (zalecany)" },
-  { value: "opus", label: "Opus (najmocniejszy)" },
-  { value: "haiku", label: "Haiku (najszybszy)" }
+  { value: "claude-fable-5", label: "Claude Fable 5 (najmocniejszy)" },
+  { value: "claude-opus-4-8", label: "Claude Opus 4.8 (zalecany)" },
+  { value: "claude-opus-4-7", label: "Claude Opus 4.7 (1M kontekst)" },
+  { value: "claude-sonnet-5", label: "Claude Sonnet 5" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { value: "claude-haiku-4-5", label: "Claude Haiku 4.5 (najszybszy)" }
 ];
 
 export const OPENAI_TEXT_MODELS = ["gpt-5.5", "gpt-5", "gpt-4.1"];
@@ -78,14 +93,16 @@ export function describeTextProvider(
   settings: AiSettings | undefined
 ): TextProviderInfo {
   switch (settings?.textProvider) {
-    case "claude-cli":
+    case "claude-cli": {
+      const model = normalizeClaudeModel(settings.claudeModel);
       return {
         isCodex: false,
         providerLabel: "Claude Code CLI",
-        modelLabel: CLAUDE_MODEL_LABELS[settings.claudeModel] ?? settings.claudeModel,
+        modelLabel: CLAUDE_MODEL_LABELS[model] ?? model,
         providerId: "claude-cli",
-        model: settings.claudeModel
+        model
       };
+    }
     case "openai-api":
       return {
         isCodex: false,

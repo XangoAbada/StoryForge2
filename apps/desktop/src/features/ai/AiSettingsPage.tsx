@@ -31,6 +31,7 @@ import { useCodexSettingsStore } from "./codexSettingsStore";
 import {
   ANTHROPIC_MODELS,
   CLAUDE_MODELS,
+  normalizeClaudeModel,
   OPENAI_TEXT_MODELS
 } from "./textProviderInfo";
 
@@ -274,7 +275,7 @@ export function AiSettingsPage() {
             <label className="field-label narrow">
               {t("aiSettings.claudeModel")}
               <select
-                value={draft.claudeModel}
+                value={normalizeClaudeModel(draft.claudeModel)}
                 onChange={(event) => update("claudeModel", event.target.value)}
               >
                 {CLAUDE_MODELS.map((model) => (

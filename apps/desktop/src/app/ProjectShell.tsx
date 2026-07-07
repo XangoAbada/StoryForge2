@@ -5,8 +5,7 @@ import {
   CircleDot,
   History,
   Search,
-  Settings,
-  ShieldCheck
+  Settings
 } from "lucide-react";
 import {
   CSSProperties,
@@ -31,6 +30,7 @@ import type { SearchResult } from "../shared/api/types";
 import { REASONING_LEVELS } from "../shared/api/types";
 import {
   describeTextProvider,
+  normalizeClaudeModel,
   textModelChoices
 } from "../features/ai/textProviderInfo";
 import { formatPln, formatUsd, totalCostOf } from "../features/ai/pricing";
@@ -235,7 +235,7 @@ export function ProjectShell({
       <aside className="sidebar">
         <Link className="brand-link" to="/">
           <span className="brand-word">
-            Story<em>Forge</em>
+            Bow<em>ri</em>
           </span>
         </Link>
 
@@ -275,13 +275,9 @@ export function ProjectShell({
             to="/settings"
             className={activeSection === "ai" ? "nav-item active" : "nav-item"}
           >
-            <ShieldCheck size={18} />
-            AI
-          </Link>
-          <span className="nav-item disabled">
             <Settings size={18} />
             {t("shell.nav.settings")}
-          </span>
+          </Link>
         </div>
       </aside>
 
@@ -355,7 +351,9 @@ export function ProjectShell({
                 <label className="field-label">
                   {t("shell.modelMenu.modelLabel")}
                   <select
-                    value={aiSettingsQuery.data?.[modelChoice.field] ?? ""}
+                    value={normalizeClaudeModel(
+                      String(aiSettingsQuery.data?.[modelChoice.field] ?? "")
+                    )}
                     disabled={saveAiSettingsMutation.isPending}
                     onChange={(event) => {
                       if (!aiSettingsQuery.data) {

@@ -890,7 +890,7 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   textProvider: "codex-cli",
   imageProvider: "codex-cli",
   claudePath: "claude",
-  claudeModel: "sonnet",
+  claudeModel: "claude-sonnet-5",
   openaiApiKey: "",
   openaiTextModel: "gpt-5.5",
   openaiImageModel: "gpt-image-1",

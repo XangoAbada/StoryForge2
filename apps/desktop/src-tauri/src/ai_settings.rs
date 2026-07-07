@@ -40,7 +40,7 @@ impl Default for AiSettings {
             text_provider: TEXT_PROVIDER_CODEX.into(),
             image_provider: IMAGE_PROVIDER_CODEX.into(),
             claude_path: "claude".into(),
-            claude_model: "sonnet".into(),
+            claude_model: "claude-sonnet-5".into(),
             openai_api_key: String::new(),
             openai_text_model: "gpt-5.5".into(),
             openai_image_model: "gpt-image-1".into(),
