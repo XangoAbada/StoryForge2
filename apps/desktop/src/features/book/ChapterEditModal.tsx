@@ -616,47 +616,12 @@ function ChapterRelationPickerModal({
   }
 
   return (
-    <div className="chapter-relation-modal" role="dialog" aria-modal="true">
-      <button type="button" className="chapter-relation-backdrop" onClick={onClose} aria-label={t("book.relationModalCloseAria")} />
-      <section className="chapter-relation-shell" aria-label={title}>
-        <header className="chapter-relation-header">
-          <div>
-            <p className="eyebrow">{t("book.relationModalHeading")}</p>
-            <h4>{title}</h4>
-          </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label={t("book.relationModalCloseAria")} title={t("book.relationModalClose")}>
-            <X size={16} />
-          </button>
-        </header>
-
-        <div className="chapter-relation-list">
-          {items.length === 0 ? (
-            <p className="chapter-relation-empty">{emptyText}</p>
-          ) : (
-            items.map((item) => {
-              const checked = checkedIds.includes(item.id);
-              const description = kind === "threads" ? item.description : beatPreviewText(item as Beat);
-              return (
-                <button
-                  type="button"
-                  className={checked ? "chapter-relation-option selected" : "chapter-relation-option"}
-                  key={item.id}
-                  onClick={() => toggle(item.id)}
-                  title={description}
-                  aria-pressed={checked}
-                >
-                  <span className={kind === "threads" ? "relation-dot thread" : "relation-dot beat"} />
-                  <span>
-                    <strong>{item.name}</strong>
-                    <em>{description || t("book.relationModalNoDescription")}</em>
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>
-
-        <footer className="chapter-relation-footer">
+    <Modal
+      title={title}
+      size="md"
+      onClose={onClose}
+      footer={
+        <>
           <Button variant="ghost" onClick={onClose}>
             {t("book.cancel")}
           </Button>
@@ -664,9 +629,36 @@ function ChapterRelationPickerModal({
             <Plus size={15} aria-hidden />
             {t("book.relationModalAddSelected")}
           </Button>
-        </footer>
-      </section>
-    </div>
+        </>
+      }
+    >
+      <div className="chapter-relation-list">
+        {items.length === 0 ? (
+          <p className="chapter-relation-empty">{emptyText}</p>
+        ) : (
+          items.map((item) => {
+            const checked = checkedIds.includes(item.id);
+            const description = kind === "threads" ? item.description : beatPreviewText(item as Beat);
+            return (
+              <button
+                type="button"
+                className={checked ? "chapter-relation-option selected" : "chapter-relation-option"}
+                key={item.id}
+                onClick={() => toggle(item.id)}
+                title={description}
+                aria-pressed={checked}
+              >
+                <span className={kind === "threads" ? "relation-dot thread" : "relation-dot beat"} />
+                <span>
+                  <strong>{item.name}</strong>
+                  <em>{description || t("book.relationModalNoDescription")}</em>
+                </span>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </Modal>
   );
 }
 
