@@ -1,4 +1,5 @@
-import { Download, Plus, Sparkles, Trash2, Upload } from "lucide-react";
+import { Download, PanelRightClose, PanelRightOpen, Plus, Sparkles, Trash2, Upload } from "lucide-react";
+import { motion } from "framer-motion";
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -40,7 +41,7 @@ import {
   renderNewProjectTitlePromptPackage,
   renderPromptPackage
 } from "../ai/promptPackage";
-import { Button, EmptyState, Spinner, StatusPill, confirmDialog } from "../../shared/ui";
+import { Button, EmptyState, Spinner, StatusPill, ThemeToggle, confirmDialog } from "../../shared/ui";
 import {
   NEW_PROJECT_PROPOSAL_ID,
   pendingProposalStatus,
@@ -123,6 +124,13 @@ export function DashboardPage() {
 
   const [transferInfo, setTransferInfo] = useState("");
   const [transferWarnings, setTransferWarnings] = useState<string[]>([]);
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  useEffect(() => {
+    if (activePromptTargetId || proposals.length > 0) {
+      setPanelOpen(true);
+    }
+  }, [activePromptTargetId, proposals.length]);
 
   const exportProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
@@ -332,15 +340,13 @@ export function DashboardPage() {
   const projectCount = projectsQuery.data?.length ?? 0;
 
   return (
-    <main className="dashboard dashboard-with-panel">
+    <main className={panelOpen ? "dashboard dashboard-with-panel" : "dashboard"}>
       <div className="dashboard-main-column">
-        <header className="masthead">
-          <p className="masthead-over">{t("dashboard.mastheadOver")}</p>
-          <h1>
+        <header className="library-topbar">
+          <span className="brand-word" aria-hidden>
             Bow<em>ri</em>
-          </h1>
-          <p className="masthead-tagline">{t("dashboard.mastheadTagline")}</p>
-          <div className="masthead-controls">
+          </span>
+          <div className="library-topbar-actions">
             <label className="masthead-ai-language">
               <span>{t("dashboard.uiLanguage")}</span>
               <select
@@ -357,8 +363,30 @@ export function DashboardPage() {
             <Link to="/settings" className="masthead-link">
               {t("dashboard.settingsLink")}
             </Link>
+            <ThemeToggle />
+            <button
+              type="button"
+              className="rail-toggle"
+              aria-expanded={panelOpen}
+              title={t("dashboard.proposalsPanelTitle")}
+              aria-label={t("dashboard.proposalsPanelTitle")}
+              onClick={() => setPanelOpen((value) => !value)}
+            >
+              {panelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+              {!panelOpen && proposals.length > 0 ? (
+                <span className="rail-badge">{proposals.length}</span>
+              ) : null}
+            </button>
           </div>
         </header>
+
+        <section className="masthead">
+          <p className="masthead-over">{t("dashboard.mastheadOver")}</p>
+          <h1>
+            Bow<em>ri</em>
+          </h1>
+          <p className="masthead-tagline">{t("dashboard.mastheadTagline")}</p>
+        </section>
 
         <form className="new-project-form" onSubmit={handleSubmit}>
           <div className="new-project-row">
@@ -435,6 +463,7 @@ export function DashboardPage() {
                 onClick={() => importProjectMutation.mutate()}
                 disabled={importProjectMutation.isPending}
                 title={t("dashboard.importProject")}
+                aria-label={t("dashboard.importProject")}
               >
                 {importProjectMutation.isPending ? (
                   <Spinner />
@@ -467,7 +496,7 @@ export function DashboardPage() {
           ) : null}
 
           <div className="shelf">
-            {projectsQuery.data?.map((project) => {
+            {projectsQuery.data?.map((project, index) => {
               const coverSrc = coverImageSource(project.coverImagePath);
               const displayTitle = project.workingTitle || project.name;
               const projectQueueStatus = proposalStatus(project.id);
@@ -485,7 +514,17 @@ export function DashboardPage() {
                 !projectTitleAlreadyInContext;
 
               return (
-                <article className="book" key={project.id}>
+                <motion.article
+                  className="book"
+                  key={project.id}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.25,
+                    delay: Math.min(index, 8) * 0.04,
+                    ease: [0.22, 1, 0.36, 1]
+                  }}
+                >
                   <Link
                     className="book-link"
                     to="/projects/$projectId/concept"
@@ -597,7 +636,7 @@ export function DashboardPage() {
                       )}
                     </Button>
                   </div>
-                </article>
+                </motion.article>
               );
             })}
           </div>
@@ -635,6 +674,7 @@ export function DashboardPage() {
         </section>
       </div>
 
+      {panelOpen ? (
       <aside className="dashboard-side-panel">
         <AiProviderStatusPanel />
         <AiPromptContextPanel />
@@ -660,6 +700,7 @@ export function DashboardPage() {
           </section>
         )}
       </aside>
+      ) : null}
     </main>
   );
 }
