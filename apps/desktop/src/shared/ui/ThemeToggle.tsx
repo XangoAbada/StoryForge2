@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useThemeStore } from "../../app/themeStore";
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const { t } = useTranslation("shell");
+  const { t } = useTranslation();
   const resolved = useThemeStore((state) => state.resolved);
   const setPreference = useThemeStore((state) => state.setPreference);
   const next = resolved === "dark" ? "light" : "dark";

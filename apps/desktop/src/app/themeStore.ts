@@ -20,11 +20,13 @@ function readPreference(): ThemePreference {
   return value === "light" || value === "dark" ? value : "system";
 }
 
+function canMatchMedia(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function";
+}
+
 function resolve(preference: ThemePreference): ResolvedTheme {
   if (preference === "system") {
-    return typeof window !== "undefined" && window.matchMedia(darkQuery).matches
-      ? "dark"
-      : "light";
+    return canMatchMedia() && window.matchMedia(darkQuery).matches ? "dark" : "light";
   }
   return preference;
 }
@@ -40,7 +42,7 @@ export const useThemeStore = create<ThemeState>((set, get) => {
   const resolved = resolve(preference);
   applyTheme(resolved);
 
-  if (typeof window !== "undefined") {
+  if (canMatchMedia()) {
     window.matchMedia(darkQuery).addEventListener("change", () => {
       if (get().preference === "system") {
         const next = resolve("system");

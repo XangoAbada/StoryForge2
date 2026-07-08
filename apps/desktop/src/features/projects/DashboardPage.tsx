@@ -40,7 +40,7 @@ import {
   renderNewProjectTitlePromptPackage,
   renderPromptPackage
 } from "../ai/promptPackage";
-import { Button, EmptyState, Spinner, StatusPill } from "../../shared/ui";
+import { Button, EmptyState, Spinner, StatusPill, confirmDialog } from "../../shared/ui";
 import {
   NEW_PROJECT_PROPOSAL_ID,
   pendingProposalStatus,
@@ -291,14 +291,17 @@ export function DashboardPage() {
     addContextSourceToActiveTarget(conceptPromptContextSource("workingTitle"));
   }
 
-  function requestProjectDelete(projectId: string, displayTitle: string) {
+  async function requestProjectDelete(projectId: string, displayTitle: string) {
     if (deleteMutation.isPending) {
       return;
     }
 
-    const confirmed = window.confirm(
-      t("dashboard.deleteConfirm", { title: displayTitle })
-    );
+    const confirmed = await confirmDialog({
+      title: t("common.delete"),
+      message: t("dashboard.deleteConfirm", { title: displayTitle }),
+      confirmLabel: t("common.delete"),
+      danger: true
+    });
 
     if (confirmed) {
       deleteMutation.mutate(projectId);

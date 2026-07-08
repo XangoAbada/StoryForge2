@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lightbulb, Pencil, Plus, Send, Sparkles, Trash2 } from "lucide-react";
-import { Button, Chip, EmptyState, Field, Modal, TwoPane } from "../../shared/ui";
+import { Button, Chip, EmptyState, Field, Modal, TwoPane, confirmDialog } from "../../shared/ui";
 import {
   appendBrainstormMessage,
   createBrainstormSession,
@@ -218,7 +218,13 @@ export function BrainstormPage({ projectId }: { projectId: string }) {
   }
 
   async function removeSession(sessionId: string) {
-    if (!window.confirm(t("brainstorm.confirmDeleteSession"))) {
+    const confirmed = await confirmDialog({
+      title: t("common.delete"),
+      message: t("brainstorm.confirmDeleteSession"),
+      confirmLabel: t("common.delete"),
+      danger: true
+    });
+    if (!confirmed) {
       return;
     }
     await deleteBrainstormSession(sessionId);

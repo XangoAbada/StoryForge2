@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 
 export interface CollapsibleProps {
@@ -30,7 +31,20 @@ export function Collapsible({ title, description, defaultOpen = false, children,
           {description ? <span className="ui-collapsible-description">{description}</span> : null}
         </span>
       </button>
-      {open ? <div className="ui-collapsible-body">{children}</div> : null}
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            className="ui-collapsible-motion"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            style={{ overflow: "hidden" }}
+          >
+            <div className="ui-collapsible-body">{children}</div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </section>
   );
 }

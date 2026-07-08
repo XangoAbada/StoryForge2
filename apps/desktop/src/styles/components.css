@@ -1,6 +1,6 @@
 /* ============================================================
    Komponenty współdzielone (shared/ui) — style .ui-*
-   Wzorzec wizualny: docs/ui-redesign-mockup.html
+   Design system „Inkwell" — dwa motywy na semantycznych tokenach.
    ============================================================ */
 
 /* --- Button --- */
@@ -13,10 +13,15 @@
   border: 1px solid transparent;
   border-radius: var(--radius);
   font-family: var(--font-ui);
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  transition:
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
 .ui-btn:active:not(:disabled) { transform: translateY(1px); }
 .ui-btn:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -25,7 +30,7 @@
 .ui-btn-primary:hover:not(:disabled) { background: var(--accent-deep); box-shadow: var(--shadow); }
 
 .ui-btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
-.ui-btn-secondary:hover:not(:disabled) { border-color: var(--text-faint); box-shadow: var(--shadow); }
+.ui-btn-secondary:hover:not(:disabled) { border-color: var(--text-faint); box-shadow: var(--shadow-sm); }
 
 .ui-btn-ghost { background: transparent; color: var(--text-soft); }
 .ui-btn-ghost:hover:not(:disabled) { background: var(--surface-sunken); color: var(--text); }
@@ -46,8 +51,17 @@
 }
 .ui-btn-icon:hover:not(:disabled) { background: var(--surface-sunken); color: var(--text); }
 
-.ui-btn-sm { padding: 5px 12px; font-size: 12.5px; }
+.ui-btn-sm { padding: 5px 12px; font-size: var(--fs-sm); }
 .ui-btn-block { width: 100%; }
+
+/* przycisk potwierdzenia destrukcji — pełny, nie ghost */
+.ui-confirm-danger {
+  background: var(--danger);
+  color: var(--on-accent);
+}
+.ui-confirm-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 85%, var(--text));
+}
 
 /* --- Spinner --- */
 .ui-spin { animation: ui-spin 0.9s linear infinite; }
@@ -64,7 +78,7 @@
   color: var(--text-soft);
 }
 .ui-field-actions { display: inline-flex; gap: 4px; margin-left: auto; }
-.ui-field-hint { font-size: 12.5px; color: var(--text-soft); }
+.ui-field-hint { font-size: var(--fs-sm); color: var(--text-soft); }
 
 .ui-input,
 .ui-field input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
@@ -77,14 +91,15 @@
   background: var(--surface);
   font-size: 14px;
   color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 .ui-input:focus,
 .ui-field input:focus,
 .ui-field textarea:focus,
 .ui-field select:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
+  outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* --- StatusPill --- */
@@ -93,8 +108,8 @@
   align-items: center;
   gap: 6px;
   padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 11.5px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -114,12 +129,13 @@
   gap: 6px;
   padding: 2.5px 9px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-sunken);
   color: var(--text-soft);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   white-space: nowrap;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .ui-chip-accent { border-color: color-mix(in srgb, var(--accent) 28%, transparent); background: var(--accent-wash); color: var(--accent-deep); }
 .ui-chip-ai { border-color: var(--ai-border); background: var(--ai-wash); color: var(--ai); }
@@ -141,26 +157,36 @@ button.ui-chip[aria-pressed="true"] { border-color: var(--accent); background: v
 /* --- Tabs --- */
 .ui-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); overflow-x: auto; }
 .ui-tab {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 7px;
   padding: 9px 14px;
   border: none;
-  border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   background: none;
   color: var(--text-soft);
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease);
 }
 .ui-tab:hover { color: var(--text); }
-.ui-tab[aria-selected="true"] { color: var(--accent-deep); border-bottom-color: var(--accent); }
+.ui-tab[aria-selected="true"] { color: var(--accent-deep); }
+.ui-tab-indicator {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
 .ui-tab-badge {
   font-size: 11px;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-sunken);
   color: var(--text-soft);
 }
@@ -171,20 +197,30 @@ button.ui-chip[aria-pressed="true"] { border-color: var(--accent); background: v
   display: inline-flex;
   padding: 3px;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface);
 }
 .ui-seg button {
+  position: relative;
   border: none;
   background: transparent;
   padding: 6px 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   font-size: 13px;
   font-weight: 600;
   color: var(--text-soft);
   cursor: pointer;
+  transition: color var(--dur-fast) var(--ease);
 }
-.ui-seg button[aria-pressed="true"] { background: var(--text); color: var(--paper); }
+.ui-seg button[aria-pressed="true"] { color: var(--on-accent); }
+.ui-seg-thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+.ui-seg-label { position: relative; z-index: 1; }
 
 /* --- Modal --- */
 .ui-modal-backdrop {
@@ -195,16 +231,16 @@ button.ui-chip[aria-pressed="true"] { border-color: var(--accent); background: v
   place-items: center;
   padding: var(--s5);
   background: var(--overlay);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(3px);
 }
 .ui-modal {
   width: 100%;
   max-height: min(86vh, 920px);
   display: flex;
   flex-direction: column;
-  background: var(--surface);
+  background: var(--elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lift);
 }
 .ui-modal-sm { max-width: 440px; }
@@ -229,6 +265,78 @@ button.ui-chip[aria-pressed="true"] { border-color: var(--accent); background: v
   border-top: 1px solid var(--border);
 }
 .ui-modal-foot .ui-btn-danger { margin-right: auto; }
+
+.ui-confirm-message { color: var(--text-soft); font-size: 14px; line-height: 1.55; }
+
+/* --- Toast --- */
+.ui-toaster {
+  position: fixed;
+  bottom: var(--s5);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+  display: grid;
+  justify-items: center;
+  gap: var(--s2);
+  pointer-events: none;
+}
+.ui-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  max-width: min(480px, calc(100vw - 48px));
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--elevated);
+  box-shadow: var(--shadow-lift);
+  font-size: var(--fs-base);
+  color: var(--text);
+  pointer-events: auto;
+}
+.ui-toast-icon { flex: none; }
+.ui-toast-success .ui-toast-icon { color: var(--success); }
+.ui-toast-error .ui-toast-icon { color: var(--danger); }
+.ui-toast-info .ui-toast-icon { color: var(--accent); }
+.ui-toast-error { border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.ui-toast-message { min-width: 0; }
+.ui-toast-close {
+  display: inline-flex;
+  border: none;
+  background: none;
+  padding: 2px;
+  margin-left: var(--s1);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-faint);
+}
+.ui-toast-close:hover { color: var(--text); }
+
+/* --- Tooltip (CSS-only, dla ikon w zwiniętej szynie) --- */
+.ui-tip { position: relative; }
+.ui-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 8px);
+  transform: translateY(-50%) scale(0.96);
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--paper);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+  z-index: var(--z-toast);
+}
+.ui-tip:hover::after,
+.ui-tip:focus-visible::after {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
 
 /* --- TwoPane --- */
 .ui-two-pane {
@@ -265,8 +373,8 @@ button.ui-chip[aria-pressed="true"] { border-color: var(--accent); background: v
   border-radius: var(--radius);
 }
 .ui-empty svg { color: var(--text-faint); }
-.ui-empty h3 { font-size: 17px; color: var(--text); }
-.ui-empty p { font-size: 13.5px; max-width: 380px; }
+.ui-empty h3 { font-size: var(--fs-lg); color: var(--text); }
+.ui-empty p { font-size: var(--fs-base); max-width: 380px; }
 
 /* --- Card --- */
 .ui-card {
@@ -275,3 +383,6 @@ button.ui-chip[aria-pressed="true"] { border-color: var(--accent); background: v
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
+
+/* --- ThemeToggle --- */
+.ui-theme-toggle-icon { display: inline-flex; }
