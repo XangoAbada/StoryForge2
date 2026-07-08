@@ -1,0 +1,452 @@
+/* ============================================================
+   EDYTOR SCEN — rękopis (wzorzec: docs/ui-redesign-mockup.html, EKRAN 3)
+   ============================================================ */
+
+.scene-editor-page {
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: start;
+  min-width: 0;
+}
+
+/* --- lewy rail scen --- */
+.scene-rail {
+  position: sticky;
+  top: var(--s4);
+  display: grid;
+  align-content: start;
+  gap: var(--s3);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: var(--s4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.scene-rail-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s1);
+}
+
+.scene-rail-list {
+  display: grid;
+  gap: var(--s2);
+}
+
+.scene-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scene-list-row {
+  position: relative;
+}
+
+.scene-row-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  z-index: 1;
+}
+
+.scene-item {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 11px;
+  padding-right: 76px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.scene-item:hover {
+  background: var(--surface-sunken);
+}
+
+.scene-item.active {
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.scene-item .t {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.scene-item .m {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--text-soft);
+  font-size: 11.5px;
+}
+
+.scene-item .m .ui-pill {
+  padding: 1px 8px;
+}
+
+.scene-empty-note {
+  color: var(--text-soft);
+  font-size: 12.5px;
+}
+
+/* --- środek: rękopis jak kartka papieru --- */
+.manuscript-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s4);
+  min-width: 0;
+  padding-bottom: var(--s6);
+}
+
+.ms-toolbar {
+  position: sticky;
+  top: var(--s3);
+  z-index: var(--z-panel);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  align-self: center;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.ms-toolbar .sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 5px 6px;
+  background: var(--border);
+}
+
+.ms-toolbar .ui-btn-icon.active {
+  background: var(--accent-wash);
+  color: var(--accent-deep);
+}
+
+.manuscript {
+  position: relative;
+  width: 100%;
+  max-width: 660px;
+  padding: 64px 72px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+
+/* pionowa linia marginesu korektorskiego */
+.manuscript::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 44px;
+  border-left: 1px solid color-mix(in srgb, var(--danger) 12%, transparent);
+  pointer-events: none;
+}
+
+.manuscript .scene-no {
+  color: var(--text-faint);
+  font-size: 11.5px;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.manuscript h2 {
+  margin: 10px 0 34px;
+  font-size: 30px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* proza TipTap */
+.scene-tiptap-surface {
+  min-height: 260px;
+  outline: none;
+  color: var(--text);
+  caret-color: var(--text);
+  font-family: var(--font-prose);
+  font-size: 16.5px;
+  line-height: 1.75;
+}
+
+.scene-tiptap-surface ::selection,
+.scene-tiptap-surface::selection {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.scene-tiptap-surface p {
+  margin: 0;
+}
+
+.scene-tiptap-surface p + p {
+  margin-top: 4px;
+  text-indent: 1.6em;
+}
+
+/* inicjał tylko w pierwszym akapicie */
+.scene-tiptap-surface > p:first-child::first-letter {
+  float: left;
+  padding: 4px 8px 0 0;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 52px;
+  line-height: 0.9;
+}
+
+.scene-tiptap-surface .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.ms-count {
+  margin-top: var(--s5);
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: right;
+}
+
+/* chipy relacji pod kartką */
+.scene-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 660px;
+}
+
+/* popover AI dla zaznaczenia */
+.scene-selection-popover {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  align-self: center;
+  padding: 6px 14px;
+  border: 1px solid var(--ai-border);
+  border-radius: var(--radius-full);
+  background: var(--elevated);
+  box-shadow: var(--shadow-lift);
+  color: var(--text-soft);
+  font-size: 12px;
+  animation: scene-popover-in var(--dur-fast) var(--ease);
+}
+
+@keyframes scene-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* panel AI pod kartką */
+.scene-ai-panel {
+  display: grid;
+  gap: var(--s3);
+  width: 100%;
+  max-width: 660px;
+  padding: var(--s4);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.scene-ai-panel h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--ai);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.scene-ai-mode {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.scene-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* warianty AI */
+.scene-variants-menu {
+  position: relative;
+}
+
+.scene-variants-menu summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  list-style: none;
+}
+
+.scene-variants-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.scene-variants-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: var(--z-panel);
+  display: grid;
+  gap: 8px;
+  width: min(320px, 78vw);
+  max-height: 280px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+
+.scene-variants-popover p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.scene-variant-item {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.scene-variant-item:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
+}
+
+.scene-variant-item span {
+  color: var(--text-soft);
+  font-size: 11px;
+}
+
+/* zapis i autosave */
+.scene-save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  max-width: 660px;
+}
+
+.scene-autosave {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  color: var(--text-soft);
+  font-size: 12.5px;
+}
+
+.scene-autosave::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+/* modal wyboru relacji (używany przez SceneEditModal) */
+.scene-relation-picker-modal {
+  /* Musi przykrywać modal edycji sceny (.ui-modal, z-index: var(--z-modal)). */
+  z-index: var(--z-lightbox);
+}
+
+.scene-relation-picker-modal .world-relation-shell {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+@media (max-width: 1180px) {
+  .scene-editor-page {
+    grid-template-columns: 1fr;
+  }
+
+  .scene-rail {
+    position: static;
+    max-height: none;
+  }
+
+  .manuscript {
+    padding: var(--s6) var(--s5);
+  }
+
+  .manuscript::before {
+    left: var(--s4);
+  }
+}
+
+/* Historia migawek sceny */
+.scene-snapshot-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.scene-snapshot-preview {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: 0;
+  padding: 4px 8px;
+  background: var(--surface-sunken);
+  border-radius: 6px;
+}
