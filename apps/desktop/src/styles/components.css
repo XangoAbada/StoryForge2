@@ -21,7 +21,7 @@
 .ui-btn:active:not(:disabled) { transform: translateY(1px); }
 .ui-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
-.ui-btn-primary { background: var(--accent); color: #fdfbf6; }
+.ui-btn-primary { background: var(--accent); color: var(--on-accent); }
 .ui-btn-primary:hover:not(:disabled) { background: var(--accent-deep); box-shadow: var(--shadow); }
 
 .ui-btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
@@ -31,7 +31,7 @@
 .ui-btn-ghost:hover:not(:disabled) { background: var(--surface-sunken); color: var(--text); }
 
 .ui-btn-ai { background: var(--ai-wash); color: var(--ai); border-color: var(--ai-border); }
-.ui-btn-ai:hover:not(:disabled) { background: #f2e3c4; }
+.ui-btn-ai:hover:not(:disabled) { background: color-mix(in srgb, var(--ai) 14%, var(--ai-wash)); }
 
 .ui-btn-danger { background: transparent; color: var(--danger); border-color: transparent; }
 .ui-btn-danger:hover:not(:disabled) { background: var(--danger-wash); }
@@ -121,7 +121,7 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.ui-chip-accent { border-color: rgba(31, 93, 87, 0.28); background: var(--accent-wash); color: var(--accent-deep); }
+.ui-chip-accent { border-color: color-mix(in srgb, var(--accent) 28%, transparent); background: var(--accent-wash); color: var(--accent-deep); }
 .ui-chip-ai { border-color: var(--ai-border); background: var(--ai-wash); color: var(--ai); }
 button.ui-chip { cursor: pointer; }
 button.ui-chip:hover { border-color: var(--text-faint); color: var(--text); }
@@ -194,7 +194,7 @@ button.ui-chip[aria-pressed="true"] { border-color: var(--accent); background: v
   display: grid;
   place-items: center;
   padding: var(--s5);
-  background: rgba(33, 29, 22, 0.45);
+  background: var(--overlay);
   backdrop-filter: blur(2px);
 }
 .ui-modal {

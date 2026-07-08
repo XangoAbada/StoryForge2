@@ -7,9 +7,9 @@
       "plan": "Faza 3: Plan powieści",
       "characters": "Faza 4: Postacie i relacje",
       "world": "Faza 5: Świat i reguły",
-      "editor": "Faza 7: Edytor scen i rozdziałów",
-      "editing": "Faza 8: Redakcja i statystyki",
-      "export": "Eksport książki",
+      "editor": "Faza 6: Edytor scen i rozdziałów",
+      "editing": "Faza 7: Redakcja i statystyki",
+      "export": "Faza 8: Eksport książki",
       "aiLog": "Log AI",
       "aiSettings": "Ustawienia AI"
     },
@@ -62,6 +62,15 @@
       "noResults": "Brak wyników.",
       "untitled": "Bez tytułu"
     },
-    "back": "Wróć do projektów"
+    "back": "Wróć do projektów",
+    "theme": {
+      "light": "Przełącz na jasny motyw",
+      "dark": "Przełącz na ciemny motyw",
+      "system": "Motyw systemowy",
+      "label": "Motyw",
+      "optionLight": "Jasny",
+      "optionDark": "Ciemny",
+      "optionSystem": "Systemowy"
+    }
   }
 }

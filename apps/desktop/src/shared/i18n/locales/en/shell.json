@@ -7,9 +7,9 @@
       "plan": "Phase 3: Novel plan",
       "characters": "Phase 4: Characters and relationships",
       "world": "Phase 5: World and rules",
-      "editor": "Phase 7: Scene and chapter editor",
-      "editing": "Phase 8: Editing and statistics",
-      "export": "Book export",
+      "editor": "Phase 6: Scene and chapter editor",
+      "editing": "Phase 7: Editing and statistics",
+      "export": "Phase 8: Book export",
       "aiLog": "AI log",
       "aiSettings": "AI settings"
     },
@@ -62,6 +62,15 @@
       "noResults": "No results.",
       "untitled": "Untitled"
     },
-    "back": "Back to projects"
+    "back": "Back to projects",
+    "theme": {
+      "light": "Switch to light theme",
+      "dark": "Switch to dark theme",
+      "system": "System theme",
+      "label": "Theme",
+      "optionLight": "Light",
+      "optionDark": "Dark",
+      "optionSystem": "System"
+    }
   }
 }

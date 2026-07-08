@@ -1,11 +1,14 @@
 /* ============================================================
-   StoryForge2 — tokeny design systemu „redakcyjny jasny"
-   Źródło wizualne: docs/ui-redesign-mockup.html
+   Bowri — design system „Inkwell"
+   Dwa nastroje jednego studia pisarza:
+   Inkwell Day (porcelanowy papier, ciepły atrament)
+   Inkwell Night (ciepła czerń, pergaminowy tekst)
    Zasada: jeden kolor = jedno znaczenie.
+     viridian = akcja użytkownika · złoto = AI ·
+     zieleń = ukończone · rdza = destrukcja
    ============================================================ */
 
 :root {
-  color-scheme: light;
   font-family: var(--font-ui);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -15,36 +18,21 @@
   --font-ui: "Schibsted Grotesk Variable", "Segoe UI", system-ui, sans-serif;
   --font-prose: "Source Serif 4 Variable", Georgia, serif;
 
-  /* --- papier i powierzchnie --- */
-  --paper: #f7f3ec;          /* tło aplikacji */
-  --surface: #fffdf9;        /* karty, panele */
-  --surface-sunken: #f1ece2; /* wgłębienia, hover, nieaktywne */
-
-  /* --- atrament --- */
-  --text: #211d16;
-  --text-soft: #6e6558;
-  --text-faint: #8d8270; /* dekoracje i metadane; 3.4:1 na papierze */
-
-  /* --- linie --- */
-  --border: #e4dccd;
-  --border-strong: #cfc4b0;
-
-  /* --- akcenty (jeden kolor = jedno znaczenie) --- */
-  --accent: #1f5d57;         /* akcja główna, aktywne, fokus */
-  --accent-deep: #14443f;
-  --accent-wash: #e7efec;
-  --ai: #8f5e0f;             /* wyłącznie działania AI (ochra); 4.8:1 na ai-wash */
-  --ai-wash: #f7edd9;
-  --ai-border: #e5d3a8;
-  --success: #2e6b3f;        /* ukończone, zapisane */
-  --success-wash: #e6efe4;
-  --danger: #96372a;         /* destrukcja, błędy */
-  --danger-wash: #f6e5e0;
+  /* skala pisma (nowy CSS; stare arkusze mają własne wartości) */
+  --fs-xs: 11.5px;
+  --fs-sm: 12.5px;
+  --fs-base: 13.5px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 21px;
+  --fs-2xl: 28px;
+  --fs-3xl: 36px;
 
   /* --- geometria --- */
-  --radius: 6px;
-  --shadow: 0 1px 2px rgba(33, 29, 22, 0.05), 0 8px 28px rgba(33, 29, 22, 0.07);
-  --shadow-lift: 0 2px 4px rgba(33, 29, 22, 0.06), 0 16px 44px rgba(33, 29, 22, 0.12);
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
 
   /* --- skala odstępów --- */
   --s1: 4px;
@@ -55,11 +43,101 @@
   --s6: 32px;
   --s7: 48px;
 
+  /* --- ruch --- */
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 300ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   /* --- warstwy --- */
   --z-panel: 10;
   --z-modal: 100;
   --z-lightbox: 110;
+  --z-toast: 120;
+}
 
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* --- papier i powierzchnie --- */
+  --paper: #f4f1ea;           /* tło aplikacji */
+  --surface: #fdfcf8;         /* karty, panele */
+  --surface-sunken: #ece8de;  /* wgłębienia, hover, nieaktywne */
+  --elevated: #ffffff;        /* modale, popovery, toasty */
+  --overlay: rgba(28, 24, 18, 0.45);
+
+  /* --- atrament --- */
+  --text: #1c1913;
+  --text-soft: #635c4e;
+  --text-faint: #8b8371;
+
+  /* --- linie --- */
+  --border: #e2ddcf;
+  --border-strong: #cbc4b1;
+
+  /* --- akcenty --- */
+  --accent: #14665c;
+  --accent-deep: #0d4a43;     /* hover akcji głównej */
+  --accent-wash: #e1eeea;
+  --on-accent: #f7fbf9;
+  --ai: #8f5e0f;
+  --ai-strong: #6f4a0c;
+  --ai-wash: #f6ecd6;
+  --ai-border: #e4d2a4;
+  --success: #2f6b40;
+  --success-wash: #e3efe2;
+  --danger: #9c392b;
+  --danger-wash: #f7e4df;
+
+  /* --- cień --- */
+  --shadow-color: 28, 24, 18;
+  --shadow-sm: 0 1px 2px rgba(var(--shadow-color), 0.06);
+  --shadow:
+    0 1px 2px rgba(var(--shadow-color), 0.05),
+    0 8px 28px rgba(var(--shadow-color), 0.08);
+  --shadow-lift:
+    0 2px 6px rgba(var(--shadow-color), 0.07),
+    0 20px 48px rgba(var(--shadow-color), 0.16);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #131109;
+  --surface: #1c1914;
+  --surface-sunken: #0f0d09;
+  --elevated: #26221b;
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  --text: #ece6d9;
+  --text-soft: #a89f8c;
+  --text-faint: #766e5e;
+
+  --border: #2d2920;
+  --border-strong: #423c2f;
+
+  --accent: #4fc4b4;
+  --accent-deep: #79d6c9;     /* hover: w ciemnym jaśniej */
+  --accent-wash: #14302b;
+  --on-accent: #0c1f1c;
+  --ai: #d9a84e;
+  --ai-strong: #e8bd6e;
+  --ai-wash: #2b2312;
+  --ai-border: #4a3c1c;
+  --success: #7cc78e;
+  --success-wash: #182a1b;
+  --danger: #e08974;
+  --danger-wash: #34190f;
+
+  --shadow-color: 0, 0, 0;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow:
+    0 1px 3px rgba(0, 0, 0, 0.4),
+    0 10px 32px rgba(0, 0, 0, 0.5);
+  --shadow-lift:
+    0 2px 8px rgba(0, 0, 0, 0.5),
+    0 24px 56px rgba(0, 0, 0, 0.6);
 }
 
 body {
@@ -67,10 +145,17 @@ body {
   color: var(--text);
   /* subtelne ziarno papieru */
   background-image:
-    radial-gradient(rgba(33, 29, 22, 0.022) 1px, transparent 1px),
+    radial-gradient(rgba(var(--shadow-color), 0.022) 1px, transparent 1px),
     radial-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px);
   background-size: 7px 7px, 11px 11px;
   background-position: 0 0, 3px 4px;
+}
+
+[data-theme="dark"] body {
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.016) 1px, transparent 1px);
+  background-size: 7px 7px;
+  background-position: 0 0;
 }
 
 h1,
@@ -85,4 +170,14 @@ h3 {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
