@@ -869,6 +869,11 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         onSelect={setSelectedItem}
         onGenerate={activatePlanPromptContext}
         onActivatePrompt={activatePlanPromptContext}
+        onUpsertAct={async (input) => {
+          const act = await upsertAct(input);
+          await invalidatePlan();
+          return act;
+        }}
       />
     ) : activeStep === "chapters" ? (
       <ChaptersStep
@@ -901,6 +906,11 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         onGenerate={activatePlanPromptContext}
         onActivatePrompt={activatePlanPromptContext}
         onSuggestThreadsForAllChapters={() => queueBulkChapterGeneration("allChapterThreadSuggestions")}
+        onUpsertThread={async (input) => {
+          const thread = await upsertPlotThread(input);
+          await invalidatePlan();
+          return thread;
+        }}
       />
     ) : activeStep === "beats" ? (
       <BeatsStep
@@ -1014,6 +1024,12 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         }}
         onGenerate={activatePlanPromptContext}
         onActivatePrompt={activatePlanPromptContext}
+        onEnsureSaved={async (input) => {
+          const chapter = await upsertChapter(input);
+          await invalidatePlan();
+          setChapterModal({ mode: "edit", chapterId: chapter.id });
+          return chapter;
+        }}
       />
       <BeatEditModal
         state={beatModal}
@@ -1038,6 +1054,20 @@ export function BookPlanPage({ projectId }: BookPlanPageProps) {
         }}
         onGenerate={activatePlanPromptContext}
         onActivatePrompt={activatePlanPromptContext}
+        onEnsureSaved={async ({ chapterId, ...beatInput }) => {
+          const savedBeat = await upsertBeat(beatInput);
+          if (chapterId !== undefined) {
+            await moveBeatToChapter({
+              bookId: savedBeat.bookId,
+              beatId: savedBeat.id,
+              chapterId,
+              orderIndex: savedBeat.orderIndex
+            });
+          }
+          await invalidatePlan();
+          setBeatModal({ mode: "edit", beatId: savedBeat.id });
+          return savedBeat;
+        }}
       />
       <SharedSceneEditModal
         state={sceneModal}
@@ -1846,11 +1876,13 @@ function ActsStep({
   onDelete,
   onSelect,
   onGenerate,
-  onActivatePrompt
+  onActivatePrompt,
+  onUpsertAct
 }: StepProps & {
   onSave: (input: UpsertActInput) => void;
   onDelete: (item: SelectedPlanItem) => void;
   onSelect: (item: SelectedPlanItem) => void;
+  onUpsertAct: (input: UpsertActInput) => Promise<Act>;
 }) {
   const { t } = useTranslation();
   return (
@@ -1882,6 +1914,7 @@ function ActsStep({
             onSelect={() => onSelect({ type: "act", id: act.id })}
             onGenerate={(field) => onGenerate(field, act)}
             onActivatePrompt={(field) => onActivatePrompt(field, act)}
+            onEnsureSaved={onUpsertAct}
           />
         ))}
         <ActForm
@@ -1893,6 +1926,7 @@ function ActsStep({
           onSelect={undefined}
           onGenerate={onGenerate}
           onActivatePrompt={onActivatePrompt}
+          onEnsureSaved={onUpsertAct}
         />
       </div>
     </PlanCard>
@@ -1908,7 +1942,8 @@ function ActForm({
   onDelete,
   onSelect,
   onGenerate,
-  onActivatePrompt
+  onActivatePrompt,
+  onEnsureSaved
 }: {
   bookId: string;
   act?: Act;
@@ -1922,8 +1957,11 @@ function ActForm({
     field: PlanFieldKey,
     targetEntity?: PlanPromptEntity
   ) => void;
+  onEnsureSaved?: (input: UpsertActInput) => Promise<Act>;
 }) {
   const { t } = useTranslation();
+  const proposals = useProposalStore((state) => state.proposals);
+  const [ensuringDraft, setEnsuringDraft] = useState(false);
   const [name, setName] = useState(act?.name ?? t("book.actDefaultName", { number: orderIndex + 1 }));
   const [purpose, setPurpose] = useState(act?.purpose ?? "");
   const [summary, setSummary] = useState(act?.summary ?? "");
@@ -1948,9 +1986,8 @@ function ActForm({
     orderIndex
   ]);
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSave({
+  function buildInput(): UpsertActInput {
+    return {
       id: act?.id,
       bookId,
       name,
@@ -1960,7 +1997,38 @@ function ActForm({
       endPercent,
       orderIndex: act?.orderIndex ?? orderIndex,
       color
-    });
+    };
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSave(buildInput());
+  }
+
+  const draftStatus = pendingProposalStatus(proposals, {
+    field: "actDraft",
+    scope: "bookPlan",
+    targetEntityId: act?.id
+  });
+  const draftRunning = ensuringDraft || draftStatus === "running";
+  const draftQueued = draftStatus === "queued";
+
+  async function generateWholeAct() {
+    let target: Act | undefined = act;
+    if (!target) {
+      if (!onEnsureSaved) {
+        return;
+      }
+      setEnsuringDraft(true);
+      try {
+        target = await onEnsureSaved(buildInput());
+      } finally {
+        setEnsuringDraft(false);
+      }
+    }
+    if (target) {
+      onGenerate("actDraft", target);
+    }
   }
 
   return (
@@ -1975,6 +2043,28 @@ function ActForm({
         <span style={{ background: color }} />
         {act ? act.name : t("book.newAct")}
       </button>
+      <div className="plan-record-ai-toolbar">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={generateWholeAct}
+          disabled={saving || draftRunning || draftQueued}
+          title={t("book.generateWholeRecordHint")}
+        >
+          {draftRunning ? (
+            <Loader2 size={15} className="spin-icon" />
+          ) : draftQueued ? (
+            <Clock3 size={15} />
+          ) : (
+            <Sparkles size={15} />
+          )}
+          {draftRunning
+            ? t("book.aiFieldGenerating")
+            : draftQueued
+              ? t("book.aiFieldQueued")
+              : t("book.generateWholeRecord")}
+        </button>
+      </div>
       <label className="field-label">
         {t("book.name")}
         <input value={name} onChange={(event) => setName(event.target.value)} />
@@ -2561,9 +2651,11 @@ function BeatForm({
   plan,
   orderIndex = 0,
   initialChapterId,
+  saving,
   onSave,
   onGenerate,
-  onActivatePrompt
+  onActivatePrompt,
+  onEnsureSaved
 }: {
   bookId: string;
   beat?: Beat;
@@ -2577,8 +2669,11 @@ function BeatForm({
     field: PlanFieldKey,
     targetEntity?: PlanPromptEntity
   ) => void;
+  onEnsureSaved?: (input: BeatSaveInput) => Promise<Beat>;
 }) {
   const { t } = useTranslation();
+  const proposals = useProposalStore((state) => state.proposals);
+  const [ensuringDraft, setEnsuringDraft] = useState(false);
   const assignedChapterId = beat ? chapterIdForBeat(plan, beat.id) : initialChapterId ?? null;
   const [name, setName] = useState(beat?.name ?? t("book.beatDefaultName", { number: orderIndex + 1 }));
   const [description, setDescription] = useState(beat?.description ?? "");
@@ -2637,9 +2732,8 @@ function BeatForm({
     onActivatePrompt(field, draftBeat());
   }
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSave({
+  function buildInput(): BeatSaveInput {
+    return {
       id: beat?.id,
       bookId,
       name,
@@ -2647,7 +2741,38 @@ function BeatForm({
       role,
       orderIndex: beat?.orderIndex ?? orderIndex,
       chapterId: chapterId || null
-    });
+    };
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSave(buildInput());
+  }
+
+  const draftStatus = pendingProposalStatus(proposals, {
+    field: "beatDraft",
+    scope: "bookPlan",
+    targetEntityId: beat?.id
+  });
+  const draftRunning = ensuringDraft || draftStatus === "running";
+  const draftQueued = draftStatus === "queued";
+
+  async function generateWholeBeat() {
+    let target: Beat | undefined = beat;
+    if (!target) {
+      if (!onEnsureSaved) {
+        return;
+      }
+      setEnsuringDraft(true);
+      try {
+        target = await onEnsureSaved(buildInput());
+      } finally {
+        setEnsuringDraft(false);
+      }
+    }
+    if (target) {
+      onGenerate("beatDraft", target);
+    }
   }
 
   const selectedChapter = plan.chapters.find((chapter) => chapter.id === chapterId);
@@ -2662,6 +2787,28 @@ function BeatForm({
 
   return (
     <form id="beat-edit-form" className="chapter-edit-form beat-edit-form" onSubmit={submit}>
+      <div className="plan-record-ai-toolbar">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={generateWholeBeat}
+          disabled={saving || draftRunning || draftQueued}
+          title={t("book.generateWholeRecordHint")}
+        >
+          {draftRunning ? (
+            <Loader2 size={15} className="spin-icon" />
+          ) : draftQueued ? (
+            <Clock3 size={15} />
+          ) : (
+            <Sparkles size={15} />
+          )}
+          {draftRunning
+            ? t("book.aiFieldGenerating")
+            : draftQueued
+              ? t("book.aiFieldQueued")
+              : t("book.generateWholeRecord")}
+        </button>
+      </div>
       <div className="chapter-edit-metrics" aria-label={t("book.beatKeyInfo")}>
         <span className="chapter-edit-metric">
           <Target size={16} />
@@ -2816,7 +2963,8 @@ function BeatEditModal({
   onSave,
   onDelete,
   onGenerate,
-  onActivatePrompt
+  onActivatePrompt,
+  onEnsureSaved
 }: {
   state: BeatModalState | null;
   bookId: string;
@@ -2830,6 +2978,7 @@ function BeatEditModal({
     field: PlanFieldKey,
     targetEntity?: PlanPromptEntity
   ) => void;
+  onEnsureSaved?: (input: BeatSaveInput) => Promise<Beat>;
 }) {
   const { t } = useTranslation();
   const beat =
@@ -2879,6 +3028,7 @@ function BeatEditModal({
         onSave={onSave}
         onGenerate={onGenerate}
         onActivatePrompt={onActivatePrompt}
+        onEnsureSaved={onEnsureSaved}
       />
     </Modal>
   );
@@ -2895,7 +3045,8 @@ function ThreadsStep({
   onSelect,
   onGenerate,
   onActivatePrompt,
-  onSuggestThreadsForAllChapters
+  onSuggestThreadsForAllChapters,
+  onUpsertThread
 }: StepProps & {
   onSave: (input: UpsertPlotThreadInput) => void;
   onSaveChapter: (input: UpsertChapterInput) => void;
@@ -2903,6 +3054,7 @@ function ThreadsStep({
   onRequestDelete: (target: DeleteTarget) => void;
   onSelect: (item: SelectedPlanItem) => void;
   onSuggestThreadsForAllChapters: () => void;
+  onUpsertThread: (input: UpsertPlotThreadInput) => Promise<PlotThread>;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -3178,6 +3330,11 @@ function ThreadsStep({
         onDelete={(thread) => onRequestDelete(threadDeleteTarget(plan, thread))}
         onGenerate={onGenerate}
         onActivatePrompt={onActivatePrompt}
+        onEnsureSaved={async (input) => {
+          const thread = await onUpsertThread(input);
+          setEditingThreadId(thread.id);
+          return thread;
+        }}
       />
     </section>
   );
@@ -3194,7 +3351,8 @@ function ThreadEditModal({
   onSaveChapterThreadRelation,
   onDelete,
   onGenerate,
-  onActivatePrompt
+  onActivatePrompt,
+  onEnsureSaved
 }: {
   state: ThreadEditTarget;
   bookId: string;
@@ -3207,6 +3365,7 @@ function ThreadEditModal({
   onDelete: (thread: PlotThread) => void;
   onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
   onActivatePrompt: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+  onEnsureSaved?: (input: UpsertPlotThreadInput) => Promise<PlotThread>;
 }) {
   const { t } = useTranslation();
   if (!state) {
@@ -3251,6 +3410,7 @@ function ThreadEditModal({
             onCancel={onClose}
             onGenerate={onGenerate}
             onActivatePrompt={onActivatePrompt}
+            onEnsureSaved={onEnsureSaved}
           />
         </div>
       </div>
@@ -3276,7 +3436,8 @@ function ThreadEditor({
   onDelete,
   onCancel,
   onGenerate,
-  onActivatePrompt
+  onActivatePrompt,
+  onEnsureSaved
 }: {
   bookId: string;
   thread?: PlotThread;
@@ -3290,8 +3451,11 @@ function ThreadEditor({
   onCancel?: () => void;
   onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
   onActivatePrompt: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
+  onEnsureSaved?: (input: UpsertPlotThreadInput) => Promise<PlotThread>;
 }) {
   const { t } = useTranslation();
+  const proposals = useProposalStore((state) => state.proposals);
+  const [ensuringDraft, setEnsuringDraft] = useState(false);
   const [name, setName] = useState(thread?.name ?? t("book.threadDefaultName", { number: orderIndex + 1 }));
   const [description, setDescription] = useState(thread?.description ?? "");
   const [resolution, setResolution] = useState(thread?.resolution ?? "");
@@ -3318,9 +3482,8 @@ function ThreadEditor({
     );
   }, [thread?.id, thread?.name, thread?.description, thread?.resolution, thread?.color, thread?.status, orderIndex, relations.map((relation) => `${relation.chapterId}:${relation.description}`).join("|")]);
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSave({
+  function buildInput(): UpsertPlotThreadInput {
+    return {
       id: thread?.id,
       bookId,
       name,
@@ -3329,7 +3492,12 @@ function ThreadEditor({
       color,
       status,
       orderIndex: thread?.orderIndex ?? orderIndex
-    });
+    };
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSave(buildInput());
 
     if (thread) {
       for (const relation of relations) {
@@ -3343,8 +3511,56 @@ function ThreadEditor({
     }
   }
 
+  const draftStatus = pendingProposalStatus(proposals, {
+    field: "threadDraft",
+    scope: "bookPlan",
+    targetEntityId: thread?.id
+  });
+  const draftRunning = ensuringDraft || draftStatus === "running";
+  const draftQueued = draftStatus === "queued";
+
+  async function generateWholeThread() {
+    let target: PlotThread | undefined = thread;
+    if (!target) {
+      if (!onEnsureSaved) {
+        return;
+      }
+      setEnsuringDraft(true);
+      try {
+        target = await onEnsureSaved(buildInput());
+      } finally {
+        setEnsuringDraft(false);
+      }
+    }
+    if (target) {
+      onGenerate("threadDraft", target);
+    }
+  }
+
   return (
     <form className="thread-editor-form chapter-edit-form" onSubmit={submit}>
+      <div className="plan-record-ai-toolbar">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={generateWholeThread}
+          disabled={saving || draftRunning || draftQueued}
+          title={t("book.generateWholeRecordHint")}
+        >
+          {draftRunning ? (
+            <Loader2 size={15} className="spin-icon" />
+          ) : draftQueued ? (
+            <Clock3 size={15} />
+          ) : (
+            <Sparkles size={15} />
+          )}
+          {draftRunning
+            ? t("book.aiFieldGenerating")
+            : draftQueued
+              ? t("book.aiFieldQueued")
+              : t("book.generateWholeRecord")}
+        </button>
+      </div>
       <div className="chapter-edit-content-grid thread-edit-content-grid">
         <main className="chapter-edit-main">
           <section className="chapter-edit-section">
@@ -6678,6 +6894,10 @@ function isEntityField(field: PlanFieldKey): boolean {
     "chapterPurpose",
     "chapterConflict",
     "chapterTurningPoint",
+    "chapterDraft",
+    "actDraft",
+    "threadDraft",
+    "beatDraft",
     "sceneDraft",
     "sceneTitle",
     "sceneSummary",

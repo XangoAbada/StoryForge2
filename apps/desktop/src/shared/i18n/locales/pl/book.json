@@ -102,6 +102,8 @@
     "aiFieldGenerating": "Generuje",
     "aiFieldQueued": "W kolejce",
     "aiFieldIdle": "AI",
+    "generateWholeRecord": "Uzupełnij pola z AI",
+    "generateWholeRecordHint": "Wygeneruj jednym wywołaniem AI spójną treść wszystkich pól tekstowych tego rekordu i zapisz ją od razu.",
     "aiFieldQueuedTitle": "Pole \"{{label}}\" czeka w kolejce AI.",
     "aiFieldRunningTitle": "Pole \"{{label}}\" jest generowane.",
     "aiFieldGenerateTitle": "Generuj pole \"{{label}}\" z AI.",

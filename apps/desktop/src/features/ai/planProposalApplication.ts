@@ -83,6 +83,26 @@ export async function applyPlanProposalPayload(
     return emptyApplyResult();
   }
 
+  if (field === "chapterDraft") {
+    await applyChapterDraft(record, scopedPackageContext, context);
+    return emptyApplyResult();
+  }
+
+  if (field === "actDraft") {
+    await applyActDraft(record, scopedPackageContext, context);
+    return emptyApplyResult();
+  }
+
+  if (field === "threadDraft") {
+    await applyThreadDraft(record, scopedPackageContext, context);
+    return emptyApplyResult();
+  }
+
+  if (field === "beatDraft") {
+    await applyBeatDraft(record, scopedPackageContext, context);
+    return emptyApplyResult();
+  }
+
   if (field === "sceneDraft") {
     return applySceneDraft(record, scopedPackageContext, context);
   }
@@ -619,6 +639,94 @@ async function applyAllChapterThreadSuggestions(
       beatIds: currentBeatIds
     });
   }
+}
+
+// Generatory całej encji ("Cały rozdział/akt/wątek/beat"): jeden pakiet AI
+// zwraca obiekt ze wszystkimi polami tekstowymi encji, zapisywany od razu do
+// bazy (jak sceneDraft). Nadpisujemy tylko pola, które AI faktycznie zwróciło;
+// pola nietekstowe (kolor, percenty, status, przypięcia) zostają nietknięte.
+async function applyChapterDraft(
+  record: Record<string, unknown>,
+  packageContext: Record<string, unknown>,
+  context: ApplyPlanContext
+): Promise<void> {
+  const targetEntityId = textValue(packageContext.targetEntityId);
+  const chapter = context.plan.chapters.find((item) => item.id === targetEntityId);
+  if (!chapter || !record.chapter || typeof record.chapter !== "object") {
+    return;
+  }
+  const r = record.chapter as Record<string, unknown>;
+  await context.saveChapter({
+    ...chapter,
+    workingTitle: textValue(r.workingTitle) || chapter.workingTitle,
+    summary: textValue(r.summary) || chapter.summary,
+    purpose: textValue(r.purpose) || chapter.purpose,
+    conflict: textValue(r.conflict) || chapter.conflict,
+    turningPoint: textValue(r.turningPoint) || chapter.turningPoint,
+    threadIds: context.plan.chapterThreads
+      .filter((item) => item.chapterId === chapter.id)
+      .map((item) => item.threadId),
+    beatIds: context.plan.chapterBeats
+      .filter((item) => item.chapterId === chapter.id)
+      .map((item) => item.beatId)
+  });
+}
+
+async function applyActDraft(
+  record: Record<string, unknown>,
+  packageContext: Record<string, unknown>,
+  context: ApplyPlanContext
+): Promise<void> {
+  const targetEntityId = textValue(packageContext.targetEntityId);
+  const act = context.plan.acts.find((item) => item.id === targetEntityId);
+  if (!act || !record.act || typeof record.act !== "object") {
+    return;
+  }
+  const r = record.act as Record<string, unknown>;
+  await context.saveAct({
+    ...act,
+    name: textValue(r.name) || act.name,
+    purpose: textValue(r.purpose) || act.purpose,
+    summary: textValue(r.summary) || act.summary
+  });
+}
+
+async function applyThreadDraft(
+  record: Record<string, unknown>,
+  packageContext: Record<string, unknown>,
+  context: ApplyPlanContext
+): Promise<void> {
+  const targetEntityId = textValue(packageContext.targetEntityId);
+  const thread = context.plan.threads.find((item) => item.id === targetEntityId);
+  if (!thread || !record.thread || typeof record.thread !== "object") {
+    return;
+  }
+  const r = record.thread as Record<string, unknown>;
+  await context.saveThread({
+    ...thread,
+    name: textValue(r.name) || thread.name,
+    description: textValue(r.description) || thread.description,
+    resolution: textValue(r.resolution) || thread.resolution
+  });
+}
+
+async function applyBeatDraft(
+  record: Record<string, unknown>,
+  packageContext: Record<string, unknown>,
+  context: ApplyPlanContext
+): Promise<void> {
+  const targetEntityId = textValue(packageContext.targetEntityId);
+  const beat = context.plan.beats.find((item) => item.id === targetEntityId);
+  if (!beat || !record.beat || typeof record.beat !== "object") {
+    return;
+  }
+  const r = record.beat as Record<string, unknown>;
+  await context.saveBeat({
+    ...beat,
+    name: textValue(r.name) || beat.name,
+    role: textValue(r.role) || beat.role,
+    description: textValue(r.description) || beat.description
+  });
 }
 
 async function applySingleField(

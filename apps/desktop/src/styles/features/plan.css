@@ -692,6 +692,12 @@
   flex-shrink: 0;
 }
 
+.plan-record-ai-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
 .relation-picker {
   display: flex;
   flex-wrap: wrap;

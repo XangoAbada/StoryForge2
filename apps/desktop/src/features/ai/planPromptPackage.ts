@@ -68,6 +68,10 @@ export type PlanFieldKey =
   | "chapterPurpose"
   | "chapterConflict"
   | "chapterTurningPoint"
+  | "chapterDraft"
+  | "actDraft"
+  | "threadDraft"
+  | "beatDraft"
   | "sceneDraft"
   | "allChapterSceneDrafts"
   | "sceneTitle"
@@ -231,6 +235,14 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     userInstruction:
       "Wygeneruj tylko wartość pola streszczenia wybranego aktu. Nie zmieniaj innych pól ani encji."
   },
+  actDraft: {
+    key: "actDraft",
+    label: "Cały akt",
+    action: "generate_act_field",
+    targetKind: "act",
+    userInstruction:
+      "Wygeneruj spójnie wartości WSZYSTKICH pól tekstowych wybranego aktu naraz: nazwę, cel i streszczenie. Uszanuj wartości już wpisane przez autora (jeśli pole ma treść, rozwiń je w kompletną wersję). Nie zmieniaj zakresu procentowego, koloru ani innych encji planu."
+  },
   beatSheet: {
     key: "beatSheet",
     label: "Beat sheet",
@@ -263,6 +275,14 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     userInstruction:
       "Wygeneruj tylko wartość pola opisu wybranego beatu. Nie zmieniaj nazwy, roli, przypisania ani innych elementów planu."
   },
+  beatDraft: {
+    key: "beatDraft",
+    label: "Cały beat",
+    action: "generate_beat_field",
+    targetKind: "beat",
+    userInstruction:
+      "Wygeneruj spójnie wartości WSZYSTKICH pól tekstowych wybranego beatu naraz: nazwę, rolę w strukturze i opis. Uszanuj wartości już wpisane przez autora. Nie zmieniaj przypisania do rozdziału ani innych encji planu."
+  },
   plotThreads: {
     key: "plotThreads",
     label: "Wątki",
@@ -278,6 +298,14 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     targetKind: "thread",
     userInstruction:
       "Wygeneruj tylko wartość pola opisu wybranego wątku fabularnego. Nie zmieniaj nazwy, statusu, koloru, przypięć do rozdziałów ani innych elementów planu."
+  },
+  threadDraft: {
+    key: "threadDraft",
+    label: "Cały wątek",
+    action: "generate_plot_threads",
+    targetKind: "thread",
+    userInstruction:
+      "Wygeneruj spójnie wartości WSZYSTKICH pól tekstowych wybranego wątku naraz: nazwę, opis i planowane rozwiązanie. Uszanuj wartości już wpisane przez autora. Nie zmieniaj statusu, koloru, przypięć do rozdziałów ani innych encji planu."
   },
   chapterPlan: {
     key: "chapterPlan",
@@ -318,6 +346,14 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     targetKind: "chapter",
     userInstruction:
       "Wygeneruj tylko wartość pola punktu zwrotnego wybranego rozdziału. Nie zmieniaj innych pól ani encji."
+  },
+  chapterDraft: {
+    key: "chapterDraft",
+    label: "Cały rozdział",
+    action: "generate_chapter_field",
+    targetKind: "chapter",
+    userInstruction:
+      "Wygeneruj spójnie wartości WSZYSTKICH pól tekstowych wybranego rozdziału naraz: tytuł roboczy, streszczenie, cel fabularny, konflikt i punkt zwrotny. Uszanuj wartości już wpisane przez autora (jeśli pole ma treść, rozwiń je). Nie zmieniaj numeru, aktu, przypięć wątków/beatów ani docelowej liczby słów."
   },
   sceneDraft: {
     key: "sceneDraft",
@@ -459,6 +495,10 @@ const planContextSourceLabels: Record<PlanContextKey, string> = {
   chapterPurpose: "Cel rozdziału",
   chapterConflict: "Konflikt rozdziału",
   chapterTurningPoint: "Punkt zwrotny",
+  chapterDraft: "Cały rozdział",
+  actDraft: "Cały akt",
+  threadDraft: "Cały wątek",
+  beatDraft: "Cały beat",
   sceneDraft: "Nowa scena",
   allChapterSceneDrafts: "Sceny dla rozdziałów",
   prepareChapterForScenes: "Przygotowanie rozdziału",
@@ -514,17 +554,21 @@ const planPromptContextDefaultKeys: Record<PlanFieldKey, PlanContextKey[]> = {
   acts: ["bookCore", "styleGuide", "storyStructure", "allActs"],
   actPurpose: ["bookCore", "storyStructure", "targetAct", "siblingActs"],
   actSummary: ["bookCore", "storyStructure", "targetAct", "siblingActs", "actChapters"],
+  actDraft: ["bookCore", "storyStructure", "targetAct", "siblingActs", "actChapters"],
   beatSheet: ["bookCore", "styleGuide", "storyStructure", "allActs", "allChapters", "allBeats", "allThreads"],
   beatName: ["storyStructure", "targetBeat", "beatChapter", "siblingBeats", "assignedThreads"],
   beatRole: ["storyStructure", "targetBeat", "beatChapter", "siblingBeats", "assignedThreads"],
   beatDescription: ["storyStructure", "targetBeat", "beatChapter", "siblingBeats", "assignedThreads"],
+  beatDraft: ["storyStructure", "targetBeat", "beatChapter", "siblingBeats", "assignedThreads"],
   plotThreads: ["bookCore", "styleGuide", "storyStructure", "allThreads", "allChapters"],
   threadDescription: ["bookCore", "targetThread", "threadChapters", "threadActs"],
+  threadDraft: ["bookCore", "targetThread", "threadChapters", "threadActs"],
   chapterPlan: ["bookCore", "styleGuide", "storyStructure", "allActs", "allChapters"],
   chapterSummary: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   chapterPurpose: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   chapterConflict: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   chapterTurningPoint: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
+  chapterDraft: ["bookCore", "styleGuide", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   sceneDraft: ["bookCore", "styleGuide", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
   allChapterSceneDrafts: ["bookCore", "styleGuide", "planAudit"],
   prepareChapterForScenes: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
@@ -1755,6 +1799,52 @@ function planSuggestionSchema(field: PlanFieldKey): unknown {
           similarExistingNameOrId: "string"
         }
       ]
+    };
+  }
+
+  if (field === "chapterDraft") {
+    return {
+      ...base,
+      chapter: {
+        workingTitle: "string",
+        summary: "string",
+        purpose: "string",
+        conflict: "string",
+        turningPoint: "string"
+      }
+    };
+  }
+
+  if (field === "actDraft") {
+    return {
+      ...base,
+      act: {
+        name: "string",
+        purpose: "string",
+        summary: "string"
+      }
+    };
+  }
+
+  if (field === "threadDraft") {
+    return {
+      ...base,
+      thread: {
+        name: "string",
+        description: "string",
+        resolution: "string"
+      }
+    };
+  }
+
+  if (field === "beatDraft") {
+    return {
+      ...base,
+      beat: {
+        name: "string",
+        role: "string",
+        description: "string"
+      }
     };
   }
 

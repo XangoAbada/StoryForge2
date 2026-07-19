@@ -44,7 +44,8 @@ export function ChapterEditModal({
   onSave,
   onDelete,
   onGenerate,
-  onActivatePrompt
+  onActivatePrompt,
+  onEnsureSaved
 }: {
   state: ChapterModalState | null;
   bookId: string;
@@ -55,6 +56,7 @@ export function ChapterEditModal({
   onDelete?: (chapterId: string) => void;
   onGenerate: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
   onActivatePrompt: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
+  onEnsureSaved?: (input: UpsertChapterInput) => Promise<Chapter>;
 }) {
   const { t } = useTranslation();
   const chapter =
@@ -104,8 +106,9 @@ export function ChapterEditModal({
         orderIndex={plan.chapters.length}
         initialActId={state.mode === "create" ? state.actId : undefined}
         onSave={onSave}
-        onGenerate={(field) => onGenerate(field, chapter)}
+        onGenerate={(field, target) => onGenerate(field, target ?? chapter)}
         onActivatePrompt={(field) => onActivatePrompt(field, chapter)}
+        onEnsureSaved={onEnsureSaved}
       />
     </Modal>
   );
@@ -120,7 +123,8 @@ function ChapterForm({
   saving,
   onSave,
   onGenerate,
-  onActivatePrompt
+  onActivatePrompt,
+  onEnsureSaved
 }: {
   bookId: string;
   chapter?: Chapter;
@@ -131,8 +135,11 @@ function ChapterForm({
   onSave: (input: UpsertChapterInput) => void;
   onGenerate: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
   onActivatePrompt: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
+  onEnsureSaved?: (input: UpsertChapterInput) => Promise<Chapter>;
 }) {
   const { t } = useTranslation();
+  const proposals = useProposalStore((state) => state.proposals);
+  const [ensuringDraft, setEnsuringDraft] = useState(false);
   const chapterThreadIds = chapter ? chapterThreadIdsForChapter(plan, chapter.id) : [];
   const chapterBeatIds = chapter ? chapterBeatIdsForChapter(plan, chapter.id) : [];
   const defaultActId = defaultChapterActId(initialActId, plan);
@@ -180,9 +187,8 @@ function ChapterForm({
     orderIndex
   ]);
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSave({
+  function buildInput(): UpsertChapterInput {
+    return {
       id: chapter?.id,
       bookId,
       actId: actId || null,
@@ -196,7 +202,40 @@ function ChapterForm({
       orderIndex: chapter?.orderIndex ?? orderIndex,
       threadIds,
       beatIds
-    });
+    };
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSave(buildInput());
+  }
+
+  // "Cały rozdział": dla nowego rozdziału najpierw zapisz go (ensure-saved),
+  // żeby generacja miała realny cel; wynik zapisze się wprost do bazy.
+  const draftStatus = pendingProposalStatus(proposals, {
+    field: "chapterDraft",
+    scope: "bookPlan",
+    targetEntityId: chapter?.id
+  });
+  const draftRunning = ensuringDraft || draftStatus === "running";
+  const draftQueued = draftStatus === "queued";
+
+  async function generateWholeChapter() {
+    let target: Chapter | undefined = chapter;
+    if (!target) {
+      if (!onEnsureSaved) {
+        return;
+      }
+      setEnsuringDraft(true);
+      try {
+        target = await onEnsureSaved(buildInput());
+      } finally {
+        setEnsuringDraft(false);
+      }
+    }
+    if (target) {
+      onGenerate("chapterDraft", target);
+    }
   }
 
   const selectedAct = plan.acts.find((act) => act.id === actId);
@@ -229,6 +268,28 @@ function ChapterForm({
 
   return (
     <form id={chapterFormId} className="chapter-edit-form" onSubmit={submit}>
+      <div className="plan-record-ai-toolbar">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={generateWholeChapter}
+          disabled={saving || draftRunning || draftQueued}
+          title={t("book.generateWholeRecordHint")}
+        >
+          {draftRunning ? (
+            <Loader2 size={15} className="spin-icon" />
+          ) : draftQueued ? (
+            <Clock3 size={15} />
+          ) : (
+            <Sparkles size={15} />
+          )}
+          {draftRunning
+            ? t("book.aiFieldGenerating")
+            : draftQueued
+              ? t("book.aiFieldQueued")
+              : t("book.generateWholeRecord")}
+        </button>
+      </div>
       <div className="chapter-edit-metrics" aria-label={t("book.chapterMetricsAria")}>
         <span className="chapter-edit-metric">
           <BookOpen size={16} />
@@ -727,6 +788,10 @@ function isEntityField(field: PlanFieldKey): boolean {
     "chapterPurpose",
     "chapterConflict",
     "chapterTurningPoint",
+    "chapterDraft",
+    "actDraft",
+    "threadDraft",
+    "beatDraft",
     "sceneDraft",
     "sceneTitle",
     "sceneSummary",

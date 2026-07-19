@@ -102,6 +102,8 @@
     "aiFieldGenerating": "Generating",
     "aiFieldQueued": "Queued",
     "aiFieldIdle": "AI",
+    "generateWholeRecord": "Fill fields with AI",
+    "generateWholeRecordHint": "Generate coherent content for all of this record's text fields in one AI call and save it right away.",
     "aiFieldQueuedTitle": "Field \"{{label}}\" is waiting in the AI queue.",
     "aiFieldRunningTitle": "Field \"{{label}}\" is being generated.",
     "aiFieldGenerateTitle": "Generate field \"{{label}}\" with AI.",
