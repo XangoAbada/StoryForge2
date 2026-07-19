@@ -48,6 +48,11 @@
     "kindCharacter": "Character",
     "kindWorldElement": "World element",
     "kindWorldRule": "World rule",
-    "kindPlotThread": "Plot thread"
+    "kindPlotThread": "Plot thread",
+    "fieldSeed": "Help me develop the „{{field}}” field for „{{entity}}”. Current content: {{value}}. Propose concrete ideas, variants, and questions to deepen it.",
+    "fieldSeedNoEntity": "Help me develop the „{{field}}” field. Current content: {{value}}. Propose concrete ideas, variants, and questions to deepen it.",
+    "fieldSeedEmpty": "The „{{field}}” field for „{{entity}}” is still empty — suggest what could go in it.",
+    "fieldSeedEmptyNoEntity": "The „{{field}}” field is still empty — suggest what could go in it.",
+    "fieldSessionName": "Brainstorm: {{field}}"
   }
 }

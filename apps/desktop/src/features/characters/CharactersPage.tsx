@@ -62,6 +62,7 @@ import {
   useProposalStore
 } from "../ai/proposalStore";
 import { useProjectNavigationStore } from "../../app/projectNavigationStore";
+import { useBrainstormField } from "../ai/useBrainstormField";
 import {
   applyCharacterDraftField,
   registerCharacterDraftFieldTarget,
@@ -769,6 +770,7 @@ function CharacterField({
 }) {
   const { t } = useTranslation();
   const fieldLabel = t(`characters.fieldLabel.${field}`);
+  const goToBrainstorm = useBrainstormField();
   const activeTargetId = useAiPromptContextStore((state) => state.activeTargetId);
   const activeTarget = useAiPromptContextStore((state) => activeTargetId ? state.targets[activeTargetId] : null);
   const addContextSourceToActiveTarget = useAiPromptContextStore((state) => state.addContextSourceToActiveTarget);
@@ -784,6 +786,7 @@ function CharacterField({
           field={field}
           target={target}
           onGenerate={onGenerate}
+          onBrainstorm={() => goToBrainstorm({ fieldLabel, entityName: (target as { name?: string }).name, value })}
           addDisabled={!activeTarget || fieldAlreadyInContext}
           onAddContext={() => addContextSourceToActiveTarget(characterPromptContextSource(field, target))}
         />
@@ -827,12 +830,14 @@ function AiActions({
   target,
   addDisabled,
   onGenerate,
+  onBrainstorm,
   onAddContext
 }: {
   field: CharacterFieldKey;
   target: CharacterPromptEntity;
   addDisabled: boolean;
   onGenerate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
+  onBrainstorm?: () => void;
   onAddContext: () => void;
 }) {
   const { t } = useTranslation();
@@ -852,6 +857,10 @@ function AiActions({
         disabled={Boolean(loading)}
         onClick={(event) => {
           event.stopPropagation();
+          if (onBrainstorm) {
+            onBrainstorm();
+            return;
+          }
           onGenerate(field, target);
         }}
         title={t("characters.aiActions.generateTitle", { label: fieldLabel })}
@@ -1240,10 +1249,12 @@ function ModalAiField({ field, value, rows = 3, target, onChange, onGenerate, on
   onActivate: (field: CharacterFieldKey, target?: CharacterPromptEntity) => void;
 }) {
   const { t } = useTranslation();
+  const goToBrainstorm = useBrainstormField();
+  const fieldLabel = t(`characters.fieldLabel.${field}`);
   const activate = () => onActivate(field, target);
   return (
     <Field
-      label={t(`characters.fieldLabel.${field}`)}
+      label={fieldLabel}
       className="wide"
       actions={
         <AiActions
@@ -1251,6 +1262,7 @@ function ModalAiField({ field, value, rows = 3, target, onChange, onGenerate, on
           target={target}
           addDisabled={false}
           onGenerate={onGenerate}
+          onBrainstorm={() => goToBrainstorm({ fieldLabel, entityName: (target as { name?: string }).name, value })}
           onAddContext={() => useAiPromptContextStore.getState().addContextSourceToActiveTarget(characterPromptContextSource(field, target))}
         />
       }

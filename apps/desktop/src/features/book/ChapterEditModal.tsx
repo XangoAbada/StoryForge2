@@ -23,6 +23,7 @@ import {
   planPromptContextSource
 } from "../ai/planPromptPackage";
 import { useAiPromptContextStore } from "../ai/aiPromptContextStore";
+import { useBrainstormField } from "../ai/useBrainstormField";
 import { pendingProposalStatus, useProposalStore } from "../ai/proposalStore";
 
 export type ChapterModalState =
@@ -448,6 +449,7 @@ function PlanInlineField({
   onGenerate: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
   onActivatePrompt: (field: PlanFieldKey, targetEntity?: ChapterPromptEntity) => void;
 }) {
+  const goToBrainstorm = useBrainstormField();
   const activate = () => onActivatePrompt(field, entity);
   return (
     <Field
@@ -457,6 +459,7 @@ function PlanInlineField({
           field={field}
           targetEntity={entity}
           onGenerate={() => onGenerate(field, entity)}
+          onBrainstorm={() => goToBrainstorm({ fieldLabel: label, entityName: entity?.workingTitle, value })}
         />
       }
     >
@@ -472,11 +475,13 @@ function PlanInlineField({
 function PlanAiActions({
   field,
   targetEntity,
-  onGenerate
+  onGenerate,
+  onBrainstorm
 }: {
   field: PlanFieldKey;
   targetEntity?: ChapterPromptEntity;
   onGenerate: () => void;
+  onBrainstorm?: () => void;
 }) {
   const { t } = useTranslation();
   const activeTargetId = useAiPromptContextStore((state) => state.activeTargetId);
@@ -507,7 +512,7 @@ function PlanAiActions({
       <button
         type="button"
         className="icon-button ai-field-button"
-        onClick={onGenerate}
+        onClick={onBrainstorm ?? onGenerate}
         disabled={queued || running || (targetEntity === undefined && isEntityField(field))}
         title={t("book.planAiGenerateTitle", { label: planFieldConfigs[field].label })}
         aria-label={t("book.planAiGenerateTitle", { label: planFieldConfigs[field].label })}

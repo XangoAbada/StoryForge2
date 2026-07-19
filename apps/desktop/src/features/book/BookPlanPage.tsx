@@ -107,6 +107,7 @@ import {
   unregisterPlanDraftFieldTarget
 } from "../ai/planDraftFieldTargets";
 import { pendingProposalStatus, useProposalStore } from "../ai/proposalStore";
+import { useBrainstormField } from "../ai/useBrainstormField";
 import { ChapterEditModal, type ChapterModalState } from "./ChapterEditModal";
 import { SceneEditModal as SharedSceneEditModal } from "../scenes/SceneEditModal";
 
@@ -161,6 +162,13 @@ type BeatSaveInput = UpsertBeatInput & {
   chapterId?: string | null;
 };
 type PlanPromptEntity = Act | Beat | PlotThread | Chapter | ChapterThread | Scene;
+
+// Czytelna nazwa encji do seeda burzy mózgów: akt/wątek mają `name`, rozdział
+// `workingTitle`, scena `title`. Bez sztywnego mapowania po typie.
+function planEntityName(entity?: PlanPromptEntity): string | undefined {
+  const e = entity as { name?: string; workingTitle?: string; title?: string } | undefined;
+  return e?.name ?? e?.workingTitle ?? e?.title;
+}
 
 const planSteps: Array<{ key: PlanStep; label: string }> = [
   { key: "structure", label: "Struktura" },
@@ -2763,6 +2771,7 @@ function BeatInlineField({
     field: Extract<PlanFieldKey, "beatName" | "beatRole" | "beatDescription">
   ) => void;
 }) {
+  const goToBrainstorm = useBrainstormField();
   return (
     <Field
       label={label}
@@ -2771,6 +2780,7 @@ function BeatInlineField({
           field={field}
           targetEntity={{} as Beat}
           onGenerate={() => onGenerate(field)}
+          onBrainstorm={() => goToBrainstorm({ fieldLabel: label, value })}
           onActivatePrompt={() => onActivatePrompt(field)}
         />
       }
@@ -5314,6 +5324,7 @@ function PlanInlineField({
   onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
   onActivatePrompt: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
 }) {
+  const goToBrainstorm = useBrainstormField();
   return (
     <Field
       label={label}
@@ -5322,6 +5333,7 @@ function PlanInlineField({
           field={field}
           targetEntity={entity}
           onGenerate={() => onGenerate(field, entity)}
+          onBrainstorm={() => goToBrainstorm({ fieldLabel: label, entityName: planEntityName(entity), value })}
           onActivatePrompt={() => onActivatePrompt(field, entity)}
         />
       }
@@ -5344,6 +5356,7 @@ function PlanAiActions({
   contextLabel,
   hideContextButton = false,
   onGenerate,
+  onBrainstorm,
   onActivatePrompt
 }: {
   field: PlanFieldKey;
@@ -5353,6 +5366,7 @@ function PlanAiActions({
   contextLabel?: string;
   hideContextButton?: boolean;
   onGenerate: () => void;
+  onBrainstorm?: () => void;
   onActivatePrompt: () => void;
 }) {
   const { t } = useTranslation();
@@ -5389,7 +5403,7 @@ function PlanAiActions({
       <button
         type="button"
         className={aiButtonClassName}
-        onClick={onGenerate}
+        onClick={onBrainstorm ?? onGenerate}
         disabled={queued || running || (targetEntity === undefined && isEntityField(field))}
         title={generateTitle ?? t("book.generateWithAi", { label: planFieldConfigs[field].label })}
         aria-label={generateTitle ?? t("book.generateWithAi", { label: planFieldConfigs[field].label })}

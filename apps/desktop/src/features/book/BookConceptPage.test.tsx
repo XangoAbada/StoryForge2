@@ -205,13 +205,9 @@ describe("BookConceptPage AI flow", () => {
 
     renderWithQueryClient();
 
-    expect(await screen.findByDisplayValue("Stary tytuł")).toBeInTheDocument();
-    const generateButton = screen.getByRole("button", {
-      name: /Generuj Tytuł roboczy z AI/i
-    });
-
-    await waitFor(() => expect(generateButton).not.toBeDisabled());
-    fireEvent.click(generateButton);
+    // Panel promptu per-pole otwiera się fokusem na polu (przycisk AI przenosi
+    // teraz do brainstormingu). Generacja per-pole nadal dostępna tą ścieżką.
+    fireEvent.focus(await screen.findByDisplayValue("Stary tytuł"));
 
     const promptPanel = await screen.findByLabelText("Kontekst promptu AI");
     expect(within(promptPanel).getAllByText(/Tytu.? roboczy/i).length).toBeGreaterThan(0);
@@ -395,7 +391,7 @@ describe("BookConceptPage AI flow", () => {
     expect(within(panel).getByLabelText("Komentarz autora")).toBeInTheDocument();
   });
 
-  it("opens prompt context when clicking field AI without running immediately", async () => {
+  it("field AI button no longer opens prompt context (navigates to brainstorm instead)", async () => {
     renderWithQueryClient();
 
     expect(await screen.findByDisplayValue("Stary tytuł")).toBeInTheDocument();
@@ -406,10 +402,10 @@ describe("BookConceptPage AI flow", () => {
     await waitFor(() => expect(generateButton).not.toBeDisabled());
     fireEvent.click(generateButton);
 
-    expect(await screen.findByLabelText("Kontekst promptu AI")).toBeInTheDocument();
-    expect(useAiPromptContextStore.getState().activeTargetId).toBe(
-      conceptPromptContextTargetId("project-1", "workingTitle")
-    );
+    // Przycisk AI przy polu przenosi do brainstormingu — nie otwiera już panelu
+    // promptu ani nie kolejkuje generacji.
+    expect(screen.queryByLabelText("Kontekst promptu AI")).not.toBeInTheDocument();
+    expect(useAiPromptContextStore.getState().activeTargetId).toBeNull();
     expect(runCodexPrompt).not.toHaveBeenCalled();
   });
 
@@ -539,7 +535,7 @@ describe("BookConceptPage AI flow", () => {
     expect(screen.queryByLabelText("Kontekst promptu AI")).not.toBeInTheDocument();
   });
 
-  it("switches prompt context when another field AI button is clicked", async () => {
+  it("switches prompt context when another field is focused", async () => {
     renderWithQueryClient();
 
     fireEvent.focus(await screen.findByLabelText("Premise"));
@@ -548,11 +544,9 @@ describe("BookConceptPage AI flow", () => {
       target: { value: "Komentarz tylko dla premise." }
     });
 
-    const otherFieldButton = screen.getByRole("button", {
-      name: /Generuj .*roboczy z AI/i
-    });
-    await waitFor(() => expect(otherFieldButton).not.toBeDisabled());
-    fireEvent.click(otherFieldButton);
+    // Przełączenie celu następuje przez fokus innego pola (przycisk AI przenosi
+    // do brainstormingu, nie zmienia aktywnego celu).
+    fireEvent.focus(screen.getByDisplayValue("Stary tytuł"));
 
     expect(useAiPromptContextStore.getState().activeTargetId).toBe(
       conceptPromptContextTargetId("project-1", "workingTitle")
@@ -664,9 +658,8 @@ describe("BookConceptPage AI flow", () => {
     renderWithQueryClient();
 
     expect(await screen.findByDisplayValue("Stary tytuł")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: /Generuj Premise z AI/i })
-    );
+    // Panel promptu per-pole otwiera się fokusem (przycisk AI → brainstorming).
+    fireEvent.focus(screen.getByLabelText("Premise"));
     await sendActivePrompt();
 
     const premiseValue =

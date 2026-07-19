@@ -33,6 +33,10 @@ const projectRoute = createRoute({
 const projectBrainstormRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/projects/$projectId/brainstorm",
+  validateSearch: (search: Record<string, unknown>): { seed?: string; topic?: string } => ({
+    seed: typeof search.seed === "string" ? search.seed : undefined,
+    topic: typeof search.topic === "string" ? search.topic : undefined
+  }),
   component: ProjectBrainstormRoute
 });
 
@@ -127,9 +131,10 @@ function RootLayout() {
 
 function ProjectBrainstormRoute() {
   const projectId = useProjectId();
+  const { seed, topic } = projectBrainstormRoute.useSearch();
   return (
     <ProjectShell projectId={projectId} activeSection="brainstorm">
-      <BrainstormPage projectId={projectId} />
+      <BrainstormPage projectId={projectId} seed={seed} topic={topic} />
     </ProjectShell>
   );
 }

@@ -48,6 +48,11 @@
     "kindCharacter": "Postać",
     "kindWorldElement": "Element świata",
     "kindWorldRule": "Reguła świata",
-    "kindPlotThread": "Wątek fabularny"
+    "kindPlotThread": "Wątek fabularny",
+    "fieldSeed": "Pomóż mi rozwinąć pole „{{field}}” dla „{{entity}}”. Obecna treść: {{value}}. Zaproponuj konkretne pomysły, warianty i pytania, które pomogą to pogłębić.",
+    "fieldSeedNoEntity": "Pomóż mi rozwinąć pole „{{field}}”. Obecna treść: {{value}}. Zaproponuj konkretne pomysły, warianty i pytania, które pomogą to pogłębić.",
+    "fieldSeedEmpty": "Pole „{{field}}” dla „{{entity}}” jest jeszcze puste — zaproponuj, co mogłoby się w nim znaleźć.",
+    "fieldSeedEmptyNoEntity": "Pole „{{field}}” jest jeszcze puste — zaproponuj, co mogłoby się w nim znaleźć.",
+    "fieldSessionName": "Burza: {{field}}"
   }
 }

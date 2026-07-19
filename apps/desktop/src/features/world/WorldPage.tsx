@@ -57,6 +57,7 @@ import {
   useProposalStore
 } from "../ai/proposalStore";
 import { useProjectNavigationStore } from "../../app/projectNavigationStore";
+import { useBrainstormField } from "../ai/useBrainstormField";
 import {
   registerWorldDraftFieldTarget,
   unregisterWorldDraftFieldTarget
@@ -871,6 +872,7 @@ function WorldAiField({ field, value, rows = 3, target, onChange, onGenerate, on
 }) {
   const { t } = useTranslation();
   const fieldLabel = t(`world.fieldLabel.${field}`);
+  const goToBrainstorm = useBrainstormField();
   const activate = () => onActivate(field, target);
   return (
     <Field
@@ -881,7 +883,7 @@ function WorldAiField({ field, value, rows = 3, target, onChange, onGenerate, on
           <Button
             variant="ai"
             size="sm"
-            onClick={() => onGenerate(field, target)}
+            onClick={() => goToBrainstorm({ fieldLabel, entityName: (target as { name?: string }).name, value })}
             title={t("world.aiField.generateTitle")}
             aria-label={t("world.aiField.generateAriaLabel", { label: fieldLabel })}
           >

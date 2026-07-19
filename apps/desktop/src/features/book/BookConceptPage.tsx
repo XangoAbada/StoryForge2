@@ -46,6 +46,7 @@ import {
   renderPromptPackage
 } from "../ai/promptPackage";
 import { useCodexSettingsStore } from "../ai/codexSettingsStore";
+import { useBrainstormField } from "../ai/useBrainstormField";
 import { describeTextProvider } from "../ai/textProviderInfo";
 import {
   createConceptPromptContextTarget,
@@ -1151,6 +1152,7 @@ function TextField({
   onGenerate
 }: TextFieldProps) {
   const { t } = useTranslation();
+  const goToBrainstorm = useBrainstormField();
   const activatePromptContext = useContext(ConceptPromptContext);
   const activate = () => activatePromptContext(field);
 
@@ -1164,6 +1166,7 @@ function TextField({
           disabled={disabled}
           loading={loading}
           onGenerate={onGenerate}
+          onBrainstorm={() => goToBrainstorm({ fieldLabel: label, value })}
         />
       }
     >
@@ -1197,13 +1200,15 @@ type AiFieldButtonProps = {
   disabled: boolean;
   loading: AiProposalStatus | null;
   onGenerate: (field: ConceptFieldKey) => void;
+  onBrainstorm?: () => void;
 };
 
 function AiFieldActions({
   field,
   disabled,
   loading,
-  onGenerate
+  onGenerate,
+  onBrainstorm
 }: AiFieldButtonProps) {
   const { t } = useTranslation();
   const config = conceptFieldConfigs[field];
@@ -1229,6 +1234,10 @@ function AiFieldActions({
         size="sm"
         onClick={(event) => {
           event.stopPropagation();
+          if (onBrainstorm) {
+            onBrainstorm();
+            return;
+          }
           onGenerate(field);
         }}
         disabled={disabled || queued || running}
@@ -1331,6 +1340,7 @@ function MultiChoiceField({
   }
 
   const activatePromptContext = useContext(ConceptPromptContext);
+  const goToBrainstorm = useBrainstormField();
 
   return (
     <Field
@@ -1342,6 +1352,7 @@ function MultiChoiceField({
           disabled={disabled}
           loading={loading}
           onGenerate={onGenerate}
+          onBrainstorm={() => goToBrainstorm({ fieldLabel: label, value })}
         />
       }
     >

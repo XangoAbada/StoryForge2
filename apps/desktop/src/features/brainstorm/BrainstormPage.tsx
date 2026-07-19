@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Lightbulb, Pencil, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import { Button, Chip, EmptyState, Field, Modal, TwoPane, confirmDialog } from "../../shared/ui";
 import {
@@ -37,9 +38,18 @@ const STARTER_MESSAGE =
 const DEVELOP_MESSAGE =
   "Zacznijmy od tego, co już mam w koncepcji i story bible. Podsumuj obecny pomysł własnymi słowami, wskaż najsłabsze punkty i białe plamy, a potem zaproponuj, co warto pogłębić w pierwszej kolejności.";
 
-export function BrainstormPage({ projectId }: { projectId: string }) {
+export function BrainstormPage({
+  projectId,
+  seed,
+  topic
+}: {
+  projectId: string;
+  seed?: string;
+  topic?: string;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const codexPath = useCodexSettingsStore((state) => state.codexPath);
   const timeoutSeconds = useCodexSettingsStore((state) => state.timeoutSeconds);
   const model = useCodexSettingsStore((state) => state.model);
@@ -202,7 +212,7 @@ export function BrainstormPage({ projectId }: { projectId: string }) {
   const lastMessage = messages[messages.length - 1];
   const canRetry = Boolean(sendError && lastMessage?.role === "user");
 
-  async function createSession() {
+  async function createSession(name?: string) {
     const project = projectQuery.data;
     if (!project) {
       return;
@@ -210,12 +220,62 @@ export function BrainstormPage({ projectId }: { projectId: string }) {
     const session = await createBrainstormSession({
       projectId,
       bookId: project.book.id,
-      name: `Sesja ${new Date().toLocaleDateString("pl-PL")}`
+      name: name ?? `Sesja ${new Date().toLocaleDateString("pl-PL")}`
     });
     await queryClient.invalidateQueries({ queryKey: ["brainstorm-sessions", projectId] });
     setActiveSessionId(session.id);
     setSendError(null);
+    return session;
   }
+
+  // Wejście z przycisku AI przy polu: URL niesie `seed` (pierwsza wiadomość) i
+  // opcjonalny `topic` (nazwa sesji). Etap 1 tworzy nową sesję i zapamiętuje jej id;
+  // etap 2 — gdy DOKŁADNIE ta sesja jest aktywna i pusta — wysyła seed i czyści
+  // param, by nie odpalić ponownie po odświeżeniu/back. Celowanie w konkretne id
+  // chroni przed wysłaniem seeda do wcześniej auto-wybranej pustej sesji. Ref trzyma
+  // OSTATNIO skonsumowany seed (nie boolean), żeby kolejna nawigacja z innej strony
+  // też zadziałała, a StrictMode nie zdublował.
+  const seedConsumedRef = useRef<string | null>(null);
+  const pendingSeedRef = useRef<string | null>(null);
+  const seedSessionIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!seed || seedConsumedRef.current === seed || !contextReady) {
+      return;
+    }
+    seedConsumedRef.current = seed;
+    pendingSeedRef.current = seed;
+    void createSession(topic ? t("brainstorm.fieldSessionName", { field: topic }) : undefined).then(
+      (session) => {
+        seedSessionIdRef.current = session?.id ?? null;
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed, topic, contextReady]);
+
+  useEffect(() => {
+    const pending = pendingSeedRef.current;
+    if (
+      !pending ||
+      !activeSession ||
+      activeSession.id !== seedSessionIdRef.current ||
+      messages.length > 0 ||
+      isSending ||
+      !contextReady
+    ) {
+      return;
+    }
+    pendingSeedRef.current = null;
+    void sendMessage(pending).finally(() => {
+      void navigate({
+        to: "/projects/$projectId/brainstorm",
+        params: { projectId },
+        search: {},
+        replace: true
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession, messages.length, isSending, contextReady]);
 
   async function removeSession(sessionId: string) {
     const confirmed = await confirmDialog({

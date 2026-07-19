@@ -40,6 +40,7 @@ import {
   unregisterPlanDraftFieldTarget
 } from "../ai/planDraftFieldTargets";
 import { useAiPromptContextStore } from "../ai/aiPromptContextStore";
+import { useBrainstormField } from "../ai/useBrainstormField";
 import { pendingProposalStatus, useProposalStore } from "../ai/proposalStore";
 
 export type SceneModalState =
@@ -660,6 +661,7 @@ function SceneTextField({
   onGenerate: () => void;
   onActivatePrompt: () => void;
 }) {
+  const goToBrainstorm = useBrainstormField();
   return (
     <Field
       label={label}
@@ -668,6 +670,13 @@ function SceneTextField({
           field={field}
           targetEntity={targetEntity}
           onGenerate={onGenerate}
+          onBrainstorm={() =>
+            goToBrainstorm({
+              fieldLabel: label,
+              entityName: (targetEntity as { title?: string; workingTitle?: string } | undefined)?.title,
+              value
+            })
+          }
           onActivatePrompt={onActivatePrompt}
         />
       }
@@ -696,11 +705,13 @@ function SceneFieldAiActions({
   field,
   targetEntity,
   onGenerate,
+  onBrainstorm,
   onActivatePrompt
 }: {
   field: PlanFieldKey;
   targetEntity?: ScenePromptEntity;
   onGenerate: () => void;
+  onBrainstorm?: () => void;
   onActivatePrompt: () => void;
 }) {
   const { t } = useTranslation();
@@ -732,7 +743,7 @@ function SceneFieldAiActions({
       <button
         type="button"
         className="icon-button ai-field-button"
-        onClick={onGenerate}
+        onClick={onBrainstorm ?? onGenerate}
         disabled={queued || running || !targetEntity}
         title={t("scenes.generateFieldAiTitle", { field: planFieldConfigs[field].label })}
         aria-label={t("scenes.generateFieldAiTitle", { field: planFieldConfigs[field].label })}
