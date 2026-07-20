@@ -38,9 +38,105 @@
   max-width: 100%;
 }
 
+/* --- drzewo rozdziałów → scen --- */
+.scene-tree-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.scene-tree {
+  display: grid;
+  gap: 4px;
+}
+
+.chapter-node-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-radius: var(--radius);
+}
+
+.chapter-node-header:hover {
+  background: var(--surface-sunken);
+}
+
+.chapter-node.is-active > .chapter-node-header {
+  background: var(--surface-sunken);
+}
+
+.chapter-node-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.chapter-node-toggle .chev {
+  flex: 0 0 auto;
+  color: var(--text-soft);
+  transition: transform 0.2s ease;
+}
+
+.chapter-node-toggle.is-open .chev {
+  transform: rotate(90deg);
+}
+
+.chapter-node-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-node-actions {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 12px;
+  transform: translateY(-50%);
+  background: var(--surface-sunken);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+/* akcje pojawiają się na hover / dla aktywnego rozdziału, zasłaniając ogon tytułu */
+.chapter-node-header:hover .chapter-node-actions,
+.chapter-node.is-active > .chapter-node-header .chapter-node-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.chapter-node .scene-list {
+  padding-left: 14px;
+  margin-top: 4px;
+}
+
 /* przycisk zwijania/rozwijania panelu */
 .scene-rail-toggle {
   justify-self: end;
+  border: 1px solid var(--border);
+  background: var(--surface-sunken);
+  color: var(--text-soft);
+}
+
+.scene-rail-toggle:hover {
+  color: var(--text);
 }
 
 .scene-editor-page[data-rail="closed"] .scene-rail {

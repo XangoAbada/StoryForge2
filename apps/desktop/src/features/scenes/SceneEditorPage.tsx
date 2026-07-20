@@ -1,7 +1,8 @@
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { FileText, List, PanelLeftClose, PanelLeftOpen, PenLine, Pilcrow, Plus, Redo2, Save, Sparkles, Star, StretchHorizontal, Undo2 } from "lucide-react";
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, FileText, List, PanelLeftClose, PanelLeftOpen, PenLine, Pilcrow, Plus, Redo2, Save, Settings2, Sparkles, Star, StretchHorizontal, Undo2 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -120,6 +121,7 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
   const addContextSourceToActiveTarget = useAiPromptContextStore((state) => state.addContextSourceToActiveTarget);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null | undefined>(undefined);
+  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(() => new Set());
   const [draft, setDraft] = useState<UpsertSceneInput | null>(null);
   const [sceneModal, setSceneModal] = useState<SceneModalState | null>(null);
   const [chapterModal, setChapterModal] = useState<ChapterModalState | null>(null);
@@ -519,12 +521,20 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
     setSceneModal({ mode: "create", chapterId: chapterId ?? activeChapterId ?? chapters[0]?.id ?? null });
   }
 
-  function selectChapter(chapterId: string | null) {
-    const nextScene = orderedScenes(
-      plan.scenes.filter((scene) => (scene.chapterId ?? null) === chapterId)
-    )[0];
-    setSelectedChapterId(chapterId);
-    setSelectedSceneId(nextScene?.id ?? null);
+  function toggleChapterExpanded(chapterId: string) {
+    setExpandedChapters((current) => {
+      const next = new Set(current);
+      if (next.has(chapterId)) next.delete(chapterId);
+      else next.add(chapterId);
+      return next;
+    });
+  }
+
+  const looseScenes = orderedScenes(plan.scenes.filter((scene) => (scene.chapterId ?? null) === null));
+  const allExpanded = chapters.every((chapter) => expandedChapters.has(chapter.id));
+
+  function toggleAllChapters() {
+    setExpandedChapters(allExpanded ? new Set() : new Set(chapters.map((chapter) => chapter.id)));
   }
 
   function updateDraft(patch: Partial<UpsertSceneInput>) {
@@ -779,6 +789,60 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
     await invalidatePlan();
   }
 
+  function renderSceneRow(scene: Scene) {
+    const words = scene.actualWordCount || countWords(htmlToText(scene.manuscriptContent));
+    return (
+      <li className="scene-list-row" key={scene.id}>
+        <button
+          type="button"
+          className={scene.id === selectedScene?.id ? "scene-item active" : "scene-item"}
+          onClick={() => {
+            setSelectedChapterId(scene.chapterId ?? null);
+            setSelectedSceneId(scene.id);
+          }}
+        >
+          <span className="t">{scene.title || t("scenes.sceneUntitled")}</span>
+          <span className="m">
+            <StatusPill tone={sceneStatusTone(scene.status)}>{t(sceneStatusLabelKey(scene.status))}</StatusPill>
+            <span>{words > 0 ? t("scenes.wordsCount", { count: words }) : "—"}</span>
+          </span>
+        </button>
+        <div className="scene-row-actions">
+          <Button
+            variant="icon"
+            className={scene.isStyleReference ? "scene-style-reference-button active" : "scene-style-reference-button"}
+            onClick={() =>
+              styleReferenceMutation.mutate({
+                sceneId: scene.id,
+                isStyleReference: scene.isStyleReference ? 0 : 1
+              })
+            }
+            disabled={styleReferenceMutation.isPending}
+            title={
+              scene.isStyleReference
+                ? t("scenes.styleReferenceActiveTitle")
+                : t("scenes.styleReferenceMarkTitle")
+            }
+            aria-label={t("scenes.styleReferenceAria", { title: scene.title || t("scenes.sceneUntitled") })}
+            aria-pressed={Boolean(scene.isStyleReference)}
+          >
+            <Star size={14} fill={scene.isStyleReference ? "currentColor" : "none"} />
+          </Button>
+          <Button
+            variant="icon"
+            className="scene-context-add-button"
+            onClick={() => addSceneEditorContextSource(scenePromptContextSource(scene))}
+            disabled={!activePromptContextTarget || contextSourceAlreadyAdded(activePromptContextTarget.sources, scenePromptContextSource(scene).key)}
+            title={t("scenes.addSceneToContext", { title: scene.title || t("scenes.sceneUntitled") })}
+            aria-label={t("scenes.addSceneToContext", { title: scene.title || t("scenes.sceneUntitled") })}
+          >
+            <Plus size={14} />
+          </Button>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <div className="scene-editor-page" data-rail={railOpen ? "open" : "closed"}>
       <aside className="scene-rail" aria-label={t("scenes.railAriaLabel")}>
@@ -792,97 +856,142 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
         >
           {railOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
         </Button>
-        <Field label={t("scenes.chapter")}>
-          <select value={activeChapterId ?? ""} onChange={(event) => selectChapter(event.target.value || null)}>
-            {chapters.map((chapter) => (
-              <option key={chapter.id} value={chapter.id}>
-                {chapter.number} — {chapter.workingTitle || t("scenes.untitled")}
-              </option>
-            ))}
-            <option value="">{t("scenes.noChapter")}</option>
-          </select>
-        </Field>
-
-        <div className="scene-rail-actions">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => selectedChapter && setChapterModal({ mode: "edit", chapterId: selectedChapter.id })}
-            disabled={!selectedChapter}
-          >
-            <FileText size={15} />
-            {t("scenes.chapterSettings")}
-          </Button>
-          <Button
-            variant="icon"
-            className="scene-context-add-rail-button"
-            onClick={() => selectedChapter && addSceneEditorContextSource(chapterPromptContextSource(selectedChapter))}
-            disabled={!selectedChapter || !activePromptContextTarget || (selectedChapter ? contextSourceAlreadyAdded(activePromptContextTarget.sources, chapterPromptContextSource(selectedChapter).key) : true)}
-            title={t("scenes.addChapterToContext")}
-            aria-label={t("scenes.addChapterToContext")}
-          >
-            <Plus size={15} />
-          </Button>
-        </div>
-
         <div className="scene-rail-list">
-          <span className="ui-field-label">{t("scenes.scenesLabel")}</span>
-          <ul className="scene-list">
-            {chapterScenes.map((scene) => {
-              const words = scene.actualWordCount || countWords(htmlToText(scene.manuscriptContent));
+          <div className="scene-tree-head">
+            <span className="ui-field-label">{t("scenes.chaptersLabel")}</span>
+            <Button
+              variant="icon"
+              onClick={toggleAllChapters}
+              disabled={chapters.length === 0}
+              title={allExpanded ? t("scenes.collapseAll") : t("scenes.expandAll")}
+              aria-label={allExpanded ? t("scenes.collapseAll") : t("scenes.expandAll")}
+            >
+              {allExpanded ? <ChevronsDownUp size={15} /> : <ChevronsUpDown size={15} />}
+            </Button>
+          </div>
+
+          <div className="scene-tree">
+            {chapters.map((chapter) => {
+              const chapterSceneList = orderedScenes(
+                plan.scenes.filter((scene) => (scene.chapterId ?? null) === chapter.id)
+              );
+              const open = expandedChapters.has(chapter.id) || chapter.id === activeChapterId;
+              const contextSource = chapterPromptContextSource(chapter);
               return (
-                <li className="scene-list-row" key={scene.id}>
+                <section
+                  className={chapter.id === activeChapterId ? "chapter-node is-active" : "chapter-node"}
+                  key={chapter.id}
+                >
+                  <div className="chapter-node-header">
+                    <button
+                      type="button"
+                      className={open ? "chapter-node-toggle is-open" : "chapter-node-toggle"}
+                      aria-expanded={open}
+                      onClick={() => toggleChapterExpanded(chapter.id)}
+                    >
+                      <ChevronRight size={15} className="chev" aria-hidden />
+                      <span className="chapter-node-title">
+                        {chapter.number} — {chapter.workingTitle || t("scenes.untitled")}
+                      </span>
+                    </button>
+                    <div className="chapter-node-actions">
+                      <Button
+                        variant="icon"
+                        onClick={() => setChapterModal({ mode: "edit", chapterId: chapter.id })}
+                        title={t("scenes.chapterSettings")}
+                        aria-label={t("scenes.chapterSettings")}
+                      >
+                        <Settings2 size={14} />
+                      </Button>
+                      <Button
+                        variant="icon"
+                        className="scene-context-add-button"
+                        onClick={() => addSceneEditorContextSource(contextSource)}
+                        disabled={!activePromptContextTarget || contextSourceAlreadyAdded(activePromptContextTarget.sources, contextSource.key)}
+                        title={t("scenes.addChapterToContext")}
+                        aria-label={t("scenes.addChapterToContext")}
+                      >
+                        <Sparkles size={14} />
+                      </Button>
+                      <Button
+                        variant="icon"
+                        onClick={() => openCreateSceneModal(chapter.id)}
+                        title={t("scenes.newScene")}
+                        aria-label={t("scenes.newScene")}
+                      >
+                        <Plus size={14} />
+                      </Button>
+                    </div>
+                  </div>
+                  <AnimatePresence initial={false}>
+                    {open ? (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                        style={{ overflow: "hidden" }}
+                      >
+                        <ul className="scene-list">{chapterSceneList.map(renderSceneRow)}</ul>
+                        {chapterSceneList.length === 0 ? (
+                          <span className="scene-empty-note">{t("scenes.noScenesInSection")}</span>
+                        ) : null}
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+                </section>
+              );
+            })}
+
+            {looseScenes.length > 0 ? (
+              <section
+                className={activeChapterId === null ? "chapter-node is-active" : "chapter-node"}
+              >
+                <div className="chapter-node-header">
                   <button
                     type="button"
-                    className={scene.id === selectedScene?.id ? "scene-item active" : "scene-item"}
-                    onClick={() => {
-                      setSelectedChapterId(scene.chapterId ?? null);
-                      setSelectedSceneId(scene.id);
-                    }}
+                    className={
+                      expandedChapters.has("__loose__") || activeChapterId === null
+                        ? "chapter-node-toggle is-open"
+                        : "chapter-node-toggle"
+                    }
+                    aria-expanded={expandedChapters.has("__loose__") || activeChapterId === null}
+                    onClick={() => toggleChapterExpanded("__loose__")}
                   >
-                    <span className="t">{scene.title || t("scenes.sceneUntitled")}</span>
-                    <span className="m">
-                      <StatusPill tone={sceneStatusTone(scene.status)}>{t(sceneStatusLabelKey(scene.status))}</StatusPill>
-                      <span>{words > 0 ? t("scenes.wordsCount", { count: words }) : "—"}</span>
-                    </span>
+                    <ChevronRight size={15} className="chev" aria-hidden />
+                    <span className="chapter-node-title">{t("scenes.noChapter")}</span>
                   </button>
-                  <div className="scene-row-actions">
+                  <div className="chapter-node-actions">
                     <Button
                       variant="icon"
-                      className={scene.isStyleReference ? "scene-style-reference-button active" : "scene-style-reference-button"}
-                      onClick={() =>
-                        styleReferenceMutation.mutate({
-                          sceneId: scene.id,
-                          isStyleReference: scene.isStyleReference ? 0 : 1
-                        })
-                      }
-                      disabled={styleReferenceMutation.isPending}
-                      title={
-                        scene.isStyleReference
-                          ? t("scenes.styleReferenceActiveTitle")
-                          : t("scenes.styleReferenceMarkTitle")
-                      }
-                      aria-label={t("scenes.styleReferenceAria", { title: scene.title || t("scenes.sceneUntitled") })}
-                      aria-pressed={Boolean(scene.isStyleReference)}
-                    >
-                      <Star size={14} fill={scene.isStyleReference ? "currentColor" : "none"} />
-                    </Button>
-                    <Button
-                      variant="icon"
-                      className="scene-context-add-button"
-                      onClick={() => addSceneEditorContextSource(scenePromptContextSource(scene))}
-                      disabled={!activePromptContextTarget || contextSourceAlreadyAdded(activePromptContextTarget.sources, scenePromptContextSource(scene).key)}
-                      title={t("scenes.addSceneToContext", { title: scene.title || t("scenes.sceneUntitled") })}
-                      aria-label={t("scenes.addSceneToContext", { title: scene.title || t("scenes.sceneUntitled") })}
+                      onClick={() => openCreateSceneModal(null)}
+                      title={t("scenes.newScene")}
+                      aria-label={t("scenes.newScene")}
                     >
                       <Plus size={14} />
                     </Button>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-          {chapterScenes.length === 0 ? <span className="scene-empty-note">{t("scenes.noScenesInSection")}</span> : null}
+                </div>
+                <AnimatePresence initial={false}>
+                  {expandedChapters.has("__loose__") || activeChapterId === null ? (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <ul className="scene-list">{looseScenes.map(renderSceneRow)}</ul>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </section>
+            ) : null}
+
+            {chapters.length === 0 && looseScenes.length === 0 ? (
+              <span className="scene-empty-note">{t("scenes.noScenesInSection")}</span>
+            ) : null}
+          </div>
         </div>
 
         <Button block onClick={() => openCreateSceneModal()}>
