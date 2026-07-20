@@ -140,6 +140,17 @@
     0 24px 56px rgba(0, 0, 0, 0.6);
 }
 
+/* ukryte scrollbary w całej apce — scroll (kółko/gest/klawiatura) działa dalej */
+* {
+  scrollbar-width: none; /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* WebKit/Chromium */
+}
+
 body {
   background: var(--paper);
   color: var(--text);

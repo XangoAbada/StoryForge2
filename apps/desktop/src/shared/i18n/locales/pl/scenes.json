@@ -32,6 +32,8 @@
     "sceneSettingsSaved": "Zapisano ustawienia sceny",
     "editorPlaceholder": "Pisz scenę tutaj...",
     "railAriaLabel": "Rozdziały i sceny",
+    "railCollapse": "Zwiń panel scen",
+    "railExpand": "Rozwiń panel scen",
     "chapter": "Rozdział",
     "untitled": "Bez tytułu",
     "noChapter": "Bez rozdziału",

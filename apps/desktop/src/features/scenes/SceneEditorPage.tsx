@@ -1,7 +1,7 @@
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { FileText, List, PenLine, Pilcrow, Plus, Redo2, Save, Sparkles, Star, StretchHorizontal, Undo2 } from "lucide-react";
+import { FileText, List, PanelLeftClose, PanelLeftOpen, PenLine, Pilcrow, Plus, Redo2, Save, Sparkles, Star, StretchHorizontal, Undo2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -137,6 +137,15 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
     setEditorWidth((current) => {
       const next = current === "wide" ? "narrow" : "wide";
       localStorage.setItem("storyforge2.ui.editorWidth", next);
+      return next;
+    });
+  const [railOpen, setRailOpen] = useState<boolean>(
+    () => localStorage.getItem("storyforge2.ui.sceneRailOpen") !== "false"
+  );
+  const toggleRail = () =>
+    setRailOpen((current) => {
+      const next = !current;
+      localStorage.setItem("storyforge2.ui.sceneRailOpen", String(next));
       return next;
     });
   const lastSavedSignature = useRef("");
@@ -771,8 +780,18 @@ export function SceneEditorPage({ projectId }: SceneEditorPageProps) {
   }
 
   return (
-    <div className="scene-editor-page">
+    <div className="scene-editor-page" data-rail={railOpen ? "open" : "closed"}>
       <aside className="scene-rail" aria-label={t("scenes.railAriaLabel")}>
+        <Button
+          variant="icon"
+          className="scene-rail-toggle"
+          onClick={toggleRail}
+          aria-expanded={railOpen}
+          title={railOpen ? t("scenes.railCollapse") : t("scenes.railExpand")}
+          aria-label={railOpen ? t("scenes.railCollapse") : t("scenes.railExpand")}
+        >
+          {railOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+        </Button>
         <Field label={t("scenes.chapter")}>
           <select value={activeChapterId ?? ""} onChange={(event) => selectChapter(event.target.value || null)}>
             {chapters.map((chapter) => (

@@ -32,6 +32,8 @@
     "sceneSettingsSaved": "Scene settings saved",
     "editorPlaceholder": "Write your scene here...",
     "railAriaLabel": "Chapters and scenes",
+    "railCollapse": "Collapse scene panel",
+    "railExpand": "Expand scene panel",
     "chapter": "Chapter",
     "untitled": "Untitled",
     "noChapter": "No chapter",

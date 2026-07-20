@@ -4,10 +4,15 @@
 
 .scene-editor-page {
   display: grid;
-  grid-template-columns: 252px minmax(0, 1fr);
+  grid-template-columns: clamp(252px, 22vw, 340px) minmax(0, 1fr);
   gap: var(--s5);
   align-items: start;
   min-width: 0;
+}
+
+/* panel zwinięty: wąski pasek tylko z przyciskiem rozwijania */
+.scene-editor-page[data-rail="closed"] {
+  grid-template-columns: 44px minmax(0, 1fr);
 }
 
 /* --- lewy rail scen --- */
@@ -17,13 +22,38 @@
   display: grid;
   align-content: start;
   gap: var(--s3);
+  min-width: 0;
   max-height: calc(100vh - 120px);
   overflow-y: auto;
+  overflow-x: hidden;
   padding: var(--s4);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow);
+}
+
+.scene-rail select {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* przycisk zwijania/rozwijania panelu */
+.scene-rail-toggle {
+  justify-self: end;
+}
+
+.scene-editor-page[data-rail="closed"] .scene-rail {
+  padding: var(--s3) 4px;
+  justify-items: center;
+}
+
+.scene-editor-page[data-rail="closed"] .scene-rail-toggle {
+  justify-self: center;
+}
+
+.scene-editor-page[data-rail="closed"] .scene-rail > *:not(.scene-rail-toggle) {
+  display: none;
 }
 
 .scene-rail-actions {
@@ -94,8 +124,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+  min-width: 0;
   color: var(--text-soft);
   font-size: 11.5px;
+}
+
+.scene-item .m > span {
+  min-width: 0;
 }
 
 .scene-item .m .ui-pill {
