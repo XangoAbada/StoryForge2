@@ -63,6 +63,7 @@ export type PlanFieldKey =
   | "beatDescription"
   | "plotThreads"
   | "threadDescription"
+  | "threadResolution"
   | "chapterPlan"
   | "chapterSummary"
   | "chapterPurpose"
@@ -306,6 +307,14 @@ export const planFieldConfigs: Record<PlanFieldKey, PlanFieldConfig> = {
     userInstruction:
       "Wygeneruj tylko wartość pola opisu wybranego wątku fabularnego. Nie zmieniaj nazwy, statusu, koloru, przypięć do rozdziałów ani innych elementów planu."
   },
+  threadResolution: {
+    key: "threadResolution",
+    label: "Planowane rozwiązanie",
+    action: "generate_plot_threads",
+    targetKind: "thread",
+    userInstruction:
+      "Wygeneruj tylko wartość pola planowanego rozwiązania (payoffu wątku w finale) wybranego wątku fabularnego. Nie zmieniaj nazwy, opisu, statusu, koloru, przypięć do rozdziałów ani innych elementów planu."
+  },
   threadDraft: {
     key: "threadDraft",
     label: "Cały wątek",
@@ -497,6 +506,7 @@ const planContextSourceLabels: Record<PlanContextKey, string> = {
   beatDescription: "Opis beatu",
   plotThreads: "Wątki",
   threadDescription: "Opis wątku",
+  threadResolution: "Planowane rozwiązanie",
   chapterPlan: "Szkielet rozdziałów",
   chapterSummary: "Streszczenie rozdziału",
   chapterPurpose: "Cel rozdziału",
@@ -569,6 +579,7 @@ const planPromptContextDefaultKeys: Record<PlanFieldKey, PlanContextKey[]> = {
   beatDraft: ["storyStructure", "targetBeat", "beatChapter", "siblingBeats", "assignedThreads"],
   plotThreads: ["bookCore", "styleGuide", "storyStructure", "allThreads", "allChapters"],
   threadDescription: ["bookCore", "targetThread", "threadChapters", "threadActs"],
+  threadResolution: ["bookCore", "targetThread", "threadChapters", "threadActs"],
   threadDraft: ["bookCore", "targetThread", "threadChapters", "threadActs"],
   chapterPlan: ["bookCore", "styleGuide", "storyStructure", "allActs", "allChapters"],
   chapterSummary: ["bookCore", "targetChapter", "chapterAct", "assignedBeats", "assignedThreads", "neighborChapters"],
@@ -1491,6 +1502,9 @@ function currentPlanContextFieldValue(
   if (field === "threadDescription") {
     return target.thread?.description ?? "";
   }
+  if (field === "threadResolution") {
+    return target.thread?.resolution ?? "";
+  }
   if (field === "chapterSummary") {
     return target.chapter?.summary ?? "";
   }
@@ -1585,6 +1599,9 @@ function currentPlanFieldValue(
   if (targetEntity && "description" in targetEntity && field === "threadDescription") {
     return targetEntity.description ?? "";
   }
+  if (targetEntity && "resolution" in targetEntity && field === "threadResolution") {
+    return targetEntity.resolution ?? "";
+  }
   if (targetEntity && "summary" in targetEntity && field === "chapterSummary") {
     return targetEntity.summary ?? "";
   }
@@ -1678,6 +1695,7 @@ function planSuggestionSchema(field: PlanFieldKey): unknown {
     field === "storyStructureDescription" ||
     field === "storyStructureNotes" ||
     field === "threadDescription" ||
+    field === "threadResolution" ||
     field === "threadChapterDescription" ||
     field === "sceneTitle" ||
     field === "sceneSummary" ||

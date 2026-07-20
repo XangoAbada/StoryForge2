@@ -3376,6 +3376,7 @@ function isPlanTextField(field: PlanFieldKey): boolean {
     "sceneConflict",
     "sceneOutcome",
     "threadDescription",
+    "threadResolution",
     "threadChapterDescription"
   ].includes(field);
 }

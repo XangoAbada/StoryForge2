@@ -784,10 +784,14 @@ async function applySingleField(
   }
 
   const thread = context.plan.threads.find((item) => item.id === targetEntityId);
-  if (thread && targetField === "threadDescription") {
+  if (
+    thread &&
+    (targetField === "threadDescription" || targetField === "threadResolution")
+  ) {
     await context.saveThread({
       ...thread,
-      description: value
+      description: targetField === "threadDescription" ? value : thread.description,
+      resolution: targetField === "threadResolution" ? value : thread.resolution
     });
   }
 

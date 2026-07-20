@@ -3583,15 +3583,17 @@ function ThreadEditor({
                 onGenerate={onGenerate}
                 onActivatePrompt={onActivatePrompt}
               />
-              <label className="field-label">
-                {t("book.plannedResolution")}
-                <textarea
-                  value={resolution}
-                  rows={3}
-                  placeholder={t("book.plannedResolutionPlaceholder")}
-                  onChange={(event) => setResolution(event.target.value)}
-                />
-              </label>
+              <PlanInlineField
+                label={t("book.plannedResolution")}
+                value={resolution}
+                rows={3}
+                field="threadResolution"
+                entity={thread}
+                placeholder={t("book.plannedResolutionPlaceholder")}
+                onChange={setResolution}
+                onGenerate={onGenerate}
+                onActivatePrompt={onActivatePrompt}
+              />
               <div className="plan-form-row">
                 <label className="field-label">
                   {t("book.status")}
@@ -5533,6 +5535,7 @@ function PlanInlineField({
   rows,
   field,
   entity,
+  placeholder,
   onChange,
   onGenerate,
   onActivatePrompt
@@ -5542,6 +5545,7 @@ function PlanInlineField({
   rows: number;
   field: PlanFieldKey;
   entity?: PlanPromptEntity;
+  placeholder?: string;
   onChange: (value: string) => void;
   onGenerate: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
   onActivatePrompt: (field: PlanFieldKey, targetEntity?: PlanPromptEntity) => void;
@@ -5562,6 +5566,7 @@ function PlanInlineField({
     >
       <textarea
         value={value}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         onFocus={() => onActivatePrompt(field, entity)}
         rows={rows}
@@ -6890,6 +6895,7 @@ function isEntityField(field: PlanFieldKey): boolean {
     "beatRole",
     "beatDescription",
     "threadDescription",
+    "threadResolution",
     "chapterSummary",
     "chapterPurpose",
     "chapterConflict",
